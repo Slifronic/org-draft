@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Org Draft — Allocation Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#11161C; --slate:#4A5561; --rule:#D5D8D2; --paper:#F2F3F0; --card:#FFFFFF;
+  --consult:#1F4E7A; --compete:#B4562B; --either:#6B7A63; --flag:#C0392B; --ok:#3E7D52;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--paper);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;font-size:15px;line-height:1.5;padding:0 0 80px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+header{border-bottom:2px solid var(--ink);padding:34px 0 18px;margin-bottom:26px}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--slate);margin-bottom:10px}
+h1{font-size:clamp(30px,5.2vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1}
+h1 span{color:var(--slate);font-weight:400}
+.sub{margin-top:10px;color:var(--slate);max-width:62ch;font-size:14px}
+
+.panel{background:var(--card);border:1px solid var(--rule);padding:22px;margin-bottom:22px}
+.panel h2{font-size:13px;font-family:'IBM Plex Mono',monospace;letter-spacing:.13em;text-transform:uppercase;font-weight:600;margin-bottom:4px}
+.panel .hint{color:var(--slate);font-size:13px;margin-bottom:14px;max-width:74ch}
+
+details.spec{border:1px solid var(--rule);background:var(--card);margin-bottom:22px}
+details.spec summary{cursor:pointer;padding:16px 22px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.spec summary::-webkit-details-marker{display:none}
+details.spec summary::after{content:'+';font-size:18px;color:var(--slate)}
+details.spec[open] summary::after{content:'\2013'}
+.specbody{padding:0 22px 22px;border-top:1px solid var(--rule);padding-top:18px}
+.specbody ol,.specbody ul{margin-left:18px}
+.specbody li{margin-bottom:9px;font-size:14px}
+.specbody p{font-size:14px;color:var(--slate);margin-top:12px}
+.specbody h3{font-size:14px;margin:16px 0 8px}
+code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--paper);padding:2px 5px;border:1px solid var(--rule);word-break:break-all}
+
+/* tabs */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--rule);margin-bottom:18px;flex-wrap:wrap}
+.tab{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;padding:11px 15px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--slate);cursor:pointer}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--consult)}
+.tabpane{display:none}
+.tabpane.on{display:block}
+
+textarea{width:100%;height:150px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.6;padding:12px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);resize:vertical}
+input[type=text]{width:100%;padding:10px 11px;border:1px solid var(--rule);background:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink)}
+textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--consult);outline-offset:2px}
+
+.drop{border:1.5px dashed var(--rule);background:var(--paper);padding:34px 20px;text-align:center;cursor:pointer}
+.drop.over{border-color:var(--consult);background:#EDF2F7}
+.drop b{display:block;font-size:15px;margin-bottom:5px}
+.drop span{font-size:13px;color:var(--slate)}
+input[type=file]{display:none}
+
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+input[type=number]{width:88px;padding:9px 10px;border:1px solid var(--rule);background:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--ink)}
+button{font-family:'Archivo',sans-serif;font-size:14px;font-weight:600;padding:10px 18px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer;transition:opacity .15s}
+button:hover{opacity:.82}
+button.ghost{background:transparent;color:var(--ink)}
+button.ghost:hover{background:var(--ink);color:#fff;opacity:1}
+button:disabled{opacity:.35;cursor:not-allowed}
+
+.msg{margin-top:12px;padding:10px 12px;font-size:13px;font-family:'IBM Plex Mono',monospace;border-left:3px solid var(--flag);background:#fdf3f2;color:var(--flag);display:none}
+.msg.show{display:block}
+.msg.good{border-left-color:var(--ok);background:#f1f7f2;color:var(--ok)}
+.msg.info{border-left-color:var(--consult);background:#EDF2F7;color:var(--consult)}
+
+/* mapper */
+#mapper{display:none}
+#mapper.on{display:block}
+.maprow{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center;margin-bottom:10px}
+.maprow label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate)}
+.maprow select{width:100%;padding:8px 9px;border:1px solid var(--rule);background:var(--paper);font-size:13px;color:var(--ink);font-family:'Archivo',sans-serif}
+.auto{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ok);letter-spacing:.05em}
+
+.stats{display:flex;flex-wrap:wrap;border:1px solid var(--rule);background:var(--card);margin-bottom:22px}
+.stat{padding:16px 20px;border-right:1px solid var(--rule);flex:1;min-width:120px}
+.stat:last-child{border-right:none}
+.stat .n{font-size:26px;font-weight:700;letter-spacing:-.02em;font-family:'IBM Plex Mono',monospace}
+.stat .l{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);margin-top:3px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:16px}
+.org{background:var(--card);border:1px solid var(--rule);display:flex;flex-direction:column}
+.org.flagged{border-color:var(--flag);border-width:2px}
+.orghead{padding:14px 16px 12px;border-bottom:1px solid var(--rule)}
+.orgno{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--slate);text-transform:uppercase}
+.orgname{font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.bar{display:flex;height:7px;margin-top:11px;background:var(--paper);overflow:hidden}
+.bar i{display:block;height:100%}
+.bar i.c{background:var(--consult)} .bar i.k{background:var(--compete)} .bar i.e{background:var(--either)}
+.barkey{display:flex;justify-content:space-between;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--slate);gap:8px}
+.warn{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--flag);margin-top:7px;letter-spacing:.04em}
+ul.roster{list-style:none;padding:6px 0;flex:1}
+ul.roster li{display:flex;align-items:center;gap:9px;padding:7px 16px;font-size:14px;border-bottom:1px solid #F0F1EE}
+ul.roster li:last-child{border-bottom:none}
+ul.roster li.hasnote{background:#FFFBF0}
+.dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%}
+.dot.c{background:var(--consult)} .dot.k{background:var(--compete)} .dot.e{background:var(--either)}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note{cursor:help;color:var(--compete);font-weight:700;flex-shrink:0}
+.role{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);border:1px solid var(--rule);padding:1px 5px;flex-shrink:0}
+.role.lead{background:var(--ink);color:#fff;border-color:var(--ink)}
+select.move{font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:2px 3px;border:1px solid var(--rule);background:var(--paper);color:var(--slate);flex-shrink:0}
+
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px;font-size:12.5px;color:var(--slate);align-items:center}
+.legend span{display:flex;align-items:center;gap:7px}
+.notes{background:#FFFBF0;border:1px solid #E8D9B5;padding:14px 16px;margin-bottom:20px;font-size:13.5px}
+.notes b{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;color:var(--compete)}
+.notes li{margin-left:18px;margin-bottom:5px}
+footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--slate)}
+@media(max-width:600px){.stat{min-width:50%;border-bottom:1px solid var(--rule)}button{flex:1}.maprow{grid-template-columns:1fr;gap:5px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">The Org System · Allocation Desk</div>
+  <h1>Org Draft <span>/ intake &amp; sort</span></h1>
+  <p class="sub">Pull the roster straight from your sign-up sheet, or paste it in. The draft mixes both tracks and both class years across every Org, and guarantees co-Leads.</p>
+</header>
+
+<details class="spec">
+  <summary>Connecting your Google Sheet</summary>
+  <div class="specbody">
+    <p style="margin-top:0">This tool runs entirely in your browser — there's no server. So to read your sheet directly, the sheet has to be readable without a login. Two ways to do that:</p>
+    <h3>Option A — Publish just the responses (recommended)</h3>
+    <ol>
+      <li>Open your Form's response sheet. Make a <b>new tab</b> containing only the columns the draft needs — name, year, track, lead interest, notes. Leave emails out of it.</li>
+      <li><b>File → Share → Publish to web</b>. Choose that tab, format <b>Comma-separated values (.csv)</b>, then Publish.</li>
+      <li>Copy the link it gives you and paste it into the <b>Google Sheet</b> tab above.</li>
+      <li><b>Unpublish it after the draft</b> — File → Share → Publish to web → Stop publishing.</li>
+    </ol>
+    <h3>Option B — Link sharing</h3>
+    <p style="margin-top:6px">Set the sheet to <b>Anyone with the link → Viewer</b> and paste the normal sheet URL. Same privacy tradeoff, less setup. The tool converts the URL automatically.</p>
+    <h3>If the connection is blocked</h3>
+    <p style="margin-top:6px">Google occasionally refuses cross-site reads depending on how the sheet is shared. If that happens the tool will say so — use <b>File → Download → CSV</b> and drop the file into the Upload tab instead. Same result, thirty seconds more work, and nothing gets published.</p>
+    <h3>The privacy call</h3>
+    <p style="margin-top:6px">Publishing a tab of ~100 classmates' names makes it readable by anyone with the link. Names and class years are low-risk; emails and phone numbers are not. Keep contact details off the published tab, and unpublish when you're done. If you'd rather publish nothing at all, use CSV upload — it's just as fast and the file never leaves your computer.</p>
+  </div>
+</details>
+
+<details class="spec">
+  <summary>What to collect at sign-up</summary>
+  <div class="specbody">
+    <ol>
+      <li><b>Name</b> — full name, one per member.</li>
+      <li><b>Email</b> — for the Lead to reach them. Not used by the sort.</li>
+      <li><b>Year in the club</b> — first year (new member) or second year and up. Ask about <i>club tenure</i>, not academic standing: a junior who just joined is a first-year for draft purposes.</li>
+      <li><b>Track lean</b> — consulting, case competitions, or <b>either</b>. Keep the third option: undecided members are the flex pieces that let the sort even out lopsided groups.</li>
+      <li><b>Lead interest</b> — yes/no, returning members only. The draft guarantees each Org gets co-Leads.</li>
+      <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged in the results so you can hand-adjust.</li>
+    </ol>
+    <p>You don't need to reformat any of this. The tool reads raw Google Form exports and matches the columns itself.</p>
+  </div>
+</details>
+
+<div class="panel">
+  <h2>Roster</h2>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-pane="pane-sheet">Google Sheet</button>
+    <button class="tab" role="tab" aria-selected="false" data-pane="pane-file">Upload CSV</button>
+    <button class="tab" role="tab" aria-selected="false" data-pane="pane-paste">Paste</button>
+  </div>
+
+  <div class="tabpane on" id="pane-sheet">
+    <p class="hint">Paste a published-CSV link or a shared Google Sheet URL. The tool converts either format and re-pulls on demand, so late sign-ups are picked up by hitting Refresh.</p>
+    <input type="text" id="sheeturl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+    <div class="row">
+      <button id="connect">Connect sheet</button>
+      <button id="refresh" class="ghost" disabled>Refresh from sheet</button>
+    </div>
+  </div>
+
+  <div class="tabpane" id="pane-file">
+    <p class="hint">In your sheet: File → Download → Comma-separated values. Then drop the file here. Nothing is uploaded anywhere — it's read in your browser.</p>
+    <div class="drop" id="drop" tabindex="0" role="button">
+      <b>Drop your CSV here</b>
+      <span>or click to choose a file</span>
+    </div>
+    <input type="file" id="file" accept=".csv,.tsv,text/csv">
+  </div>
+
+  <div class="tabpane" id="pane-paste">
+    <p class="hint">Paste rows straight from a spreadsheet, or type them: <code>Name, Year, Track, Lead</code>. Headers are detected automatically.</p>
+    <textarea id="input" spellcheck="false" placeholder="Name, Year, Track, Lead
+Alex Nguyen, 2, Consulting, Yes
+Priya Shah, 1, Case competitions, No
+Marcus Lee, 2, Either, No"></textarea>
+    <div class="row"><button id="readpaste">Read roster</button><button id="sample" class="ghost">Load sample roster</button></div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+</div>
+
+<div class="panel" id="mapper">
+  <h2>Column mapping</h2>
+  <p class="hint">Matched automatically from your headers. Change anything it got wrong.</p>
+  <div id="maprows"></div>
+  <div class="row">
+    <div class="field">
+      <label for="orgcount">Number of Orgs</label>
+      <input type="number" id="orgcount" value="10" min="2" max="30">
+    </div>
+    <button id="run">Run draft</button>
+    <button id="redraw" class="ghost" disabled>Reshuffle</button>
+    <button id="export" class="ghost" disabled>Export CSV</button>
+  </div>
+</div>
+
+<div id="results"></div>
+
+<footer>Reshuffle re-runs the draft with fresh randomness. Use the dropdown beside any name to move that person — the balance bars update live. Members who left a note are highlighted; hover to read it.</footer>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var TRACKNAME={c:'Consulting',k:'Competition',e:'Either'};
+var rawRows=[], headers=[], orgs=[], lastSheetUrl='';
+
+/* ---------------- messaging ---------------- */
+function say(text,kind){
+  var m=$('msg');
+  m.textContent=text;
+  m.className='msg show'+(kind?' '+kind:'');
+}
+
+/* ---------------- tabs ---------------- */
+Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.setAttribute('aria-selected','false')});
+    document.querySelectorAll('.tabpane').forEach(function(x){x.classList.remove('on')});
+    t.setAttribute('aria-selected','true');
+    $(t.dataset.pane).classList.add('on');
+  });
+});
+
+/* ---------------- CSV parsing ---------------- */
+function parseCSV(text){
+  var rows=[],row=[],cur='',q=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++} else q=false }
+      else cur+=c;
+    } else {
+      if(c==='"')q=true;
+      else if(c===','||c==='\t'){row.push(cur);cur=''}
+      else if(c==='\n'){row.push(cur);cur='';rows.push(row);row=[]}
+      else if(c==='\r'){}
+      else cur+=c;
+    }
+  }
+  if(cur!==''||row.length){row.push(cur);rows.push(row)}
+  return rows.filter(function(r){return r.some(function(c){return String(c).trim()!==''})})
+             .map(function(r){return r.map(function(c){return String(c).trim()})});
+}
+
+/* ---------------- column detection ---------------- */
+var FIELDS=[
+  {key:'name', label:'Name', req:true,
+   pats:[/full name/i,/^name$/i,/your name/i,/name/i]},
+  {key:'year', label:'Year in club', req:true,
+   pats:[/year.*(club|member)/i,/class year/i,/first or second/i,/\byear\b/i,/returning/i]},
+  {key:'track', label:'Track lean', req:true,
+   pats:[/side of the club/i,/\btrack\b/i,/consult.*compet|compet.*consult/i,/interested in\?/i,/interest/i]},
+  {key:'lead', label:'Lead interest', req:false,
+   pats:[/org lead/i,/interested in being/i,/\blead\b/i]},
+  {key:'note', label:'Notes (optional)', req:false,
+   pats:[/anything.*(know|else)/i,/\bnotes?\b/i,/comment/i,/request/i]}
+];
+function guessCol(pats){
+  for(var p=0;p<pats.length;p++)
+    for(var i=0;i<headers.length;i++)
+      if(pats[p].test(headers[i]))return i;
+  return -1;
+}
+function looksLikeHeader(row){
+  // header if no cell parses as a year value and at least one cell has letters
+  return row.some(function(c){return /[a-z]/i.test(c)}) &&
+         !row.some(function(c){return /^[12]$/.test(c)});
+}
+function buildMapper(){
+  var box=$('maprows'); box.innerHTML='';
+  FIELDS.forEach(function(f){
+    var guessed=guessCol(f.pats);
+    var div=document.createElement('div'); div.className='maprow';
+    var lab=document.createElement('label'); lab.textContent=f.label; lab.setAttribute('for','map-'+f.key);
+    var sel=document.createElement('select'); sel.id='map-'+f.key; sel.dataset.key=f.key;
+    var opt=document.createElement('option'); opt.value='-1'; opt.textContent='\u2014 not used \u2014'; sel.appendChild(opt);
+    headers.forEach(function(h,i){
+      var o=document.createElement('option'); o.value=String(i);
+      o.textContent=(h.length>70?h.slice(0,70)+'\u2026':h)||('Column '+(i+1));
+      sel.appendChild(o);
+    });
+    sel.value=String(guessed);
+    div.appendChild(lab); div.appendChild(sel);
+    box.appendChild(div);
+  });
+  $('mapper').classList.add('on');
+}
+function mapped(key){
+  var el=$('map-'+key);
+  return el?parseInt(el.value,10):-1;
+}
+
+/* ---------------- value normalization ---------------- */
+function normYear(v){
+  v=String(v||'');
+  if(/first|1st|new member|freshman|^1$/i.test(v))return 1;
+  if(/second|third|fourth|2nd|3rd|4th|returning|senior|junior|sophomore|^[2-9]$/i.test(v))return 2;
+  return null;
+}
+function normTrack(v){
+  v=String(v||'').trim();
+  if(!v)return null;
+  if(/either|both|not sure|undecided|neither|^e$/i.test(v))return 'e';
+  if(/comp|case|fbla|^k$/i.test(v))return 'k';           // checked before consulting: both start with C
+  if(/consult|^c$/i.test(v))return 'c';
+  return null;
+}
+function normLead(v){ return /^\s*(y|yes|true|1|interested)/i.test(String(v||'')) }
+
+function buildPeople(){
+  var ci={name:mapped('name'),year:mapped('year'),track:mapped('track'),lead:mapped('lead'),note:mapped('note')};
+  if(ci.name<0||ci.year<0||ci.track<0)return {people:[],err:'Map the name, year, and track columns first.'};
+  var people=[],skipped=0,unknownTrack=0,unknownYear=0;
+  rawRows.forEach(function(r){
+    var name=(r[ci.name]||'').trim();
+    if(!name){skipped++;return}
+    var year=normYear(r[ci.year]);
+    var track=normTrack(r[ci.track]);
+    if(year===null){year=1;unknownYear++}
+    if(track===null){track='e';unknownTrack++}
+    people.push({
+      name:name, year:year, track:track,
+      lead:(ci.lead>=0?normLead(r[ci.lead]):false)&&year===2,
+      note:ci.note>=0?(r[ci.note]||'').trim():''
+    });
+  });
+  return {people:people,skipped:skipped,unknownTrack:unknownTrack,unknownYear:unknownYear};
+}
+
+/* ---------------- loading sources ---------------- */
+function ingest(text,source){
+  var rows=parseCSV(text);
+  if(!rows.length){say('That came back empty — check the sheet has data.');return false}
+  if(looksLikeHeader(rows[0])){headers=rows[0];rawRows=rows.slice(1)}
+  else{headers=rows[0].map(function(_,i){return 'Column '+(i+1)});rawRows=rows}
+  if(!rawRows.length){say('Found headers but no member rows.');return false}
+  buildMapper();
+  $('redraw').disabled=true; $('export').disabled=true;
+  say('Loaded '+rawRows.length+' rows from '+source+'. Check the column mapping, then run the draft.','good');
+  return true;
+}
+
+function sheetToCsvUrl(url){
+  url=url.trim();
+  if(!url)return null;
+  // already a published-csv link
+  if(/\/pub/.test(url)&&/output=csv/.test(url))return url;
+  if(/\/pub/.test(url))return url.replace(/([?&])output=[^&]*/,'').replace(/#.*$/,'')+(url.indexOf('?')>-1?'&':'?')+'output=csv';
+  // standard sheet url -> gviz csv export
+  var m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if(!m)return null;
+  var gid=(url.match(/[#&?]gid=([0-9]+)/)||[])[1]||'0';
+  return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv&gid='+gid;
+}
+
+function loadSheet(url){
+  var csvUrl=sheetToCsvUrl(url);
+  if(!csvUrl){say('That doesn\u2019t look like a Google Sheets link. Paste the URL from your browser\u2019s address bar, or a Publish-to-web CSV link.');return}
+  lastSheetUrl=url;
+  say('Connecting\u2026','info');
+  fetch(csvUrl,{redirect:'follow'})
+    .then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.text();
+    })
+    .then(function(text){
+      if(/^\s*</.test(text)){
+        say('Google returned a sign-in page instead of data. The sheet isn\u2019t readable without a login yet — publish it to the web, or set it to \u201CAnyone with the link\u201D. Or just use the Upload CSV tab.');
+        return;
+      }
+      if(ingest(text,'the sheet'))$('refresh').disabled=false;
+    })
+    .catch(function(){
+      say('Couldn\u2019t reach the sheet — Google blocked the request or the link is wrong. Easiest fix: File \u2192 Download \u2192 CSV, then use the Upload CSV tab.');
+    });
+}
+
+/* file */
+var drop=$('drop');
+drop.addEventListener('click',function(){$('file').click()});
+drop.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click()}});
+['dragenter','dragover'].forEach(function(ev){
+  drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('over')});
+});
+['dragleave','drop'].forEach(function(ev){
+  drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('over')});
+});
+drop.addEventListener('drop',function(e){
+  var f=e.dataTransfer.files[0]; if(f)readFile(f);
+});
+$('file').addEventListener('change',function(e){
+  var f=e.target.files[0]; if(f)readFile(f);
+});
+function readFile(f){
+  var fr=new FileReader();
+  fr.onload=function(){ingest(String(fr.result),f.name)};
+  fr.onerror=function(){say('Couldn\u2019t read that file.')};
+  fr.readAsText(f);
+}
+
+/* ---------------- draft ---------------- */
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}
+  return a;
+}
+// Assign each member to the Org that most needs them: fewest from this stratum
+// first, then smallest overall, with randomized tiebreaks. This keeps every
+// category evenly spread AND keeps Org sizes within one of each other.
+function dealStratum(list,groups,taken){
+  shuffle(list);
+  list.forEach(function(p){
+    var best=-1,bestS=Infinity,bestT=Infinity;
+    var order=shuffle(groups.map(function(_,i){return i}));  // random tiebreak
+    order.forEach(function(i){
+      var s=taken[i],t=groups[i].length;
+      if(s<bestS||(s===bestS&&t<bestT)){best=i;bestS=s;bestT=t}
+    });
+    groups[best].push(p);
+    taken[best]++;
+  });
+}
+function draft(people,n){
+  var groups=[];for(var i=0;i<n;i++)groups.push([]);
+  var strata=[
+    people.filter(function(p){return p.lead}),
+    people.filter(function(p){return !p.lead&&p.year===2&&p.track==='c'}),
+    people.filter(function(p){return !p.lead&&p.year===2&&p.track==='k'}),
+    people.filter(function(p){return !p.lead&&p.year===2&&p.track==='e'}),
+    people.filter(function(p){return p.year===1&&p.track==='c'}),
+    people.filter(function(p){return p.year===1&&p.track==='k'}),
+    people.filter(function(p){return p.year===1&&p.track==='e'})
+  ];
+  strata.forEach(function(st){
+    if(!st.length)return;
+    var taken=[];for(var i=0;i<n;i++)taken.push(0);
+    dealStratum(st,groups,taken);
+  });
+  return groups;
+}
+
+/* ---------------- render ---------------- */
+function counts(members){
+  var c={c:0,k:0,e:0,leads:0,y1:0,y2:0};
+  members.forEach(function(p){
+    c[p.track]++; if(p.lead)c.leads++;
+    if(p.year===1)c.y1++;else c.y2++;
+  });
+  return c;
+}
+function esc(s){
+  return String(s).replace(/[&<>"']/g,function(m){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+  });
+}
+function stat(n,l){return '<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'}
+
+function render(){
+  var res=$('results');
+  if(!orgs.length){res.innerHTML='';return}
+  var all=[];orgs.forEach(function(g){all=all.concat(g)});
+  var tot=counts(all),sizes=orgs.map(function(g){return g.length});
+  var noted=all.filter(function(p){return p.note});
+
+  var html='<div class="stats">'+
+    stat(all.length,'Members drafted')+
+    stat(orgs.length,'Orgs')+
+    stat(Math.min.apply(null,sizes)+'\u2013'+Math.max.apply(null,sizes),'Org size')+
+    stat(tot.leads,'Org Leads')+
+    stat(tot.y2,'Second-years')+
+    stat(tot.y1,'New members')+
+  '</div>';
+
+  if(noted.length){
+    html+='<div class="notes"><b>'+noted.length+' member'+(noted.length>1?'s':'')+' left a note \u2014 review before finalizing</b><ul>';
+    noted.slice(0,12).forEach(function(p){
+      html+='<li><b style="display:inline">'+esc(p.name)+':</b> '+esc(p.note)+'</li>';
+    });
+    if(noted.length>12)html+='<li>\u2026and '+(noted.length-12)+' more (see the highlighted rows below).</li>';
+    html+='</ul></div>';
+  }
+
+  html+='<div class="legend">'+
+    '<span><i class="dot c"></i>Consulting</span>'+
+    '<span><i class="dot k"></i>Competition</span>'+
+    '<span><i class="dot e"></i>Either</span>'+
+    '<span style="color:var(--flag)">Red border = needs a manual fix</span></div>';
+
+  html+='<div class="grid">';
+  orgs.forEach(function(g,i){
+    var c=counts(g),n=g.length||1,flags=[];
+    if(c.leads<2)flags.push(c.leads===0?'No Lead assigned':'Only one Lead');
+    if(c.c===0&&c.k===0)flags.push('No committed members from either track');
+    else if(c.c===0)flags.push('No consulting members');
+    else if(c.k===0)flags.push('No competition members');
+    if(c.y1===0)flags.push('No new members');
+
+    html+='<div class="org'+(flags.length?' flagged':'')+'">'+
+      '<div class="orghead">'+
+      '<div class="orgno">Org '+String(i+1).padStart(2,'0')+' \u00B7 '+g.length+' members</div>'+
+      '<div class="orgname">Unnamed</div>'+
+      '<div class="bar">'+
+        '<i class="c" style="width:'+(c.c/n*100)+'%"></i>'+
+        '<i class="k" style="width:'+(c.k/n*100)+'%"></i>'+
+        '<i class="e" style="width:'+(c.e/n*100)+'%"></i></div>'+
+      '<div class="barkey"><span>'+c.c+'C \u00B7 '+c.k+'K \u00B7 '+c.e+'E</span><span>'+c.y2+'y2 / '+c.y1+'y1</span></div>';
+    flags.forEach(function(f){html+='<div class="warn">! '+f+'</div>'});
+    html+='</div><ul class="roster">';
+    g.forEach(function(p){
+      var role=p.lead?'Org Lead':(p.year===2?'Associate':'Analyst');
+      html+='<li'+(p.note?' class="hasnote"':'')+'>'+
+        '<i class="dot '+p.track+'"></i>'+
+        '<span class="nm">'+esc(p.name)+'</span>'+
+        (p.note?'<span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+
+        '<span class="role'+(p.lead?' lead':'')+'">'+role+'</span>'+
+        moveSelect(p,i)+'</li>';
+    });
+    if(!g.length)html+='<li style="color:var(--slate)">Empty</li>';
+    html+='</ul></div>';
+  });
+  html+='</div>';
+  res.innerHTML=html;
+
+  Array.prototype.forEach.call(res.querySelectorAll('select.move'),function(sel){
+    sel.addEventListener('change',function(){
+      move(parseInt(sel.dataset.org,10),sel.dataset.name,parseInt(sel.value,10));
+    });
+  });
+}
+function moveSelect(p,from){
+  var s='<select class="move" data-org="'+from+'" data-name="'+esc(p.name)+'" title="Move to another Org"><option value="'+from+'">\u2192</option>';
+  for(var i=0;i<orgs.length;i++){
+    if(i===from)continue;
+    s+='<option value="'+i+'">Org '+String(i+1).padStart(2,'0')+'</option>';
+  }
+  return s+'</select>';
+}
+function move(from,name,to){
+  if(from===to)return;
+  var idx=-1;
+  orgs[from].forEach(function(p,i){if(p.name===name)idx=i});
+  if(idx<0)return;
+  orgs[to].push(orgs[from].splice(idx,1)[0]);
+  render();
+}
+
+/* ---------------- run ---------------- */
+function run(){
+  var n=parseInt($('orgcount').value,10);
+  if(!n||n<2){say('Set the number of Orgs to 2 or more.');return}
+  var r=buildPeople();
+  if(r.err){say(r.err);return}
+  if(!r.people.length){say('No members found. Check the column mapping above.');return}
+  if(r.people.length<n){say('Only '+r.people.length+' members for '+n+' Orgs. Lower the Org count.');return}
+
+  orgs=draft(r.people,n);
+  $('export').disabled=false; $('redraw').disabled=false;
+
+  var leads=r.people.filter(function(p){return p.lead}).length;
+  var notes=[];
+  if(r.unknownYear)notes.push(r.unknownYear+' unreadable year value'+(r.unknownYear>1?'s':'')+' defaulted to new member');
+  if(r.unknownTrack)notes.push(r.unknownTrack+' unreadable track value'+(r.unknownTrack>1?'s':'')+' defaulted to Either');
+  if(leads<n*2)notes.push('only '+leads+' Lead volunteers for '+(n*2)+' slots');
+
+  if(notes.length)say('Drafted '+r.people.length+' members \u2014 '+notes.join('; ')+'.');
+  else say('Drafted '+r.people.length+' members into '+n+' Orgs.','good');
+  render();
+}
+function exportCsv(){
+  var rows=['Org,Name,Role,Year,Track,Note'];
+  orgs.forEach(function(g,i){
+    g.forEach(function(p){
+      var role=p.lead?'Org Lead':(p.year===2?'Associate':'Analyst');
+      rows.push(['Org '+String(i+1).padStart(2,'0'),
+        '"'+p.name.replace(/"/g,'""')+'"',role,p.year,TRACKNAME[p.track],
+        '"'+(p.note||'').replace(/"/g,'""')+'"'].join(','));
+    });
+  });
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='org-draft.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------------- sample ---------------- */
+function sample(){
+  var first='Alex,Priya,Marcus,Jenna,Diego,Amara,Kevin,Sofia,Tuan,Rachel,Omar,Lila,Ethan,Nina,Carlos,Maya,Ravi,Grace,Malik,Elena,Jonah,Ivy,Andre,Bella,Hugo,Zara,Felix,Nora,Kai,Rosa,Simon,Talia,Victor,Wren,Xander,Yara,Zane,Anya,Bo,Cleo,Dev,Esme,Finn,Gia,Hana,Ike,Juno,Kira,Leo,Mila,Nash,Opal,Pia,Quinn,Rex,Sage,Theo,Uma,Vera,Wes,Xiu,Yuki,Zoe,Abel,Brie,Cyrus,Dara,Emil,Faye,Gus,Hope,Ines,Jude,Kaya,Lars,Moss,Neve,Otto,Pearl,Rune,Suki,Tess,Umar,Vance,Willa,Yale,Ada,Beck,Cora,Drew,Eve,Ford,Gwen,Hal,Iris,Jax,Lena,Milo,Noor,Ora,Pax'.split(',');
+  var last='Nguyen,Shah,Lee,Alvarez,Kim,Patel,Okafor,Torres,Vu,Brooks,Haddad,Chen,Romero,Silva,Mendez,Osei,Rivera,Park,Diaz,Kaur,Wolfe,Bianchi,Ali,Novak,Reyes,Sato,Kelly,Ibarra,Moreau,Duarte'.split(',');
+  var notes=['Please don\'t put me with my former project partner','I have Thursday night class, heads up','Would love to meet more competition people'];
+  var out=['Full name,What year are you in the club?,Which side of the club are you most interested in?,Are you interested in being an Org Lead?,Anything the draft should know?'];
+  for(var i=0;i<100;i++){
+    var nm=first[i%first.length]+' '+last[Math.floor(Math.random()*last.length)];
+    var year=i<60?'Second year or more (returning member)':'First year in the club (new member)';
+    var r=Math.random();
+    var track=r<.42?'Consulting':(r<.84?'Case competitions':'Either / not sure yet');
+    var lead=(i<26)?'Yes \u2014 tell me more':'No / I\'m a new member';
+    var note=(i%37===5)?notes[i%notes.length]:'';
+    out.push('"'+nm+'","'+year+'","'+track+'","'+lead+'","'+note+'"');
+  }
+  $('input').value=out.join('\n');
+  ingest($('input').value,'the sample roster');
+}
+
+$('connect').addEventListener('click',function(){loadSheet($('sheeturl').value)});
+$('refresh').addEventListener('click',function(){loadSheet(lastSheetUrl||$('sheeturl').value)});
+$('readpaste').addEventListener('click',function(){ingest($('input').value,'your pasted rows')});
+$('sample').addEventListener('click',sample);
+$('run').addEventListener('click',run);
+$('redraw').addEventListener('click',run);
+$('export').addEventListener('click',exportCsv);
+})();
+</script>
+</body>
+</html>
