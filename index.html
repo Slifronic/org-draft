@@ -3,32 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Org Draft — Allocation Desk</title>
+<title>The Org System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#11161C; --slate:#4A5561; --rule:#D5D8D2; --paper:#F2F3F0; --card:#FFFFFF;
+  --ink:#11161C; --slate:#4A5561; --mute:#8A939C; --rule:#D5D8D2; --paper:#F2F3F0; --card:#FFFFFF;
   --consult:#1F4E7A; --compete:#B4562B; --either:#6B7A63; --flag:#C0392B; --ok:#3E7D52;
+  --wash:#EDF2F7; --warmwash:#FFFBF0;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
-body{background:var(--paper);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;font-size:15px;line-height:1.5;padding:0 0 80px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+body{background:var(--paper);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;font-size:15px;line-height:1.5;padding:0 0 90px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+.mono{font-family:'IBM Plex Mono',monospace}
 
-header{border-bottom:2px solid var(--ink);padding:34px 0 18px;margin-bottom:26px}
-.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--slate);margin-bottom:10px}
-h1{font-size:clamp(30px,5.2vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1}
+/* masthead + nav */
+header{border-bottom:2px solid var(--ink);padding:30px 0 0;margin-bottom:24px}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--slate);margin-bottom:8px}
+h1{font-size:clamp(28px,4.6vw,42px);font-weight:700;letter-spacing:-.03em;line-height:1}
 h1 span{color:var(--slate);font-weight:400}
-.sub{margin-top:10px;color:var(--slate);max-width:62ch;font-size:14px}
+.sub{margin-top:9px;color:var(--slate);max-width:64ch;font-size:14px}
+nav{display:flex;gap:0;margin-top:22px;flex-wrap:wrap;border-bottom:none}
+nav button{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;padding:12px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--mute);cursor:pointer}
+nav button[aria-current=true]{color:var(--ink);border-bottom-color:var(--consult)}
+nav button:disabled{opacity:.4;cursor:not-allowed}
+nav button:hover:not(:disabled):not([aria-current=true]){color:var(--slate)}
+.navcount{background:var(--paper);border:1px solid var(--rule);padding:0 4px;margin-left:5px;font-size:10px}
 
-.panel{background:var(--card);border:1px solid var(--rule);padding:22px;margin-bottom:22px}
+.view{display:none} .view.on{display:block}
+
+.panel{background:var(--card);border:1px solid var(--rule);padding:22px;margin-bottom:20px}
 .panel h2{font-size:13px;font-family:'IBM Plex Mono',monospace;letter-spacing:.13em;text-transform:uppercase;font-weight:600;margin-bottom:4px}
-.panel .hint{color:var(--slate);font-size:13px;margin-bottom:14px;max-width:74ch}
+.panel h3{font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:.11em;text-transform:uppercase;font-weight:600;margin:22px 0 4px;color:var(--slate)}
+.hint{color:var(--slate);font-size:13px;margin-bottom:14px;max-width:76ch}
 
-details.spec{border:1px solid var(--rule);background:var(--card);margin-bottom:22px}
-details.spec summary{cursor:pointer;padding:16px 22px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.spec{border:1px solid var(--rule);background:var(--card);margin-bottom:20px}
+details.spec summary{cursor:pointer;padding:15px 22px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}
 details.spec summary::-webkit-details-marker{display:none}
 details.spec summary::after{content:'+';font-size:18px;color:var(--slate)}
 details.spec[open] summary::after{content:'\2013'}
@@ -36,85 +48,173 @@ details.spec[open] summary::after{content:'\2013'}
 .specbody ol,.specbody ul{margin-left:18px}
 .specbody li{margin-bottom:9px;font-size:14px}
 .specbody p{font-size:14px;color:var(--slate);margin-top:12px}
-.specbody h3{font-size:14px;margin:16px 0 8px}
-code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--paper);padding:2px 5px;border:1px solid var(--rule);word-break:break-all}
+.specbody h4{font-size:14px;margin:16px 0 8px;font-weight:700}
+code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--paper);padding:2px 5px;border:1px solid var(--rule);word-break:break-word}
 
 /* tabs */
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--rule);margin-bottom:18px;flex-wrap:wrap}
+.tabs{display:flex;border-bottom:1px solid var(--rule);margin-bottom:18px;flex-wrap:wrap}
 .tab{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;padding:11px 15px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--slate);cursor:pointer}
 .tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--consult)}
-.tabpane{display:none}
-.tabpane.on{display:block}
+.tabpane{display:none} .tabpane.on{display:block}
 
+/* form controls */
 textarea{width:100%;height:150px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.6;padding:12px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);resize:vertical}
-input[type=text]{width:100%;padding:10px 11px;border:1px solid var(--rule);background:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink)}
+input[type=text],input[type=date],select{padding:9px 10px;border:1px solid var(--rule);background:var(--paper);font-size:13.5px;color:var(--ink);font-family:'Archivo',sans-serif;width:100%}
+input[type=text].mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+input[type=number]{width:82px;padding:9px 10px;border:1px solid var(--rule);background:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--ink)}
 textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--consult);outline-offset:2px}
-
-.drop{border:1.5px dashed var(--rule);background:var(--paper);padding:34px 20px;text-align:center;cursor:pointer}
-.drop.over{border-color:var(--consult);background:#EDF2F7}
+button{font-family:'Archivo',sans-serif;font-size:14px;font-weight:600;padding:10px 18px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer;transition:opacity .15s}
+button:hover:not(:disabled){opacity:.82}
+button.ghost{background:transparent;color:var(--ink)}
+button.ghost:hover:not(:disabled){background:var(--ink);color:#fff;opacity:1}
+button.tiny{font-size:11.5px;padding:5px 9px;font-family:'IBM Plex Mono',monospace;letter-spacing:.04em}
+button.danger{border-color:var(--flag);color:var(--flag);background:transparent}
+button.danger:hover:not(:disabled){background:var(--flag);color:#fff;opacity:1}
+button:disabled{opacity:.35;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label,.lbl{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+.drop{border:1.5px dashed var(--rule);background:var(--paper);padding:32px 20px;text-align:center;cursor:pointer}
+.drop.over{border-color:var(--consult);background:var(--wash)}
 .drop b{display:block;font-size:15px;margin-bottom:5px}
 .drop span{font-size:13px;color:var(--slate)}
 input[type=file]{display:none}
-
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
-.field{display:flex;flex-direction:column;gap:5px}
-.field label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
-input[type=number]{width:88px;padding:9px 10px;border:1px solid var(--rule);background:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--ink)}
-button{font-family:'Archivo',sans-serif;font-size:14px;font-weight:600;padding:10px 18px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer;transition:opacity .15s}
-button:hover{opacity:.82}
-button.ghost{background:transparent;color:var(--ink)}
-button.ghost:hover{background:var(--ink);color:#fff;opacity:1}
-button:disabled{opacity:.35;cursor:not-allowed}
+.check{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
+.check input{width:15px;height:15px;flex:0 0 15px}
 
 .msg{margin-top:12px;padding:10px 12px;font-size:13px;font-family:'IBM Plex Mono',monospace;border-left:3px solid var(--flag);background:#fdf3f2;color:var(--flag);display:none}
 .msg.show{display:block}
 .msg.good{border-left-color:var(--ok);background:#f1f7f2;color:var(--ok)}
-.msg.info{border-left-color:var(--consult);background:#EDF2F7;color:var(--consult)}
+.msg.info{border-left-color:var(--consult);background:var(--wash);color:var(--consult)}
 
 /* mapper */
-#mapper{display:none}
-#mapper.on{display:block}
-.maprow{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center;margin-bottom:10px}
+.maprow{display:grid;grid-template-columns:158px 1fr;gap:12px;align-items:center;margin-bottom:10px}
 .maprow label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate)}
-.maprow select{width:100%;padding:8px 9px;border:1px solid var(--rule);background:var(--paper);font-size:13px;color:var(--ink);font-family:'Archivo',sans-serif}
-.auto{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ok);letter-spacing:.05em}
+.maprow label.req::after{content:' *';color:var(--flag)}
+.maprow select{width:100%}
+.maprow.bad select{border-color:var(--flag);background:#fdf3f2}
 
-.stats{display:flex;flex-wrap:wrap;border:1px solid var(--rule);background:var(--card);margin-bottom:22px}
-.stat{padding:16px 20px;border-right:1px solid var(--rule);flex:1;min-width:120px}
+/* stats */
+.stats{display:flex;flex-wrap:wrap;border:1px solid var(--rule);background:var(--card);margin-bottom:20px}
+.stat{padding:15px 20px;border-right:1px solid var(--rule);flex:1;min-width:116px}
 .stat:last-child{border-right:none}
-.stat .n{font-size:26px;font-weight:700;letter-spacing:-.02em;font-family:'IBM Plex Mono',monospace}
+.stat .n{font-size:25px;font-weight:700;letter-spacing:-.02em;font-family:'IBM Plex Mono',monospace}
+.stat .n.bad{color:var(--flag)} .stat .n.good{color:var(--ok)}
 .stat .l{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);margin-top:3px}
 
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:16px}
+/* org grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:16px}
 .org{background:var(--card);border:1px solid var(--rule);display:flex;flex-direction:column}
 .org.flagged{border-color:var(--flag);border-width:2px}
-.orghead{padding:14px 16px 12px;border-bottom:1px solid var(--rule)}
-.orgno{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--slate);text-transform:uppercase}
-.orgname{font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
-.bar{display:flex;height:7px;margin-top:11px;background:var(--paper);overflow:hidden}
+.orghead{padding:13px 16px 12px;border-bottom:1px solid var(--rule)}
+.orgno{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--slate);text-transform:uppercase;display:flex;justify-content:space-between;gap:8px}
+.orgname{font-size:18px;font-weight:700;letter-spacing:-.02em;margin-top:2px;cursor:pointer;border-bottom:1px dashed transparent}
+.orgname:hover{border-bottom-color:var(--rule)}
+.bar{display:flex;height:7px;margin-top:10px;background:var(--paper);overflow:hidden}
 .bar i{display:block;height:100%}
 .bar i.c{background:var(--consult)} .bar i.k{background:var(--compete)} .bar i.e{background:var(--either)}
 .barkey{display:flex;justify-content:space-between;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--slate);gap:8px}
+.axis{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--slate)}
+.axis b{color:var(--ink);font-weight:600}
+.axis .skew{color:var(--compete)} .axis .void{color:var(--flag)}
 .warn{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--flag);margin-top:7px;letter-spacing:.04em}
 ul.roster{list-style:none;padding:6px 0;flex:1}
-ul.roster li{display:flex;align-items:center;gap:9px;padding:7px 16px;font-size:14px;border-bottom:1px solid #F0F1EE}
+ul.roster li{display:flex;align-items:center;gap:8px;padding:6px 16px;font-size:13.5px;border-bottom:1px solid #F0F1EE}
 ul.roster li:last-child{border-bottom:none}
-ul.roster li.hasnote{background:#FFFBF0}
+ul.roster li.hasnote{background:var(--warmwash)}
 .dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%}
 .dot.c{background:var(--consult)} .dot.k{background:var(--compete)} .dot.e{background:var(--either)}
 .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note{cursor:help;color:var(--compete);font-weight:700;flex-shrink:0}
+.mbti{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;padding:1px 4px;flex-shrink:0;background:var(--paper);border:1px solid var(--rule);color:var(--ink)}
+.mbti.none{color:var(--flag);border-color:var(--flag)}
+.pts{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:var(--compete);flex-shrink:0;min-width:24px;text-align:right}
+.pts.zero{color:var(--flag)}
 .role{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);border:1px solid var(--rule);padding:1px 5px;flex-shrink:0}
 .role.lead{background:var(--ink);color:#fff;border-color:var(--ink)}
-select.move{font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:2px 3px;border:1px solid var(--rule);background:var(--paper);color:var(--slate);flex-shrink:0}
-
-.legend{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px;font-size:12.5px;color:var(--slate);align-items:center}
+.orgfoot{border-top:1px solid var(--rule);padding:9px 16px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:12.5px;color:var(--slate);align-items:center}
 .legend span{display:flex;align-items:center;gap:7px}
-.notes{background:#FFFBF0;border:1px solid #E8D9B5;padding:14px 16px;margin-bottom:20px;font-size:13.5px}
+
+/* tables */
+.tablewrap{overflow-x:auto;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);text-align:right;padding:7px 8px;border-bottom:1px solid var(--ink);font-weight:600;white-space:nowrap}
+th.l{text-align:left}
+td{padding:7px 8px;border-bottom:1px solid #F0F1EE;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;vertical-align:middle}
+td.l{text-align:left;font-family:'Archivo',sans-serif;font-size:13.5px}
+td.name{font-weight:600}
+tr.top td:first-child{color:var(--compete);font-weight:700}
+tr.bottom td{color:var(--flag)}
+tr.rowflag{background:var(--warmwash)}
+.rank{color:var(--slate);width:34px}
+
+/* action catalog */
+.acts{margin-top:6px}
+.act{display:grid;grid-template-columns:1fr 92px 132px 78px 34px;gap:9px;align-items:center;padding:9px 0;border-bottom:1px solid #F0F1EE}
+.act input[type=text]{font-size:13.5px}
+.act.head{border-bottom:1px solid var(--ink);padding-bottom:6px}
+.act.head span{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+.act.off{opacity:.45}
+.act .kill{border:1px solid var(--rule);background:transparent;color:var(--flag);padding:6px 0;font-size:13px;font-weight:700;width:34px}
+.act .kill:hover{background:var(--flag);color:#fff;opacity:1}
+.tagsel{font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+@media(max-width:720px){.act{grid-template-columns:1fr 70px;grid-template-areas:'label pts' 'type type' 'live kill'}}
+
+/* assistant */
+.advice{border:1px solid var(--rule);background:var(--card);padding:14px 16px;margin-bottom:12px}
+.advice.club{border-left:3px solid var(--consult);background:#F8FAFC}
+.advice h4{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.advice h4 em{font-style:normal;color:var(--slate);font-size:10px;letter-spacing:.06em;white-space:nowrap}
+.rec{font-size:13.5px;margin-top:9px;padding-left:14px;position:relative;line-height:1.45}
+.rec::before{content:'';position:absolute;left:0;top:7px;width:5px;height:5px;background:var(--slate)}
+.rec.warn::before{background:var(--flag)} .rec.warn{color:var(--flag)}
+.rec.good::before{background:var(--ok)}
+.rec.pick::before{background:var(--consult)}
+.advgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.disclaim{font-size:12px;color:var(--slate);border-top:1px solid var(--rule);padding-top:11px;margin-top:14px;max-width:80ch}
+
+/* swap cards */
+.swap{border:1px solid var(--rule);background:var(--card);padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+.swap.applied{opacity:.5;background:var(--paper)}
+.swapmove{font-size:14px;font-weight:600;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.swapmove .who{background:var(--paper);border:1px solid var(--rule);padding:3px 8px;display:inline-flex;gap:7px;align-items:center}
+.swapmove .who b{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--consult)}
+.swapmove .arrows{font-family:'IBM Plex Mono',monospace;color:var(--compete);font-size:16px}
+.swapwhy{font-size:13px;color:var(--slate);margin-top:8px;line-height:1.45}
+.gain{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ok);letter-spacing:.06em;margin-top:6px;display:block}
+@media(max-width:620px){.swap{grid-template-columns:1fr}}
+
+/* team view */
+.teampick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.teampick button{font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:8px 12px;background:transparent;color:var(--slate);border:1px solid var(--rule)}
+.teampick button[aria-current=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.teamgrid{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.teamgrid{grid-template-columns:1fr}}
+.axbar{margin-bottom:11px}
+.axbar .lbl2{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--slate);margin-bottom:4px}
+.axbar .lbl2 b{color:var(--ink)}
+.axtrack{display:flex;height:9px;background:var(--paper);border:1px solid var(--rule)}
+.axtrack i{display:block;height:100%}
+.axtrack i.a{background:var(--consult)} .axtrack i.b{background:var(--compete)}
+.typechips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.tchip{font-family:'IBM Plex Mono',monospace;font-size:10.5px;border:1px solid var(--rule);padding:2px 6px;background:var(--paper)}
+.tchip.dup{border-color:var(--compete);color:var(--compete)}
+.bigname{font-size:26px;font-weight:700;letter-spacing:-.02em;border:none;background:transparent;padding:0;width:100%;font-family:'Archivo',sans-serif}
+.bigname:focus{outline:2px solid var(--consult);outline-offset:3px}
+.evtline{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #F0F1EE;font-size:13px}
+.evtline span:last-child{font-family:'IBM Plex Mono',monospace;color:var(--slate);font-size:12px;white-space:nowrap}
+
+.unmatched{background:var(--warmwash);border:1px solid #E8D9B5;padding:11px 14px;margin-top:14px;font-size:12.5px;color:var(--slate)}
+.unmatched b{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--compete);display:block;margin-bottom:5px}
+.notes{background:var(--warmwash);border:1px solid #E8D9B5;padding:14px 16px;margin-bottom:20px;font-size:13.5px}
 .notes b{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;color:var(--compete)}
 .notes li{margin-left:18px;margin-bottom:5px}
+.empty{color:var(--slate);font-size:13.5px;padding:20px 0}
 footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--slate)}
-@media(max-width:600px){.stat{min-width:50%;border-bottom:1px solid var(--rule)}button{flex:1}.maprow{grid-template-columns:1fr;gap:5px}}
+.savebar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--rule)}
+.savenote{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--mute);letter-spacing:.05em}
+@media(max-width:600px){.stat{min-width:50%;border-bottom:1px solid var(--rule)}.maprow{grid-template-columns:1fr;gap:5px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -122,130 +222,360 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">The Org System · Allocation Desk</div>
-  <h1>Org Draft <span>/ intake &amp; sort</span></h1>
-  <p class="sub">Pull the roster straight from your sign-up sheet, or paste it in. The draft mixes both tracks and both class years across every Org, and guarantees co-Leads.</p>
+  <div class="eyebrow">The Org System</div>
+  <h1>Org System <span>/ draft, teams, cup</span></h1>
+  <p class="sub">One tool for the whole program: pull the roster from your sign-up form, draft balanced Orgs, run each team's page, and score the Org Cup off whatever actions you decide are worth points.</p>
+  <nav id="nav">
+    <button data-view="v-intake" aria-current="true">Intake</button>
+    <button data-view="v-draft" disabled>Draft</button>
+    <button data-view="v-teams" disabled>Teams</button>
+    <button data-view="v-cup" disabled>Org Cup</button>
+    <button data-view="v-assist" disabled>Assistant</button>
+  </nav>
 </header>
+
+<!-- ============ INTAKE ============ -->
+<div class="view on" id="v-intake">
+
+<details class="spec">
+  <summary>What the sign-up form has to ask</summary>
+  <div class="specbody">
+    <ol>
+      <li><b>Name</b> — full name, one per member. <b>Required.</b></li>
+      <li><b>Email</b> — for the Lead to reach them. Not used by the draft; leave it off any published tab.</li>
+      <li><b>Year in the club</b> — first year or second-and-up. Ask about <i>club tenure</i>, not academic standing: a junior who just joined drafts as a first-year. <b>Required.</b></li>
+      <li><b>Track lean</b> — consulting, case competitions, or <b>either</b>. Keep the third option; undecided members are the flex pieces that let the sort even out lopsided groups. <b>Required.</b></li>
+      <li><b>MBTI type</b> — four letters. <b>Required.</b> Make it a required question on the form with a link to a free test, and give members a deadline. The draft will not run until every member has one, because a partial column produces a type read that describes only the people who bothered to answer.</li>
+      <li><b>Lead interest</b> — yes/no, returning members only. The draft guarantees each Org gets co-Leads.</li>
+      <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged so you can hand-adjust.</li>
+    </ol>
+    <h4>On making MBTI required</h4>
+    <p style="margin-top:6px">Requiring it is a real tradeoff and worth naming out loud. You get a complete read and an Assistant that can actually recommend changes; you also make members hand over a personality result to a club, and some will find a test online, click through it in ninety seconds, and give you noise. Two things make it hold up: tell members plainly what it's used for (spreading types across Orgs, not judging anyone), and link one specific free test so everyone is answering the same instrument. If someone genuinely refuses, take the type they'd guess rather than leaving the field empty — a guess is closer to true than a blank.</p>
+    <p>The tool reads raw Google Form exports and matches the columns itself. You don't need to reformat anything.</p>
+  </div>
+</details>
 
 <details class="spec">
   <summary>Connecting your Google Sheet</summary>
   <div class="specbody">
-    <p style="margin-top:0">This tool runs entirely in your browser — there's no server. So to read your sheet directly, the sheet has to be readable without a login. Two ways to do that:</p>
-    <h3>Option A — Publish just the responses (recommended)</h3>
+    <p style="margin-top:0">This runs entirely in your browser — there's no server. To read a sheet directly, it has to be readable without a login.</p>
+    <h4>Option A — Publish just the responses (recommended)</h4>
     <ol>
-      <li>Open your Form's response sheet. Make a <b>new tab</b> containing only the columns the draft needs — name, year, track, lead interest, notes. Leave emails out of it.</li>
-      <li><b>File → Share → Publish to web</b>. Choose that tab, format <b>Comma-separated values (.csv)</b>, then Publish.</li>
-      <li>Copy the link it gives you and paste it into the <b>Google Sheet</b> tab above.</li>
-      <li><b>Unpublish it after the draft</b> — File → Share → Publish to web → Stop publishing.</li>
+      <li>In the Form's response sheet, make a <b>new tab</b> with only the columns the draft needs: name, year, track, MBTI, lead interest, notes. Leave emails out.</li>
+      <li><b>File → Share → Publish to web</b>, choose that tab, format <b>Comma-separated values (.csv)</b>, Publish.</li>
+      <li>Paste the link it gives you below.</li>
+      <li><b>Unpublish after the draft</b> — File → Share → Publish to web → Stop publishing.</li>
     </ol>
-    <h3>Option B — Link sharing</h3>
-    <p style="margin-top:6px">Set the sheet to <b>Anyone with the link → Viewer</b> and paste the normal sheet URL. Same privacy tradeoff, less setup. The tool converts the URL automatically.</p>
-    <h3>If the connection is blocked</h3>
-    <p style="margin-top:6px">Google occasionally refuses cross-site reads depending on how the sheet is shared. If that happens the tool will say so — use <b>File → Download → CSV</b> and drop the file into the Upload tab instead. Same result, thirty seconds more work, and nothing gets published.</p>
-    <h3>The privacy call</h3>
-    <p style="margin-top:6px">Publishing a tab of ~100 classmates' names makes it readable by anyone with the link. Names and class years are low-risk; emails and phone numbers are not. Keep contact details off the published tab, and unpublish when you're done. If you'd rather publish nothing at all, use CSV upload — it's just as fast and the file never leaves your computer.</p>
-  </div>
-</details>
-
-<details class="spec">
-  <summary>What to collect at sign-up</summary>
-  <div class="specbody">
-    <ol>
-      <li><b>Name</b> — full name, one per member.</li>
-      <li><b>Email</b> — for the Lead to reach them. Not used by the sort.</li>
-      <li><b>Year in the club</b> — first year (new member) or second year and up. Ask about <i>club tenure</i>, not academic standing: a junior who just joined is a first-year for draft purposes.</li>
-      <li><b>Track lean</b> — consulting, case competitions, or <b>either</b>. Keep the third option: undecided members are the flex pieces that let the sort even out lopsided groups.</li>
-      <li><b>Lead interest</b> — yes/no, returning members only. The draft guarantees each Org gets co-Leads.</li>
-      <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged in the results so you can hand-adjust.</li>
-    </ol>
-    <p>You don't need to reformat any of this. The tool reads raw Google Form exports and matches the columns itself.</p>
+    <h4>Option B — Link sharing</h4>
+    <p style="margin-top:6px">Set the sheet to <b>Anyone with the link → Viewer</b> and paste the normal URL. Same privacy tradeoff, less setup.</p>
+    <h4>The privacy call</h4>
+    <p style="margin-top:6px">Publishing a tab of ~100 classmates' names and personality types makes it readable by anyone with the link. Names and years are low-risk; MBTI results and emails are more personal than they look. Keep contact details off the published tab, unpublish when you're done, and if you'd rather publish nothing, use CSV upload — the file never leaves your computer.</p>
   </div>
 </details>
 
 <div class="panel">
-  <h2>Roster</h2>
+  <h2>Roster source</h2>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-pane="pane-sheet">Google Sheet</button>
     <button class="tab" role="tab" aria-selected="false" data-pane="pane-file">Upload CSV</button>
     <button class="tab" role="tab" aria-selected="false" data-pane="pane-paste">Paste</button>
   </div>
-
   <div class="tabpane on" id="pane-sheet">
-    <p class="hint">Paste a published-CSV link or a shared Google Sheet URL. The tool converts either format and re-pulls on demand, so late sign-ups are picked up by hitting Refresh.</p>
-    <input type="text" id="sheeturl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+    <p class="hint">A published-CSV link or a shared Google Sheet URL. Re-pulls on demand, so late sign-ups get picked up by hitting Refresh.</p>
+    <input type="text" class="mono" id="sheeturl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
     <div class="row">
       <button id="connect">Connect sheet</button>
       <button id="refresh" class="ghost" disabled>Refresh from sheet</button>
     </div>
   </div>
-
   <div class="tabpane" id="pane-file">
-    <p class="hint">In your sheet: File → Download → Comma-separated values. Then drop the file here. Nothing is uploaded anywhere — it's read in your browser.</p>
-    <div class="drop" id="drop" tabindex="0" role="button">
-      <b>Drop your CSV here</b>
-      <span>or click to choose a file</span>
-    </div>
+    <p class="hint">File → Download → Comma-separated values, then drop it here. Read in your browser, uploaded nowhere.</p>
+    <div class="drop" id="drop" tabindex="0" role="button"><b>Drop your roster CSV here</b><span>or click to choose a file</span></div>
     <input type="file" id="file" accept=".csv,.tsv,text/csv">
   </div>
-
   <div class="tabpane" id="pane-paste">
-    <p class="hint">Paste rows straight from a spreadsheet, or type them: <code>Name, Year, Track, Lead</code>. Headers are detected automatically.</p>
-    <textarea id="input" spellcheck="false" placeholder="Name, Year, Track, Lead
-Alex Nguyen, 2, Consulting, Yes
-Priya Shah, 1, Case competitions, No
-Marcus Lee, 2, Either, No"></textarea>
+    <p class="hint">Paste rows straight from a spreadsheet: <code>Name, Year, Track, MBTI, Lead</code>. Headers are detected automatically.</p>
+    <textarea id="input" spellcheck="false" placeholder="Name, Year, Track, MBTI, Lead
+Alex Nguyen, 2, Consulting, ENTJ, Yes
+Priya Shah, 1, Case competitions, INFP, No
+Marcus Lee, 2, Either, ISTJ, No"></textarea>
     <div class="row"><button id="readpaste">Read roster</button><button id="sample" class="ghost">Load sample roster</button></div>
   </div>
-
   <div class="msg" id="msg"></div>
 </div>
 
-<div class="panel" id="mapper">
+<div class="panel" id="mapper" style="display:none">
   <h2>Column mapping</h2>
-  <p class="hint">Matched automatically from your headers. Change anything it got wrong.</p>
+  <p class="hint">Matched automatically from your headers. Starred fields are required — the draft won't run without them.</p>
   <div id="maprows"></div>
+  <div id="mapstatus"></div>
   <div class="row">
     <div class="field">
       <label for="orgcount">Number of Orgs</label>
       <input type="number" id="orgcount" value="10" min="2" max="30">
     </div>
+    <label class="check" style="padding:9px 0"><input type="checkbox" id="mbtibal" checked> Spread MBTI types across Orgs</label>
     <button id="run">Run draft</button>
-    <button id="redraw" class="ghost" disabled>Reshuffle</button>
-    <button id="export" class="ghost" disabled>Export CSV</button>
+  </div>
+</div>
+</div>
+
+<!-- ============ DRAFT ============ -->
+<div class="view" id="v-draft">
+  <div id="draftstats"></div>
+  <div id="draftnotes"></div>
+  <div class="legend">
+    <span><i class="dot c"></i>Consulting</span>
+    <span><i class="dot k"></i>Competition</span>
+    <span><i class="dot e"></i>Either</span>
+    <span style="color:var(--flag)">Red border = needs a manual fix</span>
+    <span style="margin-left:auto">Click an Org name to rename it</span>
+  </div>
+  <div class="grid" id="orggrid"></div>
+  <div class="row">
+    <button id="redraw" class="ghost">Reshuffle draft</button>
+    <button id="export" class="ghost">Export roster CSV</button>
+  </div>
+  <footer>Reshuffling re-runs the draft from scratch and discards manual moves. Points and the attendance log survive it — they're keyed to people, not to Orgs.</footer>
+</div>
+
+<!-- ============ TEAMS ============ -->
+<div class="view" id="v-teams">
+  <div class="teampick" id="teampick"></div>
+  <div id="teambody"></div>
+</div>
+
+<!-- ============ ORG CUP ============ -->
+<div class="view" id="v-cup">
+
+<div class="panel">
+  <h2>What earns points</h2>
+  <p class="hint">This is the whole scoring system, and it's meant to be edited. Change a label, change a value, add an action, switch one off mid-semester — standings recalculate the moment you do. The <b>track</b> setting is what makes cross-track attendance detectable, so set it honestly on every action.</p>
+  <div class="acts" id="actlist"></div>
+  <div class="row">
+    <button id="addact" class="ghost">+ Add an action</button>
+    <button id="resetacts" class="ghost">Reset to defaults</button>
+  </div>
+
+  <h3>Bonuses that sit on top</h3>
+  <p class="hint">These apply automatically to any action tagged consulting or competition.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field"><label for="r-cross">Cross-track bonus</label><input type="number" id="r-cross" value="2" min="0" max="99"></div>
+    <div class="field"><label for="r-explore">Either-track bonus</label><input type="number" id="r-explore" value="1" min="0" max="99"></div>
+    <div class="field"><label for="r-full">Full-Org bonus</label><input type="number" id="r-full" value="5" min="0" max="99"></div>
+    <div class="field"><label for="r-thresh">Full-Org at %</label><input type="number" id="r-thresh" value="80" min="1" max="100"></div>
   </div>
 </div>
 
-<div id="results"></div>
-
-<footer>Reshuffle re-runs the draft with fresh randomness. Use the dropdown beside any name to move that person — the balance bars update live. Members who left a note are highlighted; hover to read it.</footer>
-
+<div class="panel">
+  <h2>Log points</h2>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-pane="cup-quick">Quick log</button>
+    <button class="tab" role="tab" aria-selected="false" data-pane="cup-file">Import CSV</button>
+    <button class="tab" role="tab" aria-selected="false" data-pane="cup-sheet">Google Sheet</button>
+  </div>
+  <div class="tabpane on" id="cup-quick">
+    <p class="hint">For logging straight off a sign-in sheet. Pick the action, paste the names, add.</p>
+    <div class="row" style="margin-top:0">
+      <div class="field" style="flex:2;min-width:210px"><label for="qact">Action</label><select id="qact"></select></div>
+      <div class="field" style="flex:1;min-width:150px"><label for="qevent">Event label (optional)</label><input type="text" id="qevent" placeholder="Week 3 workshop"></div>
+      <div class="field"><label for="qdate">Date</label><input type="date" id="qdate"></div>
+    </div>
+    <textarea id="qnames" spellcheck="false" style="height:112px;margin-top:12px" placeholder="Alex Nguyen
+Priya Shah
+Marcus Lee"></textarea>
+    <div class="row"><button id="qadd">Add to log</button><button id="qsample" class="ghost">Load sample semester</button></div>
+  </div>
+  <div class="tabpane" id="cup-file">
+    <p class="hint">A CSV with a name column and an event column. Each event name gets matched to an action below — anything it can't match, you assign by hand.</p>
+    <div class="drop" id="cupdrop" tabindex="0" role="button"><b>Drop your attendance CSV here</b><span>or click to choose a file</span></div>
+    <input type="file" id="cupfile" accept=".csv,.tsv,text/csv">
+  </div>
+  <div class="tabpane" id="cup-sheet">
+    <p class="hint">Same as the roster — a published-CSV link or shared sheet URL. Hit refresh after each event.</p>
+    <input type="text" class="mono" id="cupurl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+    <div class="row"><button id="cupconnect">Connect log</button><button id="cuprefresh" class="ghost" disabled>Refresh log</button></div>
+  </div>
+  <div id="cupmap" style="display:none;margin-top:16px;border-top:1px solid var(--rule);padding-top:16px">
+    <p class="hint" style="margin-bottom:12px">Attendance columns — matched automatically, change anything it got wrong.</p>
+    <div id="cupmaprows"></div>
+    <div id="evtmap"></div>
+  </div>
+  <div class="msg" id="cupmsg"></div>
 </div>
 
+<div class="panel">
+  <h2>Standings</h2>
+  <p class="hint">Ranked on points per member, because raw totals would just hand the Cup to whichever Org drafted one extra person.</p>
+  <div id="standings"></div>
+  <div class="row">
+    <button id="cupexport" class="ghost">Export standings CSV</button>
+    <button id="logexport" class="ghost">Export full log</button>
+    <button id="cupclear" class="danger">Clear log</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Log <span class="savenote" id="logcount"></span></h2>
+  <div id="logtable"></div>
+</div>
+</div>
+
+<!-- ============ ASSISTANT ============ -->
+<div class="view" id="v-assist">
+<div class="panel">
+  <h2>Recommended changes</h2>
+  <p class="hint">Swaps that improve type balance without touching anything else. Every proposal trades two people of the <b>same year, same track, and same Lead status</b>, so applying one can't break the draft's size, track, or seniority balance — only the type spread moves.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field"><label for="swapmax">Max swaps to show</label><input type="number" id="swapmax" value="6" min="1" max="20"></div>
+    <button id="swaprefresh" class="ghost">Recompute</button>
+    <button id="swapall" class="ghost">Apply all shown</button>
+  </div>
+  <div id="swaps" style="margin-top:18px"></div>
+</div>
+<div id="advice"></div>
+</div>
+
+<div class="savebar">
+  <span class="savenote">Your work is kept in this browser. <span id="savestamp"></span></span>
+  <button class="tiny ghost" id="savejson">Export save file</button>
+  <button class="tiny ghost" onclick="document.getElementById('loadjson').click()">Load save file</button>
+  <input type="file" id="loadjson" accept=".json,application/json">
+  <button class="tiny danger" id="wipe">Wipe this browser</button>
+</div>
+<footer>The browser copy is a convenience, not a backup — it disappears if the cache is cleared or the officer changes laptops. Export a save file at the end of each semester and hand it to whoever runs the Cup next.</footer>
+
+</div>
 <script>
 (function(){
 "use strict";
 var $=function(id){return document.getElementById(id)};
 var TRACKNAME={c:'Consulting',k:'Competition',e:'Either'};
-var rawRows=[], headers=[], orgs=[], lastSheetUrl='';
+var AXES=[['E','I'],['S','N'],['T','F'],['J','P']];
+var SAVE_KEY='orgsystem.v1';
 
-/* ---------------- messaging ---------------- */
-function say(text,kind){
-  var m=$('msg');
-  m.textContent=text;
-  m.className='msg show'+(kind?' '+kind:'');
+/* ---------------- state ---------------- */
+var S={
+  headers:[], rawRows:[], lastSheetUrl:'',
+  people:[], orgs:[], orgNames:[],
+  actions:[], log:[], seq:1,
+  rules:{cross:2, explore:1, full:5, thresh:80},
+  standings:[], unmatched:{}, team:0,
+  swaps:[], applied:{}
+};
+
+var DEFAULT_ACTIONS=[
+  {id:'a1', label:'Consulting workshop attendance',   pts:1,  track:'c', on:true},
+  {id:'a2', label:'Case competition prep attendance', pts:1,  track:'k', on:true},
+  {id:'a3', label:'General meeting attendance',       pts:1,  track:'x', on:true},
+  {id:'a4', label:'Org social attendance',            pts:2,  track:'s', on:true},
+  {id:'a5', label:'Org Case Battle — competed',       pts:5,  track:'k', on:true},
+  {id:'a6', label:'Org Case Battle — won a round',    pts:8,  track:'k', on:true},
+  {id:'a7', label:'Client project work session',      pts:3,  track:'c', on:true},
+  {id:'a8', label:'Brought a guest / recruited',      pts:3,  track:'x', on:true},
+  {id:'a9', label:'Ran a workshop or led a session',  pts:5,  track:'x', on:true},
+  {id:'a10',label:'Represented the club externally',  pts:5,  track:'x', on:true}
+];
+function cloneActions(){return DEFAULT_ACTIONS.map(function(a){return {id:a.id,label:a.label,pts:a.pts,track:a.track,on:a.on}})}
+
+/* ---------------- persistence ----------------
+   localStorage keeps a semester's work across page loads. It is wrapped
+   because a file:// open or a locked-down browser will throw, and a points
+   tracker that crashes on load is worse than one that forgets. The JSON
+   export below is the real handoff mechanism between officers. */
+function save(){
+  try{
+    localStorage.setItem(SAVE_KEY,JSON.stringify(serialize()));
+    var el=$('savestamp'); if(el)el.textContent='saved '+new Date().toLocaleTimeString();
+  }catch(e){}
+}
+function serialize(){
+  return {
+    v:1,
+    people:S.people.map(function(p){return {name:p.name,year:p.year,track:p.track,mbti:p.mbti,lead:p.lead,note:p.note,org:p.org}}),
+    orgNames:S.orgNames, actions:S.actions, log:S.log, seq:S.seq, rules:S.rules
+  };
+}
+function restore(d){
+  if(!d||!d.people||!d.people.length)return false;
+  S.people=d.people.map(function(p){
+    return {name:p.name,year:p.year,track:p.track,mbti:p.mbti||null,lead:!!p.lead,
+            note:p.note||'',org:p.org|0,pts:0,evts:0,cross:0,hist:[]};
+  });
+  var n=0; S.people.forEach(function(p){if(p.org+1>n)n=p.org+1});
+  S.orgs=[]; for(var i=0;i<n;i++)S.orgs.push([]);
+  S.people.forEach(function(p){S.orgs[p.org].push(p)});
+  S.orgNames=d.orgNames||[];
+  S.actions=(d.actions&&d.actions.length)?d.actions:cloneActions();
+  S.log=d.log||[]; S.seq=d.seq||1;
+  S.rules=d.rules||S.rules;
+  return true;
+}
+function loadSaved(){
+  try{var s=localStorage.getItem(SAVE_KEY);return s?JSON.parse(s):null}catch(e){return null}
+}
+// Restored rules live in S.rules, but the inputs still show their HTML
+// defaults until this runs — without it the panel reports one bonus while
+// scoring with another.
+function syncRuleInputs(){
+  ['cross','explore','full','thresh'].forEach(function(k){
+    var el=$('r-'+k);if(el&&S.rules[k]!=null)el.value=S.rules[k];
+  });
+  var oc=$('orgcount');if(oc&&S.orgs.length)oc.value=S.orgs.length;
 }
 
-/* ---------------- tabs ---------------- */
+/* ---------------- small helpers ---------------- */
+function esc(s){
+  return String(s).replace(/[&<>"']/g,function(m){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+  });
+}
+function say(text,kind){var m=$('msg');m.textContent=text;m.className='msg show'+(kind?' '+kind:'')}
+function cupSay(text,kind){var m=$('cupmsg');m.textContent=text;m.className='msg show'+(kind?' '+kind:'')}
+function pad(i){return String(i+1).padStart(2,'0')}
+function orgLabel(i){return S.orgNames[i]||('Org '+pad(i))}
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}
+  return a;
+}
+function download(text,name){
+  var blob=new Blob([text],{type:'text/plain'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  URL.revokeObjectURL(a.href);
+}
+function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'}
+
+/* ---------------- navigation ---------------- */
+function setView(id){
+  Array.prototype.forEach.call(document.querySelectorAll('.view'),function(v){v.classList.toggle('on',v.id===id)});
+  Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
+    b.setAttribute('aria-current',b.dataset.view===id?'true':'false');
+  });
+  if(id==='v-teams')renderTeam();
+  if(id==='v-cup')renderCup();
+  if(id==='v-assist'){computeSwaps();renderAssistant()}
+  window.scrollTo(0,0);
+}
+Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
+  b.addEventListener('click',function(){if(!b.disabled)setView(b.dataset.view)});
+});
+function unlockNav(){
+  Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){b.disabled=false});
+}
+
+/* ---------------- scoped tabs ---------------- */
 Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
   t.addEventListener('click',function(){
-    document.querySelectorAll('.tab').forEach(function(x){x.setAttribute('aria-selected','false')});
-    document.querySelectorAll('.tabpane').forEach(function(x){x.classList.remove('on')});
+    var scope=t.closest('.panel')||document;
+    Array.prototype.forEach.call(scope.querySelectorAll('.tab'),function(x){x.setAttribute('aria-selected','false')});
+    Array.prototype.forEach.call(scope.querySelectorAll('.tabpane'),function(x){x.classList.remove('on')});
     t.setAttribute('aria-selected','true');
     $(t.dataset.pane).classList.add('on');
   });
 });
 
-/* ---------------- CSV parsing ---------------- */
+/* ---------------- CSV ---------------- */
 function parseCSV(text){
   var rows=[],row=[],cur='',q=false;
   for(var i=0;i<text.length;i++){
@@ -265,8 +595,21 @@ function parseCSV(text){
   return rows.filter(function(r){return r.some(function(c){return String(c).trim()!==''})})
              .map(function(r){return r.map(function(c){return String(c).trim()})});
 }
-
-/* ---------------- column detection ---------------- */
+function looksLikeHeader(row){
+  return row.some(function(c){return /[a-z]/i.test(c)}) &&
+         !row.some(function(c){return /^[12]$/.test(c)});
+}
+function sheetToCsvUrl(url){
+  url=(url||'').trim();
+  if(!url)return null;
+  if(/\/pub/.test(url)&&/output=csv/.test(url))return url;
+  if(/\/pub/.test(url))return url.replace(/([?&])output=[^&]*/,'').replace(/#.*$/,'')+(url.indexOf('?')>-1?'&':'?')+'output=csv';
+  var m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if(!m)return null;
+  var gid=(url.match(/[#&?]gid=([0-9]+)/)||[])[1]||'0';
+  return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv&gid='+gid;
+}
+/* ================= INTAKE ================= */
 var FIELDS=[
   {key:'name', label:'Name', req:true,
    pats:[/full name/i,/^name$/i,/your name/i,/name/i]},
@@ -274,6 +617,8 @@ var FIELDS=[
    pats:[/year.*(club|member)/i,/class year/i,/first or second/i,/\byear\b/i,/returning/i]},
   {key:'track', label:'Track lean', req:true,
    pats:[/side of the club/i,/\btrack\b/i,/consult.*compet|compet.*consult/i,/interested in\?/i,/interest/i]},
+  {key:'mbti', label:'MBTI type', req:true,
+   pats:[/mbti/i,/myers.?briggs/i,/16\s*person/i,/personality/i,/\btype\b/i]},
   {key:'lead', label:'Lead interest', req:false,
    pats:[/org lead/i,/interested in being/i,/\blead\b/i]},
   {key:'note', label:'Notes (optional)', req:false,
@@ -281,40 +626,33 @@ var FIELDS=[
 ];
 function guessCol(pats){
   for(var p=0;p<pats.length;p++)
-    for(var i=0;i<headers.length;i++)
-      if(pats[p].test(headers[i]))return i;
+    for(var i=0;i<S.headers.length;i++)
+      if(pats[p].test(S.headers[i]))return i;
   return -1;
 }
-function looksLikeHeader(row){
-  // header if no cell parses as a year value and at least one cell has letters
-  return row.some(function(c){return /[a-z]/i.test(c)}) &&
-         !row.some(function(c){return /^[12]$/.test(c)});
-}
 function buildMapper(){
-  var box=$('maprows'); box.innerHTML='';
+  var box=$('maprows');box.innerHTML='';
   FIELDS.forEach(function(f){
     var guessed=guessCol(f.pats);
-    var div=document.createElement('div'); div.className='maprow';
-    var lab=document.createElement('label'); lab.textContent=f.label; lab.setAttribute('for','map-'+f.key);
-    var sel=document.createElement('select'); sel.id='map-'+f.key; sel.dataset.key=f.key;
-    var opt=document.createElement('option'); opt.value='-1'; opt.textContent='\u2014 not used \u2014'; sel.appendChild(opt);
-    headers.forEach(function(h,i){
-      var o=document.createElement('option'); o.value=String(i);
+    var div=document.createElement('div');div.className='maprow';
+    var lab=document.createElement('label');
+    lab.textContent=f.label;lab.className=f.req?'req':'';lab.setAttribute('for','map-'+f.key);
+    var sel=document.createElement('select');sel.id='map-'+f.key;
+    var opt=document.createElement('option');opt.value='-1';opt.textContent='\u2014 not used \u2014';sel.appendChild(opt);
+    S.headers.forEach(function(h,i){
+      var o=document.createElement('option');o.value=String(i);
       o.textContent=(h.length>70?h.slice(0,70)+'\u2026':h)||('Column '+(i+1));
       sel.appendChild(o);
     });
     sel.value=String(guessed);
-    div.appendChild(lab); div.appendChild(sel);
-    box.appendChild(div);
+    sel.addEventListener('change',checkMapping);
+    div.appendChild(lab);div.appendChild(sel);box.appendChild(div);
   });
-  $('mapper').classList.add('on');
+  $('mapper').style.display='block';
+  checkMapping();
 }
-function mapped(key){
-  var el=$('map-'+key);
-  return el?parseInt(el.value,10):-1;
-}
+function mapped(key){var el=$('map-'+key);return el?parseInt(el.value,10):-1}
 
-/* ---------------- value normalization ---------------- */
 function normYear(v){
   v=String(v||'');
   if(/first|1st|new member|freshman|^1$/i.test(v))return 1;
@@ -325,125 +663,138 @@ function normTrack(v){
   v=String(v||'').trim();
   if(!v)return null;
   if(/either|both|not sure|undecided|neither|^e$/i.test(v))return 'e';
-  if(/comp|case|fbla|^k$/i.test(v))return 'k';           // checked before consulting: both start with C
+  if(/comp|case|fbla|^k$/i.test(v))return 'k';   // before consulting: both start with C
   if(/consult|^c$/i.test(v))return 'c';
   return null;
 }
-function normLead(v){ return /^\s*(y|yes|true|1|interested)/i.test(String(v||'')) }
+function normLead(v){return /^\s*(y|yes|true|1|interested)/i.test(String(v||''))}
+// Pulls a type out of whatever the member wrote: "INTJ-A", "i'm an enfp", "ENFP ".
+function normMbti(v){
+  var m=String(v||'').toUpperCase().replace(/[^A-Z]/g,'').match(/([EI])([SN])([TF])([JP])/);
+  return m?m[0]:null;
+}
+// Attendance names have to survive "Last, First", double spaces, and punctuation.
+function normName(s){
+  s=String(s||'').trim();
+  if(s.indexOf(',')>-1){var p=s.split(',');s=p[1]+' '+p[0]}
+  return s.toLowerCase().replace(/[^a-z\s]/g,'').replace(/\s+/g,' ').trim();
+}
 
 function buildPeople(){
-  var ci={name:mapped('name'),year:mapped('year'),track:mapped('track'),lead:mapped('lead'),note:mapped('note')};
-  if(ci.name<0||ci.year<0||ci.track<0)return {people:[],err:'Map the name, year, and track columns first.'};
-  var people=[],skipped=0,unknownTrack=0,unknownYear=0;
-  rawRows.forEach(function(r){
+  var ci={};FIELDS.forEach(function(f){ci[f.key]=mapped(f.key)});
+  var miss=FIELDS.filter(function(f){return f.req&&ci[f.key]<0}).map(function(f){return f.label});
+  if(miss.length)return {err:'Map these first: '+miss.join(', ')+'.',people:[]};
+  var people=[],skipped=0,unknownTrack=0,unknownYear=0,noType=[];
+  S.rawRows.forEach(function(r){
     var name=(r[ci.name]||'').trim();
     if(!name){skipped++;return}
     var year=normYear(r[ci.year]);
     var track=normTrack(r[ci.track]);
+    var mbti=normMbti(r[ci.mbti]);
     if(year===null){year=1;unknownYear++}
     if(track===null){track='e';unknownTrack++}
-    people.push({
-      name:name, year:year, track:track,
+    if(!mbti)noType.push(name);
+    people.push({name:name,year:year,track:track,mbti:mbti,
       lead:(ci.lead>=0?normLead(r[ci.lead]):false)&&year===2,
-      note:ci.note>=0?(r[ci.note]||'').trim():''
-    });
+      note:ci.note>=0?(r[ci.note]||'').trim():'',
+      org:0,pts:0,evts:0,cross:0,hist:[]});
   });
-  return {people:people,skipped:skipped,unknownTrack:unknownTrack,unknownYear:unknownYear};
+  return {people:people,skipped:skipped,unknownTrack:unknownTrack,unknownYear:unknownYear,noType:noType};
 }
 
-/* ---------------- loading sources ---------------- */
+// Live gate: MBTI is required, so show exactly who is missing one before the
+// draft is attempted rather than failing with a count.
+function checkMapping(){
+  var box=$('mapstatus');box.innerHTML='';
+  var ci={};FIELDS.forEach(function(f){ci[f.key]=mapped(f.key)});
+  var miss=FIELDS.filter(function(f){return f.req&&ci[f.key]<0}).map(function(f){return f.label});
+  if(miss.length){
+    box.innerHTML='<div class="msg show">Required field'+(miss.length>1?'s':'')+' not mapped: '+esc(miss.join(', '))+'.</div>';
+    $('run').disabled=true;return;
+  }
+  var r=buildPeople();
+  if(r.err){box.innerHTML='<div class="msg show">'+esc(r.err)+'</div>';$('run').disabled=true;return}
+  if(r.noType.length){
+    var names=r.noType.slice(0,10).map(esc).join(', ');
+    box.innerHTML='<div class="notes"><b>'+r.noType.length+' member'+(r.noType.length>1?'s have':' has')+' no readable MBTI type</b>'+
+      '<div style="margin-bottom:8px">'+names+(r.noType.length>10?', and '+(r.noType.length-10)+' more':'')+'</div>'+
+      'MBTI is required, so the draft is held until these are filled in. Chase them in the form, or add the type to the sheet and hit Refresh. '+
+      'If someone will not answer, enter the type they would guess rather than leaving it blank.</div>';
+    $('run').disabled=true;return;
+  }
+  var warn=[];
+  if(r.unknownYear)warn.push(r.unknownYear+' unreadable year value'+(r.unknownYear>1?'s':'')+' will default to new member');
+  if(r.unknownTrack)warn.push(r.unknownTrack+' unreadable track value'+(r.unknownTrack>1?'s':'')+' will default to Either');
+  box.innerHTML='<div class="msg show good">'+r.people.length+' members ready, all typed'+
+    (warn.length?' \u2014 '+esc(warn.join('; ')):'')+'.</div>';
+  $('run').disabled=false;
+}
+
 function ingest(text,source){
   var rows=parseCSV(text);
-  if(!rows.length){say('That came back empty — check the sheet has data.');return false}
-  if(looksLikeHeader(rows[0])){headers=rows[0];rawRows=rows.slice(1)}
-  else{headers=rows[0].map(function(_,i){return 'Column '+(i+1)});rawRows=rows}
-  if(!rawRows.length){say('Found headers but no member rows.');return false}
+  if(!rows.length){say('That came back empty \u2014 check the sheet has data.');return false}
+  if(looksLikeHeader(rows[0])){S.headers=rows[0];S.rawRows=rows.slice(1)}
+  else{S.headers=rows[0].map(function(_,i){return 'Column '+(i+1)});S.rawRows=rows}
+  if(!S.rawRows.length){say('Found headers but no member rows.');return false}
   buildMapper();
-  $('redraw').disabled=true; $('export').disabled=true;
-  say('Loaded '+rawRows.length+' rows from '+source+'. Check the column mapping, then run the draft.','good');
+  say('Loaded '+S.rawRows.length+' rows from '+source+'. Check the mapping, then run the draft.','good');
   return true;
 }
-
-function sheetToCsvUrl(url){
-  url=url.trim();
-  if(!url)return null;
-  // already a published-csv link
-  if(/\/pub/.test(url)&&/output=csv/.test(url))return url;
-  if(/\/pub/.test(url))return url.replace(/([?&])output=[^&]*/,'').replace(/#.*$/,'')+(url.indexOf('?')>-1?'&':'?')+'output=csv';
-  // standard sheet url -> gviz csv export
-  var m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if(!m)return null;
-  var gid=(url.match(/[#&?]gid=([0-9]+)/)||[])[1]||'0';
-  return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv&gid='+gid;
-}
-
 function loadSheet(url){
   var csvUrl=sheetToCsvUrl(url);
-  if(!csvUrl){say('That doesn\u2019t look like a Google Sheets link. Paste the URL from your browser\u2019s address bar, or a Publish-to-web CSV link.');return}
-  lastSheetUrl=url;
+  if(!csvUrl){say('That doesn\u2019t look like a Google Sheets link. Paste the URL from your address bar, or a Publish-to-web CSV link.');return}
+  S.lastSheetUrl=url;
   say('Connecting\u2026','info');
   fetch(csvUrl,{redirect:'follow'})
-    .then(function(r){
-      if(!r.ok)throw new Error('HTTP '+r.status);
-      return r.text();
-    })
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
     .then(function(text){
-      if(/^\s*</.test(text)){
-        say('Google returned a sign-in page instead of data. The sheet isn\u2019t readable without a login yet — publish it to the web, or set it to \u201CAnyone with the link\u201D. Or just use the Upload CSV tab.');
-        return;
-      }
+      if(/^\s*</.test(text)){say('Google returned a sign-in page instead of data. Publish the tab to the web, or use the Upload CSV tab.');return}
       if(ingest(text,'the sheet'))$('refresh').disabled=false;
     })
-    .catch(function(){
-      say('Couldn\u2019t reach the sheet — Google blocked the request or the link is wrong. Easiest fix: File \u2192 Download \u2192 CSV, then use the Upload CSV tab.');
-    });
+    .catch(function(){say('Couldn\u2019t reach the sheet. File \u2192 Download \u2192 CSV, then use the Upload CSV tab.')});
 }
-
-/* file */
-var drop=$('drop');
-drop.addEventListener('click',function(){$('file').click()});
-drop.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click()}});
-['dragenter','dragover'].forEach(function(ev){
-  drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('over')});
-});
-['dragleave','drop'].forEach(function(ev){
-  drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('over')});
-});
-drop.addEventListener('drop',function(e){
-  var f=e.dataTransfer.files[0]; if(f)readFile(f);
-});
-$('file').addEventListener('change',function(e){
-  var f=e.target.files[0]; if(f)readFile(f);
-});
-function readFile(f){
+function wireDrop(dropId,fileId,handler){
+  var d=$(dropId);
+  d.addEventListener('click',function(){$(fileId).click()});
+  d.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();$(fileId).click()}});
+  ['dragenter','dragover'].forEach(function(ev){d.addEventListener(ev,function(e){e.preventDefault();d.classList.add('over')})});
+  ['dragleave','drop'].forEach(function(ev){d.addEventListener(ev,function(e){e.preventDefault();d.classList.remove('over')})});
+  d.addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)handler(f)});
+  $(fileId).addEventListener('change',function(e){var f=e.target.files[0];if(f)handler(f)});
+}
+function readRosterFile(f){
   var fr=new FileReader();
   fr.onload=function(){ingest(String(fr.result),f.name)};
   fr.onerror=function(){say('Couldn\u2019t read that file.')};
   fr.readAsText(f);
 }
 
-/* ---------------- draft ---------------- */
-function shuffle(a){
-  for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}
-  return a;
+/* ================= DRAFT ================= */
+// How much this person's type duplicates what an Org already holds. Only ever
+// breaks ties that stratum count and Org size left open, so turning it on can
+// never make size or track balance worse.
+function mbtiCost(p,group){
+  if(!p.mbti)return 0;
+  var cost=0;
+  group.forEach(function(q){
+    if(!q.mbti)return;
+    for(var a=0;a<4;a++)if(q.mbti[a]===p.mbti[a])cost++;
+    if(q.mbti===p.mbti)cost+=2;
+  });
+  return cost;
 }
-// Assign each member to the Org that most needs them: fewest from this stratum
-// first, then smallest overall, with randomized tiebreaks. This keeps every
-// category evenly spread AND keeps Org sizes within one of each other.
-function dealStratum(list,groups,taken){
+function dealStratum(list,groups,taken,useMbti){
   shuffle(list);
   list.forEach(function(p){
-    var best=-1,bestS=Infinity,bestT=Infinity;
-    var order=shuffle(groups.map(function(_,i){return i}));  // random tiebreak
-    order.forEach(function(i){
-      var s=taken[i],t=groups[i].length;
-      if(s<bestS||(s===bestS&&t<bestT)){best=i;bestS=s;bestT=t}
+    var best=-1,bestS=Infinity,bestT=Infinity,bestM=Infinity;
+    shuffle(groups.map(function(_,i){return i})).forEach(function(i){
+      var s=taken[i],t=groups[i].length,m=useMbti?mbtiCost(p,groups[i]):0;
+      if(s<bestS||(s===bestS&&t<bestT)||(s===bestS&&t===bestT&&m<bestM)){best=i;bestS=s;bestT=t;bestM=m}
     });
-    groups[best].push(p);
-    taken[best]++;
+    groups[best].push(p);taken[best]++;
   });
 }
-function draft(people,n){
+function draft(people,n,useMbti){
   var groups=[];for(var i=0;i<n;i++)groups.push([]);
   var strata=[
     people.filter(function(p){return p.lead}),
@@ -457,181 +808,1018 @@ function draft(people,n){
   strata.forEach(function(st){
     if(!st.length)return;
     var taken=[];for(var i=0;i<n;i++)taken.push(0);
-    dealStratum(st,groups,taken);
+    dealStratum(st,groups,taken,useMbti);
   });
   return groups;
 }
-
-/* ---------------- render ---------------- */
-function counts(members){
-  var c={c:0,k:0,e:0,leads:0,y1:0,y2:0};
-  members.forEach(function(p){
-    c[p.track]++; if(p.lead)c.leads++;
-    if(p.year===1)c.y1++;else c.y2++;
-  });
-  return c;
-}
-function esc(s){
-  return String(s).replace(/[&<>"']/g,function(m){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
-  });
-}
-function stat(n,l){return '<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'}
-
-function render(){
-  var res=$('results');
-  if(!orgs.length){res.innerHTML='';return}
-  var all=[];orgs.forEach(function(g){all=all.concat(g)});
-  var tot=counts(all),sizes=orgs.map(function(g){return g.length});
-  var noted=all.filter(function(p){return p.note});
-
-  var html='<div class="stats">'+
-    stat(all.length,'Members drafted')+
-    stat(orgs.length,'Orgs')+
-    stat(Math.min.apply(null,sizes)+'\u2013'+Math.max.apply(null,sizes),'Org size')+
-    stat(tot.leads,'Org Leads')+
-    stat(tot.y2,'Second-years')+
-    stat(tot.y1,'New members')+
-  '</div>';
-
-  if(noted.length){
-    html+='<div class="notes"><b>'+noted.length+' member'+(noted.length>1?'s':'')+' left a note \u2014 review before finalizing</b><ul>';
-    noted.slice(0,12).forEach(function(p){
-      html+='<li><b style="display:inline">'+esc(p.name)+':</b> '+esc(p.note)+'</li>';
-    });
-    if(noted.length>12)html+='<li>\u2026and '+(noted.length-12)+' more (see the highlighted rows below).</li>';
-    html+='</ul></div>';
-  }
-
-  html+='<div class="legend">'+
-    '<span><i class="dot c"></i>Consulting</span>'+
-    '<span><i class="dot k"></i>Competition</span>'+
-    '<span><i class="dot e"></i>Either</span>'+
-    '<span style="color:var(--flag)">Red border = needs a manual fix</span></div>';
-
-  html+='<div class="grid">';
-  orgs.forEach(function(g,i){
-    var c=counts(g),n=g.length||1,flags=[];
-    if(c.leads<2)flags.push(c.leads===0?'No Lead assigned':'Only one Lead');
-    if(c.c===0&&c.k===0)flags.push('No committed members from either track');
-    else if(c.c===0)flags.push('No consulting members');
-    else if(c.k===0)flags.push('No competition members');
-    if(c.y1===0)flags.push('No new members');
-
-    html+='<div class="org'+(flags.length?' flagged':'')+'">'+
-      '<div class="orghead">'+
-      '<div class="orgno">Org '+String(i+1).padStart(2,'0')+' \u00B7 '+g.length+' members</div>'+
-      '<div class="orgname">Unnamed</div>'+
-      '<div class="bar">'+
-        '<i class="c" style="width:'+(c.c/n*100)+'%"></i>'+
-        '<i class="k" style="width:'+(c.k/n*100)+'%"></i>'+
-        '<i class="e" style="width:'+(c.e/n*100)+'%"></i></div>'+
-      '<div class="barkey"><span>'+c.c+'C \u00B7 '+c.k+'K \u00B7 '+c.e+'E</span><span>'+c.y2+'y2 / '+c.y1+'y1</span></div>';
-    flags.forEach(function(f){html+='<div class="warn">! '+f+'</div>'});
-    html+='</div><ul class="roster">';
-    g.forEach(function(p){
-      var role=p.lead?'Org Lead':(p.year===2?'Associate':'Analyst');
-      html+='<li'+(p.note?' class="hasnote"':'')+'>'+
-        '<i class="dot '+p.track+'"></i>'+
-        '<span class="nm">'+esc(p.name)+'</span>'+
-        (p.note?'<span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+
-        '<span class="role'+(p.lead?' lead':'')+'">'+role+'</span>'+
-        moveSelect(p,i)+'</li>';
-    });
-    if(!g.length)html+='<li style="color:var(--slate)">Empty</li>';
-    html+='</ul></div>';
-  });
-  html+='</div>';
-  res.innerHTML=html;
-
-  Array.prototype.forEach.call(res.querySelectorAll('select.move'),function(sel){
-    sel.addEventListener('change',function(){
-      move(parseInt(sel.dataset.org,10),sel.dataset.name,parseInt(sel.value,10));
-    });
-  });
-}
-function moveSelect(p,from){
-  var s='<select class="move" data-org="'+from+'" data-name="'+esc(p.name)+'" title="Move to another Org"><option value="'+from+'">\u2192</option>';
-  for(var i=0;i<orgs.length;i++){
-    if(i===from)continue;
-    s+='<option value="'+i+'">Org '+String(i+1).padStart(2,'0')+'</option>';
-  }
-  return s+'</select>';
-}
-function move(from,name,to){
-  if(from===to)return;
-  var idx=-1;
-  orgs[from].forEach(function(p,i){if(p.name===name)idx=i});
-  if(idx<0)return;
-  orgs[to].push(orgs[from].splice(idx,1)[0]);
-  render();
-}
-
-/* ---------------- run ---------------- */
 function run(){
   var n=parseInt($('orgcount').value,10);
   if(!n||n<2){say('Set the number of Orgs to 2 or more.');return}
   var r=buildPeople();
   if(r.err){say(r.err);return}
-  if(!r.people.length){say('No members found. Check the column mapping above.');return}
-  if(r.people.length<n){say('Only '+r.people.length+' members for '+n+' Orgs. Lower the Org count.');return}
+  if(r.noType.length){say('Every member needs an MBTI type before the draft runs \u2014 '+r.noType.length+' still missing.');return}
+  if(r.people.length<n*2){say('Only '+r.people.length+' members for '+n+' Orgs. That is fewer than two per Org \u2014 lower the count.');return}
 
-  orgs=draft(r.people,n);
-  $('export').disabled=false; $('redraw').disabled=false;
-
+  S.people=r.people;
+  S.orgs=draft(r.people,n,$('mbtibal').checked);
+  S.orgs.forEach(function(g,i){g.forEach(function(p){p.org=i})});
+  if(!S.actions.length)S.actions=cloneActions();
+  S.applied={};
+  unlockNav();
+  scoreAll();
+  renderDraft();
   var leads=r.people.filter(function(p){return p.lead}).length;
   var notes=[];
-  if(r.unknownYear)notes.push(r.unknownYear+' unreadable year value'+(r.unknownYear>1?'s':'')+' defaulted to new member');
-  if(r.unknownTrack)notes.push(r.unknownTrack+' unreadable track value'+(r.unknownTrack>1?'s':'')+' defaulted to Either');
+  if(r.unknownYear)notes.push(r.unknownYear+' year value'+(r.unknownYear>1?'s':'')+' defaulted to new member');
+  if(r.unknownTrack)notes.push(r.unknownTrack+' track value'+(r.unknownTrack>1?'s':'')+' defaulted to Either');
   if(leads<n*2)notes.push('only '+leads+' Lead volunteers for '+(n*2)+' slots');
-
-  if(notes.length)say('Drafted '+r.people.length+' members \u2014 '+notes.join('; ')+'.');
-  else say('Drafted '+r.people.length+' members into '+n+' Orgs.','good');
-  render();
+  S.draftNotes=notes;
+  save();
+  setView('v-draft');
 }
-function exportCsv(){
-  var rows=['Org,Name,Role,Year,Track,Note'];
-  orgs.forEach(function(g,i){
-    g.forEach(function(p){
-      var role=p.lead?'Org Lead':(p.year===2?'Associate':'Analyst');
-      rows.push(['Org '+String(i+1).padStart(2,'0'),
-        '"'+p.name.replace(/"/g,'""')+'"',role,p.year,TRACKNAME[p.track],
-        '"'+(p.note||'').replace(/"/g,'""')+'"'].join(','));
+/* ================= ORG CUP ================= */
+var TRACK_OPTS=[['c','Consulting'],['k','Competition'],['s','Social'],['x','Neutral / other']];
+
+function actById(id){for(var i=0;i<S.actions.length;i++)if(S.actions[i].id===id)return S.actions[i];return null}
+function newActionId(){return 'a'+(Date.now()%1e7)+Math.floor(Math.random()*99)}
+
+function renderActions(){
+  var box=$('actlist');
+  var h='<div class="act head"><span>Action</span><span>Points</span><span>Track</span><span>Live</span><span></span></div>';
+  S.actions.forEach(function(a){
+    h+='<div class="act'+(a.on?'':' off')+'" data-id="'+a.id+'">'+
+      '<input type="text" class="a-label" value="'+esc(a.label)+'" aria-label="Action name">'+
+      '<input type="number" class="a-pts" value="'+a.pts+'" min="0" max="999" aria-label="Points">'+
+      '<select class="a-track tagsel" aria-label="Track">'+
+        TRACK_OPTS.map(function(o){return '<option value="'+o[0]+'"'+(a.track===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+
+      '</select>'+
+      '<label class="check"><input type="checkbox" class="a-on"'+(a.on?' checked':'')+'></label>'+
+      '<button class="kill" title="Delete action" aria-label="Delete action">\u00D7</button>'+
+    '</div>';
+  });
+  box.innerHTML=h;
+
+  Array.prototype.forEach.call(box.querySelectorAll('.act[data-id]'),function(row){
+    var a=actById(row.dataset.id);
+    row.querySelector('.a-label').addEventListener('input',function(e){a.label=e.target.value;fillActionSelect();save()});
+    row.querySelector('.a-pts').addEventListener('input',function(e){a.pts=parseInt(e.target.value,10)||0;scoreAll();refreshScored()});
+    row.querySelector('.a-track').addEventListener('change',function(e){a.track=e.target.value;scoreAll();refreshScored()});
+    row.querySelector('.a-on').addEventListener('change',function(e){
+      a.on=e.target.checked;row.classList.toggle('off',!a.on);
+      fillActionSelect();scoreAll();refreshScored();
+    });
+    row.querySelector('.kill').addEventListener('click',function(){
+      var used=S.log.filter(function(l){return l.actionId===a.id}).length;
+      if(used&&!confirm('"'+a.label+'" has '+used+' logged entr'+(used>1?'ies':'y')+'. Deleting the action deletes those entries too. Continue?'))return;
+      S.log=S.log.filter(function(l){return l.actionId!==a.id});
+      S.actions=S.actions.filter(function(x){return x.id!==a.id});
+      renderActions();fillActionSelect();scoreAll();refreshScored();
     });
   });
-  var blob=new Blob([rows.join('\n')],{type:'text/csv'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='org-draft.csv'; a.click();
-  URL.revokeObjectURL(a.href);
+}
+function fillActionSelect(){
+  var sel=$('qact');if(!sel)return;
+  var keep=sel.value;
+  sel.innerHTML=S.actions.filter(function(a){return a.on}).map(function(a){
+    return '<option value="'+a.id+'">'+esc(a.label)+' \u00B7 '+a.pts+'pt'+(a.pts===1?'':'s')+'</option>';
+  }).join('');
+  if(keep)sel.value=keep;
 }
 
-/* ---------------- sample ---------------- */
-function sample(){
+/* ---- scoring ----
+   Base points come from the action. Cross-track is the bonus that makes the
+   whole system work: a consulting member scores more for showing up on the
+   competition side than for showing up on their own. Either-track members have
+   no side to cross from, so they get the smaller exploration bonus instead. */
+function scoreAll(){
+  S.standings=[];S.unmatched={};
+  if(!S.orgs.length)return;
+  var idx={};
+  S.people.forEach(function(p){p.pts=0;p.evts=0;p.cross=0;p.hist=[];idx[normName(p.name)]=p});
+  var R=S.rules, orgEvent={};
+  S.log.forEach(function(l){
+    var a=actById(l.actionId);
+    if(!a||!a.on)return;
+    var p=idx[l.norm];
+    if(!p){S.unmatched[l.name]=(S.unmatched[l.name]||0)+1;return}
+    var pts=a.pts,bonus=0,isCross=false;
+    if(a.track==='c'||a.track==='k'){
+      if(p.track!=='e'&&p.track!==a.track){bonus=R.cross;isCross=true}
+      else if(p.track==='e'){bonus=R.explore;isCross=true}
+    }
+    pts+=bonus;
+    p.pts+=pts;p.evts++;if(isCross)p.cross++;
+    p.hist.push({label:l.label||a.label,action:a.label,pts:pts,bonus:bonus,date:l.date,cross:isCross});
+    var key=p.org+'|'+l.actionId+'|'+(l.label||'')+'|'+(l.date||'');
+    orgEvent[key]=(orgEvent[key]||0)+1;
+  });
+  var bonusPts=S.orgs.map(function(){return 0}),bonusHits=S.orgs.map(function(){return 0});
+  Object.keys(orgEvent).forEach(function(k){
+    var oi=parseInt(k.split('|')[0],10),n=S.orgs[oi].length||1;
+    if(orgEvent[k]/n*100>=R.thresh){bonusPts[oi]+=R.full;bonusHits[oi]++}
+  });
+  S.standings=S.orgs.map(function(g,i){
+    var pts=bonusPts[i],evts=0,cross=0,attended=0,zero=[];
+    g.forEach(function(p){pts+=p.pts;evts+=p.evts;cross+=p.cross;if(p.evts)attended++;else zero.push(p)});
+    return {i:i,size:g.length,pts:pts,bonus:bonusPts[i],bonusHits:bonusHits[i],evts:evts,cross:cross,zero:zero,
+            per:g.length?pts/g.length:0,
+            rate:g.length?attended/g.length*100:0,
+            crossRate:evts?cross/evts*100:0};
+  });
+  S.standings.slice().sort(function(a,b){return b.per-a.per}).forEach(function(s,r){s.rank=r+1});
+  save();
+}
+function refreshScored(){
+  renderStandings();renderLog();renderDraft();
+  if($('v-teams').classList.contains('on'))renderTeam();
+  if($('v-assist').classList.contains('on'))renderAssistant();
+}
+
+function renderStandings(){
+  var box=$('standings');
+  if(!S.log.length){
+    box.innerHTML='<p class="empty">Nothing logged yet. Standings appear as soon as you add points above \u2014 or load a sample semester to see it running.</p>';
+    return;
+  }
+  var ranked=S.standings.slice().sort(function(a,b){return b.per-a.per}),n=ranked.length;
+  var h='<div class="tablewrap"><table><thead><tr><th class="l">#</th><th class="l">Org</th>'+
+    '<th>Pts / member</th><th>Total</th><th>Full-Org</th><th>Entries</th><th>Turnout</th><th>Cross-track</th></tr></thead><tbody>';
+  ranked.forEach(function(s){
+    var cls=s.rank===1?'top':(s.rank>n-Math.max(1,Math.floor(n/3))?'bottom':'');
+    h+='<tr class="'+cls+'"><td class="l rank">'+s.rank+'</td>'+
+      '<td class="l name">'+esc(orgLabel(s.i))+'</td>'+
+      '<td>'+s.per.toFixed(1)+'</td><td>'+s.pts+'</td>'+
+      '<td>'+(s.bonusHits?s.bonusHits+'\u00D7':'\u2013')+'</td>'+
+      '<td>'+s.evts+'</td><td>'+Math.round(s.rate)+'%</td><td>'+Math.round(s.crossRate)+'%</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  var un=Object.keys(S.unmatched);
+  if(un.length){
+    h+='<div class="unmatched"><b>'+un.length+' name'+(un.length>1?'s':'')+' in the log match nobody on the roster</b>'+
+      esc(un.slice(0,14).join(' \u00B7 '))+(un.length>14?' \u00B7 and '+(un.length-14)+' more':'')+
+      '<br><br>These score nothing. Usually a nickname or a typo \u2014 fix the spelling in the log below, or add the member and re-run the draft.</div>';
+  }
+  box.innerHTML=h;
+}
+function renderLog(){
+  $('logcount').textContent=S.log.length?S.log.length+' entries':'';
+  var box=$('logtable');
+  if(!S.log.length){box.innerHTML='<p class="empty">The log is empty.</p>';return}
+  var rows=S.log.slice().reverse().slice(0,250);
+  var h='<div class="tablewrap"><table><thead><tr><th class="l">Member</th><th class="l">Action</th>'+
+    '<th class="l">Label</th><th class="l">Date</th><th>Pts</th><th></th></tr></thead><tbody>';
+  var idx={};S.people.forEach(function(p){idx[normName(p.name)]=p});
+  rows.forEach(function(l){
+    var a=actById(l.actionId),p=idx[l.norm];
+    var pts='\u2013';
+    if(a&&a.on&&p){
+      var b=0;
+      if(a.track==='c'||a.track==='k'){
+        if(p.track!=='e'&&p.track!==a.track)b=S.rules.cross;
+        else if(p.track==='e')b=S.rules.explore;
+      }
+      pts=(a.pts+b)+(b?' (+'+b+')':'');
+    }
+    h+='<tr class="'+(p?'':'rowflag')+'"><td class="l name">'+esc(l.name)+(p?'':' <span class="mono" style="color:var(--flag);font-size:10px">UNMATCHED</span>')+'</td>'+
+      '<td class="l">'+esc(a?a.label:'(deleted action)')+(a&&!a.on?' <span class="mono" style="font-size:10px;color:var(--mute)">OFF</span>':'')+'</td>'+
+      '<td class="l">'+esc(l.label||'')+'</td><td class="l">'+esc(l.date||'')+'</td><td>'+pts+'</td>'+
+      '<td><button class="kill logkill" data-id="'+l.id+'" title="Remove entry">\u00D7</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  if(S.log.length>250)h+='<p class="hint" style="margin-top:10px">Showing the 250 most recent of '+S.log.length+' entries.</p>';
+  box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll('.logkill'),function(b){
+    b.addEventListener('click',function(){
+      S.log=S.log.filter(function(l){return String(l.id)!==b.dataset.id});
+      scoreAll();refreshScored();
+    });
+  });
+}
+function renderCup(){renderActions();fillActionSelect();renderStandings();renderLog()}
+
+function addLog(names,actionId,label,date){
+  names.forEach(function(nm){
+    S.log.push({id:S.seq++,name:nm,norm:normName(nm),actionId:actionId,label:label||'',date:date||''});
+  });
+  scoreAll();refreshScored();
+}
+function quickAdd(){
+  if(!S.orgs.length){cupSay('Run the draft first \u2014 there is no roster to score against.');return}
+  var actionId=$('qact').value;
+  if(!actionId){cupSay('No active actions. Add one, or switch one back on.');return}
+  var names=$('qnames').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);
+  if(!names.length){cupSay('Paste at least one name.');return}
+  addLog(names,actionId,$('qevent').value.trim(),$('qdate').value);
+  $('qnames').value='';
+  var un=Object.keys(S.unmatched).length;
+  cupSay('Logged '+names.length+' entr'+(names.length>1?'ies':'y')+' for '+actById(actionId).label+'.'+
+    (un?' '+un+' name'+(un>1?'s':'')+' unmatched \u2014 see standings.':''),un?'':'good');
+}
+
+/* ---- CSV import: map each distinct event name onto an action ---- */
+var ATT_FIELDS=[
+  {key:'aname', label:'Name', pats:[/full name/i,/^name$/i,/attendee/i,/member/i,/name/i]},
+  {key:'aevent',label:'Event', pats:[/event name/i,/\bevent\b/i,/meeting/i,/session/i,/activity/i,/action/i]},
+  {key:'adate', label:'Date (optional)', pats:[/timestamp/i,/\bdate\b/i,/when/i]}
+];
+var attHeaders=[],attRows=[],lastCupUrl='';
+function guessAction(eventName){
+  var e=String(eventName||'').toLowerCase();
+  var best=null;
+  S.actions.forEach(function(a){
+    if(best)return;
+    var words=a.label.toLowerCase().split(/[^a-z]+/).filter(function(w){return w.length>4});
+    if(words.some(function(w){return e.indexOf(w)>-1}))best=a;
+  });
+  if(best)return best.id;
+  if(/battle/.test(e))return (S.actions.filter(function(a){return /battle/i.test(a.label)})[0]||{}).id||null;
+  if(/social|mixer|bowling|game night/.test(e))return (S.actions.filter(function(a){return a.track==='s'})[0]||{}).id||null;
+  if(/consult|client|workshop/.test(e))return (S.actions.filter(function(a){return a.track==='c'})[0]||{}).id||null;
+  if(/comp|case|fbla|prep/.test(e))return (S.actions.filter(function(a){return a.track==='k'})[0]||{}).id||null;
+  return (S.actions.filter(function(a){return a.on})[0]||{}).id||null;
+}
+function buildCupMapper(){
+  var box=$('cupmaprows');box.innerHTML='';
+  ATT_FIELDS.forEach(function(f){
+    var guessed=-1;
+    for(var p=0;p<f.pats.length&&guessed<0;p++)
+      for(var i=0;i<attHeaders.length;i++)
+        if(f.pats[p].test(attHeaders[i])){guessed=i;break}
+    var div=document.createElement('div');div.className='maprow';
+    var lab=document.createElement('label');lab.textContent=f.label;lab.setAttribute('for','map-'+f.key);
+    var sel=document.createElement('select');sel.id='map-'+f.key;
+    var o0=document.createElement('option');o0.value='-1';o0.textContent='\u2014 not used \u2014';sel.appendChild(o0);
+    attHeaders.forEach(function(h,i){
+      var o=document.createElement('option');o.value=String(i);
+      o.textContent=(h.length>60?h.slice(0,60)+'\u2026':h)||('Column '+(i+1));
+      sel.appendChild(o);
+    });
+    sel.value=String(guessed);
+    sel.addEventListener('change',buildEventMap);
+    div.appendChild(lab);div.appendChild(sel);box.appendChild(div);
+  });
+  $('cupmap').style.display='block';
+  buildEventMap();
+}
+function buildEventMap(){
+  var ci={};ATT_FIELDS.forEach(function(f){var el=$('map-'+f.key);ci[f.key]=el?parseInt(el.value,10):-1});
+  var box=$('evtmap');
+  if(ci.aname<0){box.innerHTML='<div class="msg show">Map the name column to continue.</div>';return}
+  var events={};
+  attRows.forEach(function(r){
+    var ev=ci.aevent>=0?(r[ci.aevent]||'').trim():'Imported';
+    if(!ev)ev='Imported';
+    events[ev]=(events[ev]||0)+1;
+  });
+  var keys=Object.keys(events);
+  var h='<h3 style="margin-top:18px">Match each event to an action</h3>'+
+    '<p class="hint">'+keys.length+' distinct event'+(keys.length>1?'s':'')+' found. Anything set to <i>skip</i> is not imported.</p>';
+  keys.forEach(function(k,i){
+    h+='<div class="maprow"><label>'+esc(k.length>40?k.slice(0,40)+'\u2026':k)+' <span class="mono" style="color:var(--mute)">'+events[k]+'</span></label>'+
+      '<select class="evtsel" data-event="'+esc(k)+'"><option value="">\u2014 skip \u2014</option>'+
+      S.actions.map(function(a){
+        return '<option value="'+a.id+'"'+(guessAction(k)===a.id?' selected':'')+'>'+esc(a.label)+'</option>';
+      }).join('')+'</select></div>';
+  });
+  h+='<div class="row"><button id="doimport">Import '+attRows.length+' rows</button></div>';
+  box.innerHTML=h;
+  $('doimport').addEventListener('click',function(){
+    var picks={};
+    Array.prototype.forEach.call(box.querySelectorAll('.evtsel'),function(s){picks[s.dataset.event]=s.value});
+    var added=0;
+    attRows.forEach(function(r){
+      var nm=(r[ci.aname]||'').trim();if(!nm)return;
+      var ev=(ci.aevent>=0?(r[ci.aevent]||'').trim():'Imported')||'Imported';
+      var aid=picks[ev];if(!aid)return;
+      S.log.push({id:S.seq++,name:nm,norm:normName(nm),actionId:aid,
+        label:ev,date:ci.adate>=0?(r[ci.adate]||'').trim():''});
+      added++;
+    });
+    scoreAll();refreshScored();
+    $('cupmap').style.display='none';
+    cupSay('Imported '+added+' entries.'+(Object.keys(S.unmatched).length?' Some names did not match \u2014 see standings.':''),'good');
+  });
+}
+function ingestAttendance(text,source){
+  if(!S.orgs.length){cupSay('Run the draft first \u2014 there is no roster to score against.');return false}
+  var rows=parseCSV(text);
+  if(!rows.length){cupSay('That file came back empty.');return false}
+  if(looksLikeHeader(rows[0])){attHeaders=rows[0];attRows=rows.slice(1)}
+  else{attHeaders=rows[0].map(function(_,i){return 'Column '+(i+1)});attRows=rows}
+  if(!attRows.length){cupSay('Found headers but no rows.');return false}
+  buildCupMapper();
+  cupSay('Read '+attRows.length+' rows from '+source+'. Match the events below, then import.','info');
+  return true;
+}
+function loadCupSheet(url){
+  var csvUrl=sheetToCsvUrl(url);
+  if(!csvUrl){cupSay('That doesn\u2019t look like a Google Sheets link.');return}
+  lastCupUrl=url;cupSay('Connecting\u2026','info');
+  fetch(csvUrl,{redirect:'follow'})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
+    .then(function(text){
+      if(/^\s*</.test(text)){cupSay('Google returned a sign-in page. Publish the tab, or use Import CSV.');return}
+      if(ingestAttendance(text,'the sheet'))$('cuprefresh').disabled=false;
+    })
+    .catch(function(){cupSay('Couldn\u2019t reach that sheet. Download it as CSV and use the Import tab.')});
+}
+/* ================= ASSISTANT ================= */
+function axisCount(g){
+  var c={E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0},typed=0;
+  g.forEach(function(p){
+    if(!p.mbti)return;
+    typed++;
+    for(var a=0;a<4;a++)c[p.mbti[a]]++;
+  });
+  return {c:c,typed:typed};
+}
+/* Imbalance cost for one Org. Three things are penalised, in order of how much
+   they actually matter to a working team: a letter nobody in the Org has at all
+   (nobody to fill that role), a heavy lean on an axis, and stacks of identical
+   types (a group that thinks in one groove). Lower is better. */
+function orgCost(g){
+  var ac=axisCount(g),c=ac.c,n=ac.typed;
+  if(!n)return 0;
+  var cost=0;
+  AXES.forEach(function(pair){
+    var a=c[pair[0]],b=c[pair[1]];
+    cost+=Math.pow(Math.abs(a-b)/n,2)*10;
+    if(a===0||b===0)cost+=9;
+  });
+  var seen={};
+  g.forEach(function(p){if(!p.mbti)return;if(seen[p.mbti])cost+=1.6;seen[p.mbti]=1});
+  return cost;
+}
+function totalCost(){return S.orgs.reduce(function(s,g){return s+orgCost(g)},0)}
+function costOf(list){return orgCost(list)}
+function without(g,p){return g.filter(function(x){return x!==p})}
+
+/* Why a swap helps, in the language of what the Lead would notice. */
+function swapReason(A,B,p,q){
+  var reasons=[];
+  var beforeA=axisCount(A).c,beforeB=axisCount(B).c;
+  var afterA=axisCount(without(A,p).concat([q])).c;
+  var afterB=axisCount(without(B,q).concat([p])).c;
+  AXES.forEach(function(pair){
+    pair.forEach(function(L,li){
+      var other=pair[1-li];
+      if(beforeA[L]===0&&afterA[L]>0)reasons.push(orgLabel(p.org)+' gains its only '+L);
+      if(beforeB[L]===0&&afterB[L]>0)reasons.push(orgLabel(q.org)+' gains its only '+L);
+      if(beforeA[L]>0&&afterA[L]===0)reasons.push(orgLabel(p.org)+' loses its last '+L);
+      if(beforeB[L]>0&&afterB[L]===0)reasons.push(orgLabel(q.org)+' loses its last '+L);
+    });
+  });
+  var dupA=0,dupB=0,sa={},sb={};
+  A.forEach(function(x){if(x.mbti){if(sa[x.mbti])dupA++;sa[x.mbti]=1}});
+  B.forEach(function(x){if(x.mbti){if(sb[x.mbti])dupB++;sb[x.mbti]=1}});
+  var na={},nb={},dupA2=0,dupB2=0;
+  without(A,p).concat([q]).forEach(function(x){if(x.mbti){if(na[x.mbti])dupA2++;na[x.mbti]=1}});
+  without(B,q).concat([p]).forEach(function(x){if(x.mbti){if(nb[x.mbti])dupB2++;nb[x.mbti]=1}});
+  if(dupA2<dupA)reasons.push('breaks a duplicate-type cluster in '+orgLabel(p.org));
+  if(dupB2<dupB)reasons.push('breaks a duplicate-type cluster in '+orgLabel(q.org));
+  if(!reasons.length){
+    var evened=[];
+    AXES.forEach(function(pair){
+      var beforeSkew=Math.abs(beforeA[pair[0]]-beforeA[pair[1]]);
+      var afterSkew=Math.abs(afterA[pair[0]]-afterA[pair[1]]);
+      if(afterSkew<beforeSkew)evened.push(pair[0]+'/'+pair[1]);
+    });
+    if(evened.length)reasons.push('evens out '+evened.join(' and ')+' in '+orgLabel(p.org));
+    else reasons.push('improves the overall spread across both Orgs');
+  }
+  return reasons.slice(0,3).join('; ')+'.';
+}
+
+/* Only ever proposes trades between two people who match on year, track, and
+   Lead status. That constraint is what makes a swap safe to apply blind: every
+   balance the draft guaranteed is preserved by construction, so the Assistant
+   cannot quietly undo the sort while trying to fix the type spread. */
+function computeSwaps(){
+  S.swaps=[];
+  if(S.orgs.length<2)return;
+  var max=parseInt($('swapmax').value,10)||6;
+  var cand=[];
+  for(var a=0;a<S.orgs.length;a++){
+    for(var b=a+1;b<S.orgs.length;b++){
+      var A=S.orgs[a],B=S.orgs[b],cA=orgCost(A),cB=orgCost(B);
+      A.forEach(function(p){
+        B.forEach(function(q){
+          if(!p.mbti||!q.mbti)return;
+          if(p.mbti===q.mbti)return;
+          if(p.year!==q.year||p.track!==q.track||p.lead!==q.lead)return;
+          var nA=costOf(without(A,p).concat([q])),nB=costOf(without(B,q).concat([p]));
+          var gain=(cA+cB)-(nA+nB);
+          if(gain>0.35)cand.push({p:p,q:q,a:a,b:b,gain:gain});
+        });
+      });
+    }
+  }
+  cand.sort(function(x,y){return y.gain-x.gain});
+  var used={},picked=[];
+  cand.forEach(function(c){
+    if(picked.length>=max)return;
+    if(used[c.p.name]||used[c.q.name])return;
+    used[c.p.name]=1;used[c.q.name]=1;
+    c.why=swapReason(S.orgs[c.a],S.orgs[c.b],c.p,c.q);
+    picked.push(c);
+  });
+  S.swaps=picked;
+}
+function applySwap(idx){
+  var c=S.swaps[idx];
+  if(!c||c.done)return;
+  var A=S.orgs[c.a],B=S.orgs[c.b];
+  var ia=A.indexOf(c.p),ib=B.indexOf(c.q);
+  if(ia<0||ib<0)return;
+  A[ia]=c.q;B[ib]=c.p;
+  c.p.org=c.b;c.q.org=c.a;
+  c.done=true;
+  scoreAll();renderDraft();
+  computeSwaps();renderSwaps();renderAssistant();
+  save();
+}
+function renderSwaps(){
+  var box=$('swaps');
+  if(!S.orgs.length){box.innerHTML='<p class="empty">Run a draft first.</p>';return}
+  if(!S.swaps.length){
+    box.innerHTML='<div class="advice"><h4>Nothing worth changing</h4>'+
+      '<div class="rec good">No swap improves type balance without breaking something else. Either the spread is already good, or the only fixes available would trade people across different years or tracks \u2014 which the draft is deliberately protecting. Move people by hand on the Teams page if you want to override that.</div></div>';
+    return;
+  }
+  var h='';
+  S.swaps.forEach(function(c,i){
+    h+='<div class="swap'+(c.done?' applied':'')+'">'+
+      '<div><div class="swapmove">'+
+        '<span class="who">'+esc(c.p.name)+' <b>'+c.p.mbti+'</b></span>'+
+        '<span class="arrows">\u21C4</span>'+
+        '<span class="who">'+esc(c.q.name)+' <b>'+c.q.mbti+'</b></span>'+
+      '</div>'+
+      '<div class="swapwhy">'+esc(orgLabel(c.a))+' \u2194 '+esc(orgLabel(c.b))+' \u2014 '+esc(c.why)+
+      ' Both are '+(c.p.year===2?'returning':'first-year')+' '+TRACKNAME[c.p.track].toLowerCase()+
+      ' members'+(c.p.lead?' and both volunteered to Lead':'')+', so nothing else about the draft moves.</div>'+
+      '<span class="gain">balance gain '+c.gain.toFixed(1)+'</span></div>'+
+      '<div><button class="tiny swapbtn" data-i="'+i+'"'+(c.done?' disabled':'')+'>'+(c.done?'Applied':'Apply swap')+'</button></div>'+
+    '</div>';
+  });
+  box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll('.swapbtn'),function(b){
+    b.addEventListener('click',function(){applySwap(parseInt(b.dataset.i,10))});
+  });
+}
+
+/* ---- per-Org narrative advice ---- */
+var AXIS_ADVICE={
+  E:'Nearly everyone here recharges out loud. The quieter members will get talked over before they settle in. Have the Lead run a round-robin check-in for the first two meetings so every voice lands once before open discussion starts.',
+  I:'This Org leans inward. Conversation will not start itself, and silence will get read as disinterest when it is not. Give the Lead a prepared opener every meeting and run written brainstorms before verbal ones.',
+  S:'Concrete and detail-strong, lighter on abstraction. In case prep this group reaches for the spreadsheet first. Force the opening twenty minutes onto framing before anyone touches data.',
+  N:'Heavy on big-picture thinkers. Frameworks arrive fast and the numbers lag behind them. Name one person to own the data and hold the group to it.',
+  T:'Analytically strong, thin on social glue \u2014 and the Cup runs on turnout, not on being right. Name a social lead out loud, because it will not happen by default.',
+  F:'Socially cohesive, which is exactly what makes honest critique harder. Run one anonymous feedback round before the Org Case Battle so the real notes surface.',
+  J:'Very structured. Deadlines hold; spontaneity does not. Schedule one deliberately unstructured social block a month or this Org will only ever meet on business.',
+  P:'Flexible and improvisational. Deadlines will slip, cheerfully. Have the Lead set internal deadlines three days ahead of the real ones and treat those as real.'
+};
+var ROLES=[
+  {title:'Attendance Captain',why:'logs Cup points after every event',
+   fit:function(t){return (t[1]==='S'&&t[3]==='J')?3:(t[3]==='J'?2:1)},prefY2:true},
+  {title:'Case Lead',why:'owns Org Case Battle prep',
+   fit:function(t){return (t[1]==='N'&&t[2]==='T')?3:(t[1]==='N'?2:1)},prefY2:true},
+  {title:'Social Lead',why:'drives cross-track turnout',
+   fit:function(t){return (t[0]==='E'&&t[2]==='F')?3:(t[0]==='E'?2:1)},prefY2:false},
+  {title:'New-member Anchor',why:'checks in on the first-years',
+   fit:function(t){return (t[2]==='F'&&t[3]==='J')?3:(t[2]==='F'?2:1)},prefY2:true}
+];
+function pickRoles(g){
+  var taken={},out=[];
+  ROLES.forEach(function(role){
+    var best=null,bestScore=-1;
+    g.forEach(function(p){
+      if(!p.mbti||taken[p.name])return;
+      var s=role.fit(p.mbti)*10;
+      if(p.lead)s-=6;
+      if(role.prefY2&&p.year===2)s+=2;
+      if(p.evts)s+=Math.min(p.evts,5)*0.5;
+      if(s>bestScore){bestScore=s;best=p}
+    });
+    if(best){taken[best.name]=true;out.push({role:role,person:best})}
+  });
+  return out;
+}
+function majorityTrack(g){
+  var c=0,k=0;g.forEach(function(p){if(p.track==='c')c++;if(p.track==='k')k++});
+  return c>=k?'c':'k';
+}
+function orgAdvice(g,i){
+  var recs=[],ac=axisCount(g),c=ac.c;
+  if(ac.typed<4){
+    recs.push({sev:'warn',text:'Only '+ac.typed+' of '+g.length+' members here have a type. Not enough to read a spread \u2014 go on what the Lead observes in the first month.'});
+  } else {
+    var flagged=false;
+    AXES.forEach(function(pair){
+      pair.forEach(function(L){
+        if(c[L]===ac.typed&&ac.typed>=4){
+          flagged=true;
+          recs.push({sev:'warn',text:'<b>Every typed member is '+L+'.</b> '+AXIS_ADVICE[L]+' This is the strongest signal on the page \u2014 check the Recommended Changes tab, a swap can usually fix it outright.'});
+        } else if(c[L]/ac.typed>=0.75){
+          flagged=true;
+          recs.push({sev:'info',text:'<b>'+Math.round(c[L]/ac.typed*100)+'% '+L+'.</b> '+AXIS_ADVICE[L]});
+        }
+      });
+    });
+    if(!flagged)recs.push({sev:'good',text:'Spread evenly across all four axes. No structural intervention needed \u2014 run the standard program and let the Lead work.'});
+  }
+  var leads=g.filter(function(p){return p.lead&&p.mbti});
+  if(leads.length===2){
+    if(leads[0].mbti===leads[1].mbti){
+      recs.push({sev:'warn',text:'Both Leads are '+leads[0].mbti+'. They will agree on everything, which reads as harmony and is actually a blind spot. Give an opposite-axis Associate the standing job of disagreeing first.'});
+    } else {
+      var diff=0;for(var a=0;a<4;a++)if(leads[0].mbti[a]!==leads[1].mbti[a])diff++;
+      if(diff>=2)recs.push({sev:'good',text:'Lead pairing is well matched \u2014 '+leads[0].mbti+' and '+leads[1].mbti+' differ on '+diff+' axes, so they cover each other\u2019s gaps without being told to.'});
+    }
+  }
+  pickRoles(g).forEach(function(pk){
+    recs.push({sev:'pick',text:'<b>'+esc(pk.role.title)+':</b> '+esc(pk.person.name)+' ('+pk.person.mbti+') \u2014 '+pk.role.why+'.'});
+  });
+  if(S.log.length&&S.standings[i]){
+    var s=S.standings[i],crossFlagged=false;
+    if(s.zero.length){
+      var nm=s.zero.slice(0,4).map(function(p){return p.name}).join(', ');
+      recs.push({sev:'warn',text:s.zero.length+' member'+(s.zero.length>1?'s have':' has')+' scored nothing all semester: '+esc(nm)+
+        (s.zero.length>4?', +'+(s.zero.length-4)+' more':'')+'. This is a week for the Lead to reach out individually, not in the group chat.'});
+    }
+    if(s.evts>=5&&s.crossRate<25){
+      crossFlagged=true;
+      recs.push({sev:'warn',text:'Only '+Math.round(s.crossRate)+'% of this Org\u2019s entries are cross-track. They show up \u2014 just never to the other side, which is the one thing the Cup exists to change. Target the next '+
+        (majorityTrack(g)==='c'?'competition':'consulting')+' event as a group.'});
+    }
+    if(s.rank===1){
+      recs.push({sev:'good',text:'Leading the Cup at '+s.per.toFixed(1)+' points per member. Say so publicly \u2014 visible standings are most of what makes the competition work.'});
+    } else if(s.rank>=S.orgs.length-1&&s.evts>0){
+      var why;
+      if(s.rate<70)why='Turnout is '+Math.round(s.rate)+'%, so the gap is getting people in the room at all.';
+      else if(crossFlagged)why='Turnout is already '+Math.round(s.rate)+'%, so attendance is not the problem \u2014 almost none of it crosses tracks, which is where the points are.';
+      else why='Turnout and cross-track are both fine; this Org is simply logging fewer actions overall. Fewer, better-attended outings will move this faster than more invitations.';
+      recs.push({sev:'warn',text:'Sitting '+s.rank+' of '+S.orgs.length+' at '+s.per.toFixed(1)+' points per member. '+why});
+    }
+  }
+  return recs;
+}
+function renderAssistant(){
+  renderSwaps();
+  var box=$('advice');
+  if(!S.orgs.length){box.innerHTML='';return}
+  var all=S.people,ac=axisCount(all),typed=ac.typed;
+  var seen={},present=0;
+  all.forEach(function(p){if(p.mbti&&!seen[p.mbti]){seen[p.mbti]=1;present++}});
+
+  var h='<div class="advice club"><h4>Across the club <em>'+typed+' of '+all.length+' typed \u00B7 '+present+' of 16 types present</em></h4>';
+  if(!typed){
+    h+='<div class="rec warn">No types on file, so the Assistant is working from track, year, and points only.</div>';
+  } else {
+    AXES.forEach(function(pair){
+      var a=ac.c[pair[0]],b=ac.c[pair[1]],pct=Math.round(a/(a+b||1)*100);
+      h+='<div class="rec"><b>'+pair[0]+' '+pct+'% / '+pair[1]+' '+(100-pct)+'%</b>'+
+        (Math.abs(pct-50)>=25
+          ? ' \u2014 the club as a whole leans hard here, so every Org inherits the lean. No swap fixes this; only recruiting does.'
+          : ' \u2014 healthy split clubwide.')+'</div>';
+    });
+    if(present<16){
+      var missing=[];
+      'EI'.split('').forEach(function(a1){'SN'.split('').forEach(function(b1){'TF'.split('').forEach(function(c1){'JP'.split('').forEach(function(d1){
+        var t=a1+b1+c1+d1;if(!seen[t])missing.push(t);
+      })})})});
+      if(missing.length<=8)h+='<div class="rec">Not represented anywhere in the club: '+missing.join(', ')+'.</div>';
+    }
+    h+='<div class="rec"><b>Balance score '+totalCost().toFixed(1)+'.</b> Lower is better; it counts missing letters hardest, then axis lean, then stacks of identical types. Applying the swaps above is the fastest way to move it.</div>';
+  }
+  if(S.log.length){
+    var tot=S.standings.reduce(function(s,x){return s+x.evts},0);
+    var cr=S.standings.reduce(function(s,x){return s+x.cross},0);
+    var pct=tot?Math.round(cr/tot*100):0;
+    h+='<div class="rec'+(pct>=30?' good':'')+'"><b>'+tot+' scoring entries, '+pct+'% cross-track.</b> '+
+      (pct>=30?'That is the number that says the divide is closing. Keep it above 30%.'
+             :'Below 30% means members are collecting points on their own side. Raise the cross-track bonus, or schedule a joint event before the next Battle.')+'</div>';
+  }
+  h+='<div class="disclaim">MBTI is a self-report instrument, not a predictor of who performs well, and a club that treats a four-letter code as a verdict on a member has made things worse rather than better. Everything here is a fast read on whether an Org is likely to be lopsided in a way the Lead should plan around. Where the type read and the Lead\u2019s own read disagree, the Lead is right.</div></div>';
+
+  h+='<div class="advgrid">';
+  S.orgs.forEach(function(g,i){
+    var ac2=axisCount(g);
+    h+='<div class="advice"><h4>'+esc(orgLabel(i))+' <em>'+ac2.typed+'/'+g.length+' typed'+
+      (S.log.length&&S.standings[i]?' \u00B7 #'+S.standings[i].rank:'')+'</em></h4>';
+    orgAdvice(g,i).forEach(function(r){h+='<div class="rec '+r.sev+'">'+r.text+'</div>'});
+    h+='</div>';
+  });
+  h+='</div>';
+  box.innerHTML=h;
+}
+/* ================= DRAFT VIEW ================= */
+function counts(members){
+  var c={c:0,k:0,e:0,leads:0,y1:0,y2:0,typed:0};
+  members.forEach(function(p){
+    c[p.track]++;if(p.lead)c.leads++;if(p.mbti)c.typed++;
+    if(p.year===1)c.y1++;else c.y2++;
+  });
+  return c;
+}
+function stat(n,l,cls){return '<div class="stat"><div class="n'+(cls?' '+cls:'')+'">'+n+'</div><div class="l">'+l+'</div></div>'}
+function orgFlags(g){
+  var c=counts(g),flags=[];
+  if(c.leads<2)flags.push(c.leads===0?'No Lead assigned':'Only one Lead');
+  if(c.c===0&&c.k===0)flags.push('No committed members from either track');
+  else if(c.c===0)flags.push('No consulting members');
+  else if(c.k===0)flags.push('No competition members');
+  if(c.y1===0)flags.push('No new members');
+  return flags;
+}
+function renderDraft(){
+  if(!S.orgs.length)return;
+  var tot=counts(S.people),sizes=S.orgs.map(function(g){return g.length});
+  var noted=S.people.filter(function(p){return p.note});
+  var flagged=S.orgs.filter(function(g){return orgFlags(g).length}).length;
+  $('draftstats').innerHTML='<div class="stats">'+
+    stat(S.people.length,'Members')+
+    stat(S.orgs.length,'Orgs')+
+    stat(Math.min.apply(null,sizes)+'\u2013'+Math.max.apply(null,sizes),'Org size')+
+    stat(tot.leads,'Org Leads')+
+    stat(tot.y2+' / '+tot.y1,'Returning / new')+
+    stat(totalCost().toFixed(0),'Balance score',totalCost()<S.orgs.length*4?'good':'')+
+    stat(flagged,'Orgs flagged',flagged?'bad':'good')+
+  '</div>';
+
+  var nh='';
+  if(S.draftNotes&&S.draftNotes.length)
+    nh+='<div class="msg show" style="margin-bottom:16px">'+esc(S.draftNotes.join('; '))+'.</div>';
+  if(noted.length){
+    nh+='<div class="notes"><b>'+noted.length+' member'+(noted.length>1?'s':'')+' left a note \u2014 review before finalizing</b><ul>';
+    noted.slice(0,12).forEach(function(p){nh+='<li><b style="display:inline">'+esc(p.name)+':</b> '+esc(p.note)+'</li>'});
+    if(noted.length>12)nh+='<li>and '+(noted.length-12)+' more (highlighted below).</li>';
+    nh+='</ul></div>';
+  }
+  $('draftnotes').innerHTML=nh;
+
+  var html='';
+  S.orgs.forEach(function(g,i){
+    var c=counts(g),n=g.length||1,flags=orgFlags(g),ac=axisCount(g);
+    html+='<div class="org'+(flags.length?' flagged':'')+'">'+
+      '<div class="orghead">'+
+        '<div class="orgno"><span>Org '+pad(i)+' \u00B7 '+g.length+' members</span>'+
+          (S.log.length&&S.standings[i]?'<span>#'+S.standings[i].rank+' \u00B7 '+S.standings[i].pts+'pts</span>':'')+'</div>'+
+        '<div class="orgname" data-org="'+i+'" title="Click to rename">'+esc(orgLabel(i))+'</div>'+
+        '<div class="bar"><i class="c" style="width:'+(c.c/n*100)+'%"></i>'+
+          '<i class="k" style="width:'+(c.k/n*100)+'%"></i>'+
+          '<i class="e" style="width:'+(c.e/n*100)+'%"></i></div>'+
+        '<div class="barkey"><span>'+c.c+'C \u00B7 '+c.k+'K \u00B7 '+c.e+'E</span><span>'+c.y2+'y2 / '+c.y1+'y1</span></div>'+
+        '<div class="axis">';
+    AXES.forEach(function(pair){
+      var a=ac.c[pair[0]],b=ac.c[pair[1]];
+      var cls=(a===0||b===0)?'void':(ac.typed&&Math.max(a,b)/ac.typed>=0.75?'skew':'');
+      html+='<span class="'+cls+'"><b>'+a+'</b>'+pair[0]+'/<b>'+b+'</b>'+pair[1]+'</span>';
+    });
+    html+='</div>';
+    flags.forEach(function(f){html+='<div class="warn">! '+f+'</div>'});
+    html+='</div><ul class="roster">';
+    g.slice().sort(function(x,y){return (y.lead?1:0)-(x.lead?1:0)||y.year-x.year}).forEach(function(p){
+      var role=p.lead?'Org Lead':(p.year===2?'Associate':'Analyst');
+      html+='<li'+(p.note?' class="hasnote"':'')+'>'+
+        '<i class="dot '+p.track+'"></i>'+
+        '<span class="nm">'+esc(p.name)+'</span>'+
+        (p.note?'<span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+
+        '<span class="mbti'+(p.mbti?'':' none')+'">'+(p.mbti||'\u2014')+'</span>'+
+        (S.log.length?'<span class="pts'+(p.evts?'':' zero')+'" title="'+p.evts+' entries, '+p.cross+' cross-track">'+p.pts+'</span>':'')+
+        '<span class="role'+(p.lead?' lead':'')+'">'+role+'</span></li>';
+    });
+    if(!g.length)html+='<li style="color:var(--slate)">Empty</li>';
+    html+='</ul><div class="orgfoot"><button class="tiny ghost openteam" data-org="'+i+'">Open team page</button></div></div>';
+  });
+  $('orggrid').innerHTML=html;
+
+  Array.prototype.forEach.call($('orggrid').querySelectorAll('.openteam'),function(b){
+    b.addEventListener('click',function(){S.team=parseInt(b.dataset.org,10);setView('v-teams')});
+  });
+  Array.prototype.forEach.call($('orggrid').querySelectorAll('.orgname'),function(el){
+    el.addEventListener('click',function(){
+      var i=parseInt(el.dataset.org,10);
+      var v=prompt('Name for Org '+pad(i),orgLabel(i));
+      if(v===null)return;
+      S.orgNames[i]=v.trim()||('Org '+pad(i));
+      renderDraft();renderStandings();save();
+    });
+  });
+}
+
+/* ================= TEAM VIEW ================= */
+function renderTeam(){
+  if(!S.orgs.length)return;
+  $('teampick').innerHTML=S.orgs.map(function(g,i){
+    return '<button data-org="'+i+'" aria-current="'+(i===S.team?'true':'false')+'">'+esc(orgLabel(i))+
+      ' <span style="opacity:.6">'+g.length+'</span></button>';
+  }).join('');
+  Array.prototype.forEach.call($('teampick').querySelectorAll('button'),function(b){
+    b.addEventListener('click',function(){S.team=parseInt(b.dataset.org,10);renderTeam()});
+  });
+
+  var i=S.team,g=S.orgs[i]||[],c=counts(g),ac=axisCount(g),s=S.standings[i];
+  var h='<div class="panel"><input class="bigname" id="teamname" value="'+esc(orgLabel(i))+'" aria-label="Org name">'+
+    '<p class="hint" style="margin-top:6px">Org '+pad(i)+' \u00B7 '+g.length+' members \u00B7 '+c.leads+' Lead'+(c.leads===1?'':'s')+
+    (s&&S.log.length?' \u00B7 ranked #'+s.rank+' of '+S.orgs.length+' in the Cup':'')+'</p></div>';
+
+  h+='<div class="stats">'+
+    stat(g.length,'Members')+
+    stat(c.c+' / '+c.k+' / '+c.e,'C / K / E')+
+    stat(c.y2+' / '+c.y1,'Returning / new')+
+    (S.log.length&&s?stat(s.pts,'Cup points')+stat(s.per.toFixed(1),'Per member')+
+      stat(Math.round(s.rate)+'%','Turnout',s.rate<60?'bad':'good')+
+      stat(Math.round(s.crossRate)+'%','Cross-track',s.crossRate<25?'bad':'good'):'')+
+  '</div>';
+
+  h+='<div class="teamgrid"><div>';
+  /* roster table */
+  h+='<div class="panel"><h2>Roster</h2><div class="tablewrap"><table><thead><tr>'+
+    '<th class="l">Member</th><th class="l">Role</th><th class="l">Type</th><th class="l">Track</th>'+
+    (S.log.length?'<th>Pts</th><th>Entries</th><th>Cross</th>':'')+'<th class="l">Move</th></tr></thead><tbody>';
+  g.slice().sort(function(x,y){return (y.lead?1:0)-(x.lead?1:0)||y.pts-x.pts}).forEach(function(p){
+    var role=p.lead?'Org Lead':(p.year===2?'Associate':'Analyst');
+    h+='<tr'+(p.note?' class="rowflag"':'')+'>'+
+      '<td class="l name">'+esc(p.name)+(p.note?' <span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+'</td>'+
+      '<td class="l">'+role+'</td>'+
+      '<td class="l"><span class="mbti">'+(p.mbti||'\u2014')+'</span></td>'+
+      '<td class="l">'+TRACKNAME[p.track]+'</td>'+
+      (S.log.length?'<td>'+p.pts+'</td><td>'+p.evts+'</td><td>'+p.cross+'</td>':'')+
+      '<td class="l"><select class="movesel" data-name="'+esc(p.name)+'">'+
+        S.orgs.map(function(_,j){return '<option value="'+j+'"'+(j===i?' selected':'')+'>'+esc(orgLabel(j))+'</option>'}).join('')+
+      '</select></td></tr>';
+  });
+  h+='</tbody></table></div></div>';
+
+  /* points by action */
+  if(S.log.length){
+    var byAction={};
+    g.forEach(function(p){p.hist.forEach(function(e){
+      if(!byAction[e.action])byAction[e.action]={n:0,pts:0};
+      byAction[e.action].n++;byAction[e.action].pts+=e.pts;
+    })});
+    var keys=Object.keys(byAction).sort(function(a,b){return byAction[b].pts-byAction[a].pts});
+    h+='<div class="panel"><h2>Where the points came from</h2>';
+    if(!keys.length)h+='<p class="empty">Nobody in this Org has scored yet.</p>';
+    else{
+      h+='<div class="tablewrap"><table><thead><tr><th class="l">Action</th><th>Entries</th><th>Points</th></tr></thead><tbody>';
+      keys.forEach(function(k){h+='<tr><td class="l">'+esc(k)+'</td><td>'+byAction[k].n+'</td><td>'+byAction[k].pts+'</td></tr>'});
+      if(s&&s.bonus)h+='<tr><td class="l"><i>Full-Org turnout bonus</i></td><td>'+s.bonusHits+'</td><td>'+s.bonus+'</td></tr>';
+      h+='</tbody></table></div>';
+    }
+    h+='</div>';
+  }
+  h+='</div><div>';
+
+  /* type composition */
+  h+='<div class="panel"><h2>Type composition</h2>';
+  if(!ac.typed)h+='<p class="empty">No types on file for this Org.</p>';
+  else{
+    AXES.forEach(function(pair){
+      var a=ac.c[pair[0]],b=ac.c[pair[1]],t=a+b||1;
+      var lop=(a===0||b===0);
+      h+='<div class="axbar"><div class="lbl2"><span><b>'+a+'</b> '+pair[0]+'</span>'+
+        (lop?'<span style="color:var(--flag)">nobody is '+(a===0?pair[0]:pair[1])+'</span>':'')+
+        '<span>'+pair[1]+' <b>'+b+'</b></span></div>'+
+        '<div class="axtrack"><i class="a" style="width:'+(a/t*100)+'%"></i><i class="b" style="width:'+(b/t*100)+'%"></i></div></div>';
+    });
+    var tally={};g.forEach(function(p){if(p.mbti)tally[p.mbti]=(tally[p.mbti]||0)+1});
+    h+='<h3>Types present</h3><div class="typechips">'+
+      Object.keys(tally).sort().map(function(t){
+        return '<span class="tchip'+(tally[t]>1?' dup':'')+'">'+t+(tally[t]>1?' \u00D7'+tally[t]:'')+'</span>';
+      }).join('')+'</div>';
+    h+='<p class="hint" style="margin-top:12px">Orange means more than one member shares that type. A little duplication is normal; a stack of three or more is what the Assistant tries to break up.</p>';
+  }
+  h+='</div>';
+
+  /* advice */
+  h+='<div class="panel"><h2>Assistant notes</h2>';
+  orgAdvice(g,i).forEach(function(r){h+='<div class="rec '+r.sev+'">'+r.text+'</div>'});
+  h+='</div>';
+
+  /* recent activity */
+  if(S.log.length){
+    var evs=[];
+    g.forEach(function(p){p.hist.forEach(function(e){evs.push({who:p.name,e:e})})});
+    evs.reverse();
+    h+='<div class="panel"><h2>Recent activity</h2>';
+    if(!evs.length)h+='<p class="empty">Nothing logged for this Org yet.</p>';
+    else evs.slice(0,18).forEach(function(x){
+      h+='<div class="evtline"><span>'+esc(x.who)+' \u2014 '+esc(x.e.label)+
+        (x.e.cross?' <b style="color:var(--compete)">cross</b>':'')+'</span>'+
+        '<span>'+(x.e.date?esc(x.e.date)+' \u00B7 ':'')+'+'+x.e.pts+'</span></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div></div>';
+  $('teambody').innerHTML=h;
+
+  $('teamname').addEventListener('change',function(e){
+    S.orgNames[i]=e.target.value.trim()||('Org '+pad(i));
+    renderTeam();renderDraft();renderStandings();save();
+  });
+  Array.prototype.forEach.call($('teambody').querySelectorAll('.movesel'),function(sel){
+    sel.addEventListener('change',function(){
+      var to=parseInt(sel.value,10),name=sel.dataset.name;
+      var from=S.team,idx=-1;
+      S.orgs[from].forEach(function(p,j){if(p.name===name)idx=j});
+      if(idx<0||to===from)return;
+      var p=S.orgs[from].splice(idx,1)[0];
+      p.org=to;S.orgs[to].push(p);
+      scoreAll();renderTeam();renderDraft();save();
+    });
+  });
+}
+
+/* ================= EXPORTS ================= */
+function exportRoster(){
+  var rows=[['Org','Name','Role','Year','Track','MBTI','Points','Entries','Cross-track','Note'].join(',')];
+  S.orgs.forEach(function(g,i){
+    g.forEach(function(p){
+      rows.push([csvCell(orgLabel(i)),csvCell(p.name),
+        csvCell(p.lead?'Org Lead':(p.year===2?'Associate':'Analyst')),
+        p.year,csvCell(TRACKNAME[p.track]),csvCell(p.mbti||''),
+        p.pts,p.evts,p.cross,csvCell(p.note)].join(','));
+    });
+  });
+  download(rows.join('\n'),'org-roster.csv');
+}
+function exportStandings(){
+  var rows=[['Rank','Org','Points per member','Total','Full-Org bonuses','Entries','Turnout %','Cross-track %','Zero-scorers'].join(',')];
+  S.standings.slice().sort(function(a,b){return b.per-a.per}).forEach(function(s){
+    rows.push([s.rank,csvCell(orgLabel(s.i)),s.per.toFixed(2),s.pts,s.bonusHits,s.evts,
+      Math.round(s.rate),Math.round(s.crossRate),s.zero.length].join(','));
+  });
+  download(rows.join('\n'),'org-cup-standings.csv');
+}
+function exportLog(){
+  var rows=[['Member','Org','Action','Label','Date','Points'].join(',')];
+  var idx={};S.people.forEach(function(p){idx[normName(p.name)]=p});
+  S.log.forEach(function(l){
+    var a=actById(l.actionId),p=idx[l.norm],pts='';
+    if(a&&p){
+      var b=0;
+      if(a.track==='c'||a.track==='k'){
+        if(p.track!=='e'&&p.track!==a.track)b=S.rules.cross;
+        else if(p.track==='e')b=S.rules.explore;
+      }
+      pts=a.on?(a.pts+b):0;
+    }
+    rows.push([csvCell(l.name),csvCell(p?orgLabel(p.org):'UNMATCHED'),
+      csvCell(a?a.label:'(deleted)'),csvCell(l.label),csvCell(l.date),pts].join(','));
+  });
+  download(rows.join('\n'),'org-cup-log.csv');
+}
+
+/* ================= SAMPLES ================= */
+function sampleRoster(){
   var first='Alex,Priya,Marcus,Jenna,Diego,Amara,Kevin,Sofia,Tuan,Rachel,Omar,Lila,Ethan,Nina,Carlos,Maya,Ravi,Grace,Malik,Elena,Jonah,Ivy,Andre,Bella,Hugo,Zara,Felix,Nora,Kai,Rosa,Simon,Talia,Victor,Wren,Xander,Yara,Zane,Anya,Bo,Cleo,Dev,Esme,Finn,Gia,Hana,Ike,Juno,Kira,Leo,Mila,Nash,Opal,Pia,Quinn,Rex,Sage,Theo,Uma,Vera,Wes,Xiu,Yuki,Zoe,Abel,Brie,Cyrus,Dara,Emil,Faye,Gus,Hope,Ines,Jude,Kaya,Lars,Moss,Neve,Otto,Pearl,Rune,Suki,Tess,Umar,Vance,Willa,Yale,Ada,Beck,Cora,Drew,Eve,Ford,Gwen,Hal,Iris,Jax,Lena,Milo,Noor,Ora,Pax'.split(',');
   var last='Nguyen,Shah,Lee,Alvarez,Kim,Patel,Okafor,Torres,Vu,Brooks,Haddad,Chen,Romero,Silva,Mendez,Osei,Rivera,Park,Diaz,Kaur,Wolfe,Bianchi,Ali,Novak,Reyes,Sato,Kelly,Ibarra,Moreau,Duarte'.split(',');
   var notes=['Please don\'t put me with my former project partner','I have Thursday night class, heads up','Would love to meet more competition people'];
-  var out=['Full name,What year are you in the club?,Which side of the club are you most interested in?,Are you interested in being an Org Lead?,Anything the draft should know?'];
+  var out=['Full name,What year are you in the club?,Which side of the club are you most interested in?,MBTI type,Are you interested in being an Org Lead?,Anything the draft should know?'];
+  var used={};
   for(var i=0;i<100;i++){
-    var nm=first[i%first.length]+' '+last[Math.floor(Math.random()*last.length)];
+    var nm;do{nm=first[i%first.length]+' '+last[Math.floor(Math.random()*last.length)]}while(used[nm]);
+    used[nm]=1;
     var year=i<60?'Second year or more (returning member)':'First year in the club (new member)';
     var r=Math.random();
     var track=r<.42?'Consulting':(r<.84?'Case competitions':'Either / not sure yet');
     var lead=(i<26)?'Yes \u2014 tell me more':'No / I\'m a new member';
     var note=(i%37===5)?notes[i%notes.length]:'';
-    out.push('"'+nm+'","'+year+'","'+track+'","'+lead+'","'+note+'"');
+    // business-club skew: E, N, T, J heavy
+    var mb=(Math.random()<.62?'E':'I')+(Math.random()<.60?'N':'S')+
+           (Math.random()<.58?'T':'F')+(Math.random()<.66?'J':'P');
+    if(Math.random()<.18)mb+=(Math.random()<.5?'-A':'-T');
+    out.push([nm,year,track,mb,lead,note].map(csvCell).join(','));
   }
   $('input').value=out.join('\n');
   ingest($('input').value,'the sample roster');
 }
+function sampleSemester(){
+  if(!S.orgs.length){cupSay('Run the draft first, then load a sample semester.');return}
+  var plan=[
+    {a:'a3',label:'Week 1 general meeting',   date:'2026-09-08', p:.82},
+    {a:'a4',label:'Fall kickoff mixer',       date:'2026-09-12', p:.66},
+    {a:'a1',label:'Casing 101 workshop',      date:'2026-09-18', p:.44},
+    {a:'a2',label:'Competition bootcamp',     date:'2026-09-25', p:.44},
+    {a:'a7',label:'Client project sprint',    date:'2026-10-02', p:.30},
+    {a:'a3',label:'Week 5 general meeting',   date:'2026-10-06', p:.70},
+    {a:'a2',label:'FBLA practice round',      date:'2026-10-14', p:.36},
+    {a:'a4',label:'Org social \u2014 bowling',date:'2026-10-20', p:.52},
+    {a:'a1',label:'Advanced casing workshop', date:'2026-10-28', p:.34},
+    {a:'a5',label:'Org Case Battle R1',       date:'2026-11-06', p:.64},
+    {a:'a6',label:'Org Case Battle R2',       date:'2026-11-13', p:.22},
+    {a:'a8',label:'Recruiting push',          date:'2026-11-18', p:.18}
+  ];
+  S.log=[];
+  plan.forEach(function(ev){
+    var act=actById(ev.a);if(!act)return;
+    S.people.forEach(function(p){
+      var chance=ev.p;
+      if(act.track===p.track)chance+=.24;                       // own side is easy
+      else if(act.track==='c'||act.track==='k')chance-=.13;     // crossing over is the hard part
+      if(p.lead)chance+=.14;
+      if(Math.random()<chance)
+        S.log.push({id:S.seq++,name:p.name,norm:normName(p.name),actionId:ev.a,label:ev.label,date:ev.date});
+    });
+  });
+  scoreAll();refreshScored();
+  cupSay('Loaded '+S.log.length+' entries across '+plan.length+' events. Standings, team pages, and the Assistant are all running on it.','good');
+}
 
+/* ================= WIRING ================= */
 $('connect').addEventListener('click',function(){loadSheet($('sheeturl').value)});
-$('refresh').addEventListener('click',function(){loadSheet(lastSheetUrl||$('sheeturl').value)});
+$('refresh').addEventListener('click',function(){loadSheet(S.lastSheetUrl||$('sheeturl').value)});
 $('readpaste').addEventListener('click',function(){ingest($('input').value,'your pasted rows')});
-$('sample').addEventListener('click',sample);
+$('sample').addEventListener('click',sampleRoster);
 $('run').addEventListener('click',run);
-$('redraw').addEventListener('click',run);
-$('export').addEventListener('click',exportCsv);
+$('redraw').addEventListener('click',function(){
+  if(!S.people.length)return;
+  S.orgs=draft(S.people,S.orgs.length,$('mbtibal').checked);
+  S.orgs.forEach(function(g,i){g.forEach(function(p){p.org=i})});
+  S.applied={};scoreAll();renderDraft();save();
+});
+$('export').addEventListener('click',exportRoster);
+wireDrop('drop','file',readRosterFile);
+wireDrop('cupdrop','cupfile',function(f){
+  var fr=new FileReader();
+  fr.onload=function(){ingestAttendance(String(fr.result),f.name)};
+  fr.onerror=function(){cupSay('Couldn\u2019t read that file.')};
+  fr.readAsText(f);
+});
+$('addact').addEventListener('click',function(){
+  S.actions.push({id:newActionId(),label:'New action',pts:1,track:'x',on:true});
+  renderActions();fillActionSelect();save();
+});
+$('resetacts').addEventListener('click',function(){
+  if(S.log.length&&!confirm('Resetting the catalog deletes every logged entry, because entries point at actions. Continue?'))return;
+  S.actions=cloneActions();S.log=[];
+  renderActions();fillActionSelect();scoreAll();refreshScored();
+});
+$('qadd').addEventListener('click',quickAdd);
+$('qsample').addEventListener('click',sampleSemester);
+$('cupconnect').addEventListener('click',function(){loadCupSheet($('cupurl').value)});
+$('cuprefresh').addEventListener('click',function(){loadCupSheet(lastCupUrl||$('cupurl').value)});
+$('cupexport').addEventListener('click',exportStandings);
+$('logexport').addEventListener('click',exportLog);
+$('cupclear').addEventListener('click',function(){
+  if(S.log.length&&!confirm('Clear all '+S.log.length+' logged entries? The draft and the action catalog are untouched.'))return;
+  S.log=[];scoreAll();refreshScored();
+  cupSay('Log cleared.','info');
+});
+['cross','explore','full','thresh'].forEach(function(k){
+  $('r-'+k).addEventListener('input',function(e){
+    S.rules[k]=parseInt(e.target.value,10)||0;
+    scoreAll();refreshScored();
+  });
+});
+$('swaprefresh').addEventListener('click',function(){computeSwaps();renderSwaps()});
+$('swapmax').addEventListener('input',function(){computeSwaps();renderSwaps()});
+$('swapall').addEventListener('click',function(){
+  var n=S.swaps.length;
+  for(var i=0;i<n;i++)if(S.swaps[0]&&!S.swaps[0].done)applySwap(0);
+  computeSwaps();renderSwaps();renderAssistant();
+});
+
+/* save / restore */
+$('savejson').addEventListener('click',function(){
+  download(JSON.stringify(serialize(),null,2),'org-system-save.json');
+});
+$('loadjson').addEventListener('change',function(e){
+  var f=e.target.files[0];if(!f)return;
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{
+      var d=JSON.parse(String(fr.result));
+      if(!restore(d))throw new Error('empty');
+      unlockNav();syncRuleInputs();scoreAll();renderDraft();renderCup();
+      setView('v-draft');save();
+    }catch(err){alert('That file could not be read as an Org System save.')}
+  };
+  fr.readAsText(f);
+});
+$('wipe').addEventListener('click',function(){
+  if(!confirm('Delete the saved draft, log, and action catalog from this browser? Export a save file first if you want to keep it.'))return;
+  try{localStorage.removeItem(SAVE_KEY)}catch(e){}
+  location.reload();
+});
+
+/* boot */
+(function boot(){
+  S.actions=cloneActions();
+  var d=loadSaved();
+  if(d&&restore(d)){
+    unlockNav();syncRuleInputs();scoreAll();renderDraft();renderCup();
+    setView('v-draft');
+    say('Restored your saved draft \u2014 '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','info');
+  } else {
+    renderActions();fillActionSelect();
+  }
+  var t=new Date();
+  $('qdate').value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
 })();
+})();
+
 </script>
 </body>
 </html>
