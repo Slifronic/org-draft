@@ -453,6 +453,7 @@ var $=function(id){return document.getElementById(id)};
 var TRACKNAME={c:'Consulting',k:'Competition',e:'Either'};
 var AXES=[['E','I'],['S','N'],['T','F'],['J','P']];
 var SAVE_KEY='orgsystem.v1';
+var WEBAPP_URL='https://script.google.com/macros/s/AKfycbwNGnp7lMZaX-jKnC7wlez_LECLTq-WINWmIPcW8WddGGKVveqkInQPo0fFO53OBt_5YA/exec';
 
 /* ---------------- state ---------------- */
 var S={
@@ -513,6 +514,85 @@ function restore(d){
 }
 function loadSaved(){
   try{var s=localStorage.getItem(SAVE_KEY);return s?JSON.parse(s):null}catch(e){return null}
+}
+
+/* ---------------- shared backend (Google Sheet via Apps Script) ----------------
+   localStorage above is the offline fallback. When WEBAPP_URL is reachable it is
+   the shared source of truth for Teams and the points/attendance log, so every
+   browser that opens this page sees the same standings. text/plain is used on
+   POST (not application/json) so the request stays a CORS "simple request" —
+   Apps Script doesn't handle the OPTIONS preflight a json content-type would
+   trigger. */
+function backendGet(){
+  if(!WEBAPP_URL)return Promise.resolve(null);
+  return fetch(WEBAPP_URL).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+}
+function backendPost(action,payload){
+  if(!WEBAPP_URL)return Promise.resolve(null);
+  return fetch(WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:action,payload:payload})})
+    .then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+}
+function findPersonByName(nm){
+  var norm=normName(nm);
+  for(var i=0;i<S.people.length;i++)if(S.people[i].norm===norm||normName(S.people[i].name)===norm)return S.people[i];
+  return null;
+}
+function syncTeams(){
+  var rows=S.people.map(function(p){
+    return {MemberName:p.name,Org:orgLabel(p.org),Track:p.track,Year:p.year,
+      MBTI:p.mbti||'',LeadInterest:p.lead?'yes':'no',IsLead:p.lead?'yes':'no',Notes:p.note||''};
+  });
+  backendPost('setTeams',rows);
+}
+function syncLogEntries(entries){
+  if(!entries||!entries.length)return;
+  var pointsRows=entries.map(function(e){
+    var a=actById(e.actionId),p=findPersonByName(e.name);
+    return {MemberName:e.name,ActionId:e.actionId,ActionLabel:a?a.label:(e.label||''),
+      Points:a?a.pts:0,Track:a?a.track:'',Org:p?orgLabel(p.org):''};
+  });
+  backendPost('addPointsBulk',pointsRows);
+  var attRows=entries.filter(function(e){
+    var a=actById(e.actionId);return a&&/attendance/i.test(a.label);
+  }).map(function(e){
+    var a=actById(e.actionId),p=findPersonByName(e.name);
+    return {MemberName:e.name,EventLabel:e.label||a.label,Track:a.track,Org:p?orgLabel(p.org):''};
+  });
+  if(attRows.length)backendPost('addAttendanceBulk',attRows);
+}
+function mergeBackendData(data){
+  if(!data)return false;
+  var changed=false;
+  if(data.teams&&data.teams.length){
+    var byName={};
+    data.teams.forEach(function(r){if(r.MemberName)byName[normName(r.MemberName)]=r});
+    var orgNames=[],orgIdx={};
+    data.teams.forEach(function(r){
+      var lbl=r.Org||'Org 01';
+      if(!(lbl in orgIdx)){orgIdx[lbl]=orgNames.length;orgNames.push(lbl)}
+    });
+    var people=data.teams.map(function(r){
+      return {name:r.MemberName,year:parseInt(r.Year,10)||1,track:r.Track||'e',
+        mbti:r.MBTI||null,lead:/^y/i.test(r.LeadInterest||r.IsLead||''),
+        note:r.Notes||'',org:orgIdx[r.Org||'Org 01']||0,pts:0,evts:0,cross:0,hist:[]};
+    });
+    if(people.length){
+      S.people=people;
+      S.orgs=[];for(var i=0;i<orgNames.length;i++)S.orgs.push([]);
+      S.people.forEach(function(p){S.orgs[p.org].push(p);p.norm=normName(p.name)});
+      S.orgNames=orgNames;
+      changed=true;
+    }
+  }
+  if(data.pointsLog&&data.pointsLog.length){
+    S.log=data.pointsLog.map(function(r){
+      return {id:S.seq++,name:r.MemberName,norm:normName(r.MemberName||''),
+        actionId:r.ActionId,label:r.ActionLabel||'',date:r.Timestamp||''};
+    });
+    changed=true;
+  }
+  return changed;
 }
 // Restored rules live in S.rules, but the inputs still show their HTML
 // defaults until this runs — without it the panel reports one bonus while
@@ -835,6 +915,7 @@ function run(){
   if(leads<n*2)notes.push('only '+leads+' Lead volunteers for '+(n*2)+' slots');
   S.draftNotes=notes;
   save();
+  syncTeams();
   setView('v-draft');
 }
 /* ================= ORG CUP ================= */
@@ -998,10 +1079,13 @@ function renderLog(){
 function renderCup(){renderActions();fillActionSelect();renderStandings();renderLog()}
 
 function addLog(names,actionId,label,date){
+  var added=[];
   names.forEach(function(nm){
-    S.log.push({id:S.seq++,name:nm,norm:normName(nm),actionId:actionId,label:label||'',date:date||''});
+    var e={id:S.seq++,name:nm,norm:normName(nm),actionId:actionId,label:label||'',date:date||''};
+    S.log.push(e);added.push(e);
   });
   scoreAll();refreshScored();
+  syncLogEntries(added);
 }
 function quickAdd(){
   if(!S.orgs.length){cupSay('Run the draft first \u2014 there is no roster to score against.');return}
@@ -1086,16 +1170,18 @@ function buildEventMap(){
   $('doimport').addEventListener('click',function(){
     var picks={};
     Array.prototype.forEach.call(box.querySelectorAll('.evtsel'),function(s){picks[s.dataset.event]=s.value});
-    var added=0;
+    var added=0,addedRows=[];
     attRows.forEach(function(r){
       var nm=(r[ci.aname]||'').trim();if(!nm)return;
       var ev=(ci.aevent>=0?(r[ci.aevent]||'').trim():'Imported')||'Imported';
       var aid=picks[ev];if(!aid)return;
-      S.log.push({id:S.seq++,name:nm,norm:normName(nm),actionId:aid,
-        label:ev,date:ci.adate>=0?(r[ci.adate]||'').trim():''});
+      var e={id:S.seq++,name:nm,norm:normName(nm),actionId:aid,
+        label:ev,date:ci.adate>=0?(r[ci.adate]||'').trim():''};
+      S.log.push(e);addedRows.push(e);
       added++;
     });
     scoreAll();refreshScored();
+    syncLogEntries(addedRows);
     $('cupmap').style.display='none';
     cupSay('Imported '+added+' entries.'+(Object.keys(S.unmatched).length?' Some names did not match \u2014 see standings.':''),'good');
   });
@@ -1237,6 +1323,7 @@ function applySwap(idx){
   scoreAll();renderDraft();
   computeSwaps();renderSwaps();renderAssistant();
   save();
+  syncTeams();
 }
 function renderSwaps(){
   var box=$('swaps');
@@ -1503,6 +1590,7 @@ function renderDraft(){
       if(v===null)return;
       S.orgNames[i]=v.trim()||('Org '+pad(i));
       renderDraft();renderStandings();save();
+      syncTeams();
     });
   });
 }
@@ -1617,6 +1705,7 @@ function renderTeam(){
   $('teamname').addEventListener('change',function(e){
     S.orgNames[i]=e.target.value.trim()||('Org '+pad(i));
     renderTeam();renderDraft();renderStandings();save();
+    syncTeams();
   });
   Array.prototype.forEach.call($('teambody').querySelectorAll('.movesel'),function(sel){
     sel.addEventListener('change',function(){
@@ -1627,6 +1716,7 @@ function renderTeam(){
       var p=S.orgs[from].splice(idx,1)[0];
       p.org=to;S.orgs[to].push(p);
       scoreAll();renderTeam();renderDraft();save();
+      syncTeams();
     });
   });
 }
@@ -1817,6 +1907,17 @@ $('wipe').addEventListener('click',function(){
   }
   var t=new Date();
   $('qdate').value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+
+  // The Sheet is the shared multi-browser store; if it already has Teams
+  // data, it wins over whatever this browser had cached in localStorage.
+  backendGet().then(function(data){
+    if(!mergeBackendData(data))return;
+    if(!S.actions.length)S.actions=cloneActions();
+    unlockNav();syncRuleInputs();scoreAll();renderDraft();renderCup();
+    setView('v-draft');
+    save();
+    say('Synced from the shared sheet — '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','good');
+  });
 })();
 })();
 
