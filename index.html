@@ -229,6 +229,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
     <button data-view="v-intake" aria-current="true">Intake</button>
     <button data-view="v-draft" disabled>Draft</button>
     <button data-view="v-teams" disabled>Teams</button>
+    <button data-view="v-attend" disabled>Attendance</button>
     <button data-view="v-cup" disabled>Org Cup</button>
     <button data-view="v-assist" disabled>Assistant</button>
   </nav>
@@ -343,6 +344,27 @@ Marcus Lee, 2, Either, ISTJ, No"></textarea>
 <div class="view" id="v-teams">
   <div class="teampick" id="teampick"></div>
   <div id="teambody"></div>
+</div>
+
+<!-- ============ ATTENDANCE ============ -->
+<div class="view" id="v-attend">
+<div class="panel">
+  <h2>Take attendance</h2>
+  <p class="hint">Pick what this is for, check off who showed up, log it. This writes to the same points log as the Org Cup — attendance-labeled actions also land in the Sheet's Attendance tab.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:2;min-width:210px"><label for="atact">Action</label><select id="atact"></select></div>
+    <div class="field" style="flex:1;min-width:150px"><label for="atevent">Event label (optional)</label><input type="text" id="atevent" placeholder="Week 3 workshop"></div>
+    <div class="field"><label for="atdate">Date</label><input type="date" id="atdate"></div>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <button type="button" class="tiny ghost" id="atall">Check all</button>
+    <button type="button" class="tiny ghost" id="atnone">Check none</button>
+    <span class="savenote" id="atcount"></span>
+  </div>
+  <div id="atbody" style="margin-top:10px"></div>
+  <div class="row"><button id="atadd">Log attendance</button></div>
+  <div class="msg" id="atmsg"></div>
+</div>
 </div>
 
 <!-- ============ ORG CUP ============ -->
@@ -633,6 +655,7 @@ function setView(id){
     b.setAttribute('aria-current',b.dataset.view===id?'true':'false');
   });
   if(id==='v-teams')renderTeam();
+  if(id==='v-attend')renderAttend();
   if(id==='v-cup')renderCup();
   if(id==='v-assist'){computeSwaps();renderAssistant()}
   window.scrollTo(0,0);
@@ -959,12 +982,14 @@ function renderActions(){
   });
 }
 function fillActionSelect(){
-  var sel=$('qact');if(!sel)return;
-  var keep=sel.value;
-  sel.innerHTML=S.actions.filter(function(a){return a.on}).map(function(a){
-    return '<option value="'+a.id+'">'+esc(a.label)+' \u00B7 '+a.pts+'pt'+(a.pts===1?'':'s')+'</option>';
-  }).join('');
-  if(keep)sel.value=keep;
+  ['qact','atact'].forEach(function(id){
+    var sel=$(id);if(!sel)return;
+    var keep=sel.value;
+    sel.innerHTML=S.actions.filter(function(a){return a.on}).map(function(a){
+      return '<option value="'+a.id+'">'+esc(a.label)+' \u00B7 '+a.pts+'pt'+(a.pts===1?'':'s')+'</option>';
+    }).join('');
+    if(keep)sel.value=keep;
+  });
 }
 
 /* ---- scoring ----
@@ -1077,6 +1102,33 @@ function renderLog(){
   });
 }
 function renderCup(){renderActions();fillActionSelect();renderStandings();renderLog()}
+
+/* ---- Attendance tab: roster checklist for one event ---- */
+function atSay(text,kind){var m=$('atmsg');m.textContent=text;m.className='msg show'+(kind?' '+kind:'')}
+function atUpdateCount(){
+  var n=$('atbody').querySelectorAll('input.at-check:checked').length;
+  $('atcount').textContent=n?n+' checked':'';
+}
+function renderAttend(){
+  fillActionSelect();
+  var box=$('atbody');
+  if(!S.orgs.length){box.innerHTML='<p class="empty">Run the draft first — there is no roster to check off.</p>';$('atcount').textContent='';return}
+  var h='';
+  S.orgs.forEach(function(g,i){
+    if(!g.length)return;
+    h+='<div class="orgno" style="margin-top:14px"><span>'+esc(orgLabel(i))+' · '+g.length+' members</span></div><ul class="roster">';
+    g.slice().sort(function(x,y){return x.name.localeCompare(y.name)}).forEach(function(p){
+      h+='<li><label class="check" style="flex:1"><input type="checkbox" class="at-check" data-name="'+esc(p.name)+'">'+
+        '<span class="nm">'+esc(p.name)+'</span></label></li>';
+    });
+    h+='</ul>';
+  });
+  box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll('.at-check'),function(c){
+    c.addEventListener('change',atUpdateCount);
+  });
+  atUpdateCount();
+}
 
 function addLog(names,actionId,label,date){
   var added=[];
@@ -1848,6 +1900,25 @@ $('resetacts').addEventListener('click',function(){
 });
 $('qadd').addEventListener('click',quickAdd);
 $('qsample').addEventListener('click',sampleSemester);
+$('atall').addEventListener('click',function(){
+  Array.prototype.forEach.call($('atbody').querySelectorAll('.at-check'),function(c){c.checked=true});
+  atUpdateCount();
+});
+$('atnone').addEventListener('click',function(){
+  Array.prototype.forEach.call($('atbody').querySelectorAll('.at-check'),function(c){c.checked=false});
+  atUpdateCount();
+});
+$('atadd').addEventListener('click',function(){
+  if(!S.orgs.length){atSay('Run the draft first — there is no roster to score against.');return}
+  var actionId=$('atact').value;
+  if(!actionId){atSay('No active actions. Add one, or switch one back on.');return}
+  var names=Array.prototype.map.call($('atbody').querySelectorAll('.at-check:checked'),function(c){return c.dataset.name});
+  if(!names.length){atSay('Check off at least one person.');return}
+  addLog(names,actionId,$('atevent').value.trim(),$('atdate').value);
+  Array.prototype.forEach.call($('atbody').querySelectorAll('.at-check'),function(c){c.checked=false});
+  atUpdateCount();
+  atSay('Logged '+names.length+' entr'+(names.length>1?'ies':'y')+' for '+actById(actionId).label+'.','good');
+});
 $('cupconnect').addEventListener('click',function(){loadCupSheet($('cupurl').value)});
 $('cuprefresh').addEventListener('click',function(){loadCupSheet(lastCupUrl||$('cupurl').value)});
 $('cupexport').addEventListener('click',exportStandings);
@@ -1906,7 +1977,9 @@ $('wipe').addEventListener('click',function(){
     renderActions();fillActionSelect();
   }
   var t=new Date();
-  $('qdate').value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+  var isoDate=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+  $('qdate').value=isoDate;
+  $('atdate').value=isoDate;
 
   // The Sheet is the shared multi-browser store; if it already has Teams
   // data, it wins over whatever this browser had cached in localStorage.
