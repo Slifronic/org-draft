@@ -30,7 +30,7 @@ var NEEDS = {
   createAffiliation: 'master', updateAffiliation: 'master', deleteAffiliation: 'master',
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
-  listSignups: 'master', purgeClub: 'master',
+  listSignups: 'master', purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin'
 };
 /* Every account, merged from the two doors people come in through: a password
@@ -111,6 +111,9 @@ var TAB = {
   profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo']}
 };
 var DEFAULT_AFF = 'default';
+/* The form every club starts from. Copied per club rather than shared, so one
+   club editing its questions cannot change another club's form. */
+var FORM_TEMPLATE_ID = '1J1Y-GqHHukEvjBSC12yN2rfcRpBxPXWkhY0Ve0JbRZ0';
 
 /* ---------------- one-time authorisation ----------------
    Run this once from the editor after pasting or changing this file, and
@@ -896,6 +899,12 @@ function dispatch(action, payload, email, role, id) {
        accounts and its setup. Used to hand a club over between semesters. */
     case 'purgeClub': {
       var pc = normAff((payload || {}).code || aff);
+      /* Officers may clear their own club and only their own. The club being
+         cleared arrives in the payload, so confining it to the caller has to
+         happen here -- a UI that only offers your own club is not a control,
+         it is a suggestion. Master runs the whole system and may clear any. */
+      if (RANK[role] < RANK.master && pc !== aff)
+        return {ok: false, error: 'You can only clear your own club.'};
       if (String((payload || {}).confirm) !== pc)
         return {ok: false, error: 'Type the club code to confirm.'};
       var wiped = {};

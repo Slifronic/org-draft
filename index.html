@@ -654,6 +654,13 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   </div>
 
   <div class="panel">
+    <h2>Clear this club’s data</h2>
+    <p class="hint">Removes the roster, the points and the attendance log for <b id="cr-clubname">this club</b>, and nothing else. The club stays, everyone’s account stays, and your setup stays — so a club can be handed over at the start of a semester without anyone signing up again. It cannot be undone.</p>
+    <div class="msg" id="crpurgemsg"></div>
+    <div class="row" style="margin-top:0"><button id="cr-purge" class="danger">Clear data</button></div>
+  </div>
+
+  <div class="panel">
     <h2>The club’s form and sheet</h2>
     <p class="hint">The sign-up form members fill in, and the spreadsheet its answers land in. Set once and everyone running this club gets the same two links. Edit them here if either link changes.</p>
     <div id="formkit" style="margin-bottom:14px"></div>
@@ -1766,7 +1773,7 @@ function setView(id){
   if(id==='v-access'){renderAccess();renderUsers();renderAffs();renderSignups()}
   if(id==='v-roster'){
     if(isMaster()&&$('rs-club')&&!$('rs-club').options.length)renderAffs();
-    renderClubRoster();renderRosterLinks();renderFormKit();
+    renderClubRoster();renderRosterLinks();renderFormKit();renderPurgePanel();
   }
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
@@ -3450,6 +3457,36 @@ function renderTrackList(){
    response spreadsheet, and files both links against the club. The alternative
    -- telling officers to copy a form, publish it, link a sheet, then paste two
    URLs back -- is four chances to paste the wrong thing. */
+/* Officers can clear their own club here rather than having to go through a
+   master. The server confines them to their own club regardless of what this
+   sends, so this is convenience, not the guard. */
+function renderPurgePanel(){
+  var b=$('cr-purge'); if(!b)return;
+  var nm=$('cr-clubname'); if(nm)nm.textContent=A.affName||A.aff||'this club';
+  var m=$('crpurgemsg'); if(m){m.textContent='';m.className='msg'}
+  b.disabled=false; b.textContent='Clear data';
+}
+function wirePurgePanel(){
+  var b=$('cr-purge'); if(!b)return;
+  b.addEventListener('click',function(){
+    var code=A.aff||'default', name=A.affName||code;
+    var t=prompt('Clear data for "'+name+'" \u2014 removes its roster, points and attendance. The club, its accounts and its setup stay. This cannot be undone.\n\nType the club code to confirm:\n'+code);
+    if(t===null)return;
+    var m=$('crpurgemsg');
+    b.disabled=true; b.textContent='Clearing\u2026';
+    backendPost('purgeClub',{code:code,confirm:t.trim()}).then(function(r){
+      b.disabled=false; b.textContent='Clear data';
+      if(r&&r.ok){
+        S.people=[];S.orgs=[];S.orgNames=[];S.log=[];S.standings=[];
+        save();
+        scoreAll();renderDraft();renderCup();
+        if(m){m.textContent='Cleared the data in '+name+'. The roster of accounts below is untouched.';m.className='msg show info'}
+      } else if(m){
+        m.textContent=(r&&r.error)||'That was refused.'; m.className='msg show';
+      }
+    });
+  });
+}
 function renderFormKit(){
   var box=$('formkit'); if(!box)return;
   if(A.offline){box.innerHTML='';return}
@@ -4474,6 +4511,7 @@ $('formskip').addEventListener('click',function(){$('navform').style.display='no
 $('af-go').addEventListener('click',function(){switchAff($('af-switch').value)});
 if($('dr-go'))$('dr-go').addEventListener('click',function(){switchAff($('dr-club').value)});
 if($('rs-go'))$('rs-go').addEventListener('click',function(){switchAff($('rs-club').value)});
+wirePurgePanel();
 $('cardclose').addEventListener('click',function(){$('membercard').classList.remove('on')});
 $('membercard').addEventListener('click',function(e){if(e.target.id==='membercard')$('membercard').classList.remove('on')});
 $('af-add').addEventListener('click',function(){
