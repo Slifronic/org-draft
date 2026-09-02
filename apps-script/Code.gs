@@ -27,7 +27,7 @@ var NEEDS = {
   listUsers: 'master',   createUser: 'master',    deleteUser: 'master',
   resetPassword: 'master', setUserRole: 'master',
   myProfile: 'member',   joinAffiliation: 'member',
-  createAffiliation: 'master'
+  createAffiliation: 'master', updateAffiliation: 'master'
 };
 /* 'login' is deliberately absent: it is the one action that runs before any
    identity exists, and it is handled ahead of the permission check. */
@@ -57,8 +57,11 @@ var TAB = {
   attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation']},
   roster:     {name: 'Form Responses 1', cols: null, readOnly: true},
   config:     {name: 'Config',     cols: ['Key', 'Value']},
+  /* New fields are appended, never inserted, so an existing Users sheet is
+     widened in place and nobody's account is archived by an upgrade. */
   users:      {name: 'Users',      cols: ['Username', 'ClientSalt', 'ServerSalt', 'Hash', 'Iterations',
-                                          'Role', 'FailCount', 'LockedUntil', 'CreatedBy', 'CreatedAt', 'Affiliation']},
+                                          'Role', 'FailCount', 'LockedUntil', 'CreatedBy', 'CreatedAt', 'Affiliation',
+                                          'FirstName', 'LastName', 'Email']},
   affiliations: {name: 'Affiliations', cols: ['Code', 'Name', 'JoinCode', 'CreatedBy', 'CreatedAt']}
 };
 var DEFAULT_AFF = 'default';
@@ -112,11 +115,19 @@ function ensureHeader(sh, cols, name, ss) {
     sh.setFrozenRows(1);
     return sh;
   }
+  /* head was read at the NEW width, so it is padded with blanks wherever this
+     version added a column. Comparing against those blanks would make every
+     append look like a mismatch and archive a perfectly good sheet -- which is
+     exactly what happened to the Users tab once. Measure the real header
+     first, then compare only that far. */
+  var lastReal = 0;
+  for (var k = 0; k < head.length; k++) if (String(head[k]) !== '') lastReal = k + 1;
+
   var isPrefix = true;
-  for (var i = 0; i < cols.length && i < head.length; i++)
+  for (var i = 0; i < lastReal && i < cols.length; i++)
     if (String(head[i]) !== cols[i]) { isPrefix = false; break; }
-  if (isPrefix && head.length <= cols.length) {
-    for (var j = head.length; j < cols.length; j++)
+  if (isPrefix && lastReal <= cols.length) {
+    for (var j = lastReal; j < cols.length; j++)
       sh.getRange(1, j + 1).setValue(cols[j]);
     return sh;
   }
@@ -320,6 +331,8 @@ function findUser(username) {
             clientSalt: g('ClientSalt'), serverSalt: g('ServerSalt'), hash: g('Hash'),
             affiliation: normAff(g('Affiliation') || DEFAULT_AFF),
             iters: Number(g('Iterations')) || PBKDF2_ITERS,
+            first: String(g('FirstName') || ''), last: String(g('LastName') || ''),
+            email: String(g('Email') || ''),
             role: String(g('Role') || 'member').toLowerCase(),
             fails: Number(g('FailCount')) || 0,
             lockedUntil: Number(g('LockedUntil')) || 0};
@@ -359,21 +372,33 @@ function doLogin(payload) {
   setUserField(rec, 'FailCount', 0);
   setUserField(rec, 'LockedUntil', '');
   var exp = Date.now() + SESSION_MS;
+  var full = (rec.first + ' ' + rec.last).trim();
   return {ok: true, session: signSession(rec.username, exp), role: rec.role,
-          username: rec.username, expires: exp};
+          username: rec.username, name: full || rec.username,
+          email: rec.email || '', aff: rec.affiliation,
+          affName: (findAff(rec.affiliation) || {}).name || rec.affiliation,
+          expires: exp};
 }
 
 /* Self-service sign-up. Anyone may create an account, but only into an
    affiliation whose join code they can produce, and only ever as a member --
    role is not something a stranger gets to choose. */
+/* The account is keyed by email address, because that is the thing a member
+   already knows and cannot accidentally pick twice. First and last name are
+   kept separately so the roster can be matched on a real name rather than a
+   login handle. */
 function doSignup(payload) {
   var p = payload || {};
-  var u = normUser(p.username);
+  var first = String(p.firstName || '').trim();
+  var last  = String(p.lastName || '').trim();
+  var email = String(p.email || '').toLowerCase().trim();
   var aff = findAff(p.affiliation);
   var given = String(p.joinCode || '').trim();
 
-  if (!/^[a-z0-9._-]{3,32}$/.test(u))
-    return {ok: false, error: 'Usernames are 3-32 characters: letters, digits, dot, dash, underscore.'};
+  if (!first) return {ok: false, error: 'Enter your first name.'};
+  if (!last)  return {ok: false, error: 'Enter your last name.'};
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+    return {ok: false, error: 'Enter a valid email address.'};
   if (!aff) return {ok: false, error: 'Pick the club you are joining.'};
   if (!p.dk || !p.clientSalt) return {ok: false, error: 'The browser did not send a derived key.'};
 
@@ -383,15 +408,16 @@ function doSignup(payload) {
     Utilities.sleep(400);
     return {ok: false, error: 'That join code does not match this club.'};
   }
-  if (findUser(u)) return {ok: false, error: 'That username is taken.'};
+  if (findUser(email)) return {ok: false, error: 'There is already an account for that email.'};
 
   var ssalt = Utilities.getUuid();
-  tab('users').appendRow([u, String(p.clientSalt), ssalt, hashDk(p.dk, ssalt),
+  tab('users').appendRow([email, String(p.clientSalt), ssalt, hashDk(p.dk, ssalt),
                           Number(p.iterations) || PBKDF2_ITERS, 'member', 0, '',
-                          'self sign-up', new Date(), aff.code]);
+                          'self sign-up', new Date(), aff.code, first, last, email]);
   var exp = Date.now() + SESSION_MS;
-  return {ok: true, session: signSession(u, exp), role: 'member',
-          username: u, aff: aff.code, affName: aff.name, expires: exp};
+  return {ok: true, session: signSession(email, exp), role: 'member',
+          username: email, name: (first + ' ' + last).trim(), email: email,
+          aff: aff.code, affName: aff.name, expires: exp};
 }
 
 /* ---------------- one identity, two doors ----------------
@@ -405,6 +431,7 @@ function identify(body) {
     var rec = findUser(u);
     if (!rec) return {ok: false, error: 'That account no longer exists.'};
     return {ok: true, who: rec.username, role: rec.role, via: 'password',
+            name: (rec.first + ' ' + rec.last).trim() || rec.username,
             aff: normAff(rec.affiliation || DEFAULT_AFF)};
   }
   var email;
@@ -522,7 +549,7 @@ function dispatch(action, payload, email, role, id) {
   switch (action) {
 
     case 'whoami':
-      return {ok: true, role: role, email: email, aff: aff,
+      return {ok: true, role: role, email: email, name: id.name || email, aff: aff,
               affName: (findAff(aff) || {}).name || aff,
               needsAff: !!id.needsAff, via: id.via};
 
@@ -607,6 +634,24 @@ function dispatch(action, payload, email, role, id) {
       if (already) return {ok: false, error: 'You are already in ' + already.aff + '.'};
       tab('roles').appendRow([email, 'member', 'self join', new Date(), ja.code]);
       return {ok: true, joined: ja.code, name: ja.name};
+    }
+
+    /* Renaming a club or rotating its join code, without touching its data. */
+    case 'updateAffiliation': {
+      var uc = normAff((payload || {}).code);
+      var un = String((payload || {}).name || '').trim();
+      var uj = String((payload || {}).joinCode || '').trim();
+      var shA = tab('affiliations'), vA = shA.getDataRange().getValues();
+      for (var z = 1; z < vA.length; z++) {
+        if (normAff(vA[z][0]) !== uc) continue;
+        if (un) shA.getRange(z + 1, 2).setValue(un);
+        if (uj) {
+          if (uj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
+          shA.getRange(z + 1, 3).setValue(uj);
+        }
+        return {ok: true, updated: uc};
+      }
+      return {ok: false, error: 'No club with that code.'};
     }
 
     case 'createAffiliation': {

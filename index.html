@@ -281,6 +281,10 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 #suform input,#suform select,#joinform input,#joinform select{width:100%;padding:9px 10px;
   border:1px solid var(--rule);background:var(--paper);font-size:13.5px;color:var(--ink);
   font-family:'Archivo',sans-serif}
+.surow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gatenote{font-size:12px;color:var(--slate);line-height:1.45;margin:10px 0 0}
+.gateor span{white-space:nowrap}
+@media(max-width:420px){.surow{grid-template-columns:1fr}}
 .gateswitch{margin-top:14px;text-align:center}
 .gateswitch button{background:transparent;border:none;color:var(--accent);font-size:12.5px;
   padding:4px;text-decoration:underline;font-weight:500}
@@ -370,26 +374,37 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   <div class="gatecard">
     <div class="eyebrow">The Org System</div>
     <h2>Sign in to continue</h2>
-    <p>This page holds your club&rsquo;s roster, personality types, and points. Sign in with the Google account your club knows you by — what you can see and change depends on the role your club officers gave that address.</p>
+    <p id="gateintro">This page holds your club&rsquo;s roster, personality types, and points. Sign in with the Google account your club knows you by — what you can see and change depends on the role your club officers gave that address.</p>
     <div class="gatebtn" id="gsibtn"></div>
     <div class="gateor" id="gateor"><span>or</span></div>
     <form id="pwform" autocomplete="on">
-      <div class="field"><label for="pw-user">Username</label>
-        <input type="text" id="pw-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+      <div class="field"><label for="pw-user">Email</label>
+        <input type="text" id="pw-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com"></div>
       <div class="field" style="margin-top:10px"><label for="pw-pass">Password</label>
         <input type="password" id="pw-pass" name="password" autocomplete="current-password"></div>
       <button type="submit" id="pw-go" style="width:100%;margin-top:14px">Sign in</button>
     </form>
 
+    <div id="sugoogle">
+      <div class="gatebtn" id="sugsibtn"></div>
+      <p class="gatenote">Signing up with Google takes your name and email from your account, so you only need your club and its join code. No password to choose or forget.</p>
+      <div class="gateor"><span>or use an email and password</span></div>
+    </div>
     <form id="suform" autocomplete="on" style="display:none">
-      <div class="field"><label for="su-aff">Which club are you joining?</label>
+      <div class="surow">
+        <div class="field"><label for="su-first">First name</label>
+          <input type="text" id="su-first" name="given-name" autocomplete="given-name"></div>
+        <div class="field"><label for="su-last">Last name</label>
+          <input type="text" id="su-last" name="family-name" autocomplete="family-name"></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label for="su-email">Email</label>
+        <input type="email" id="su-email" name="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com"></div>
+      <div class="field" style="margin-top:10px"><label for="su-pass">Password</label>
+        <input type="password" id="su-pass" name="password" autocomplete="new-password" placeholder="at least 10 characters"></div>
+      <div class="field" style="margin-top:10px"><label for="su-aff">Which club are you joining?</label>
         <select id="su-aff"></select></div>
       <div class="field" style="margin-top:10px"><label for="su-code">Join code</label>
         <input type="text" id="su-code" class="mono" placeholder="from your club officers" autocapitalize="none" spellcheck="false"></div>
-      <div class="field" style="margin-top:10px"><label for="su-user">Choose a username</label>
-        <input type="text" id="su-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
-      <div class="field" style="margin-top:10px"><label for="su-pass">Choose a password</label>
-        <input type="password" id="su-pass" name="password" autocomplete="new-password" placeholder="at least 10 characters"></div>
       <button type="submit" id="su-go" style="width:100%;margin-top:14px">Create account</button>
     </form>
 
@@ -1161,7 +1176,8 @@ function pwLogin(user,pass){
     if(!r)   {gateMsg('The club sheet did not answer. Try again in a moment.',true);return false}
     if(!r.ok){gateMsg(r.error||'That did not work.',true);return false}
     A.session=r.session; A.token=null; A.via='password';
-    A.email=r.username; A.name=r.username; A.pic='';
+    A.email=r.email||r.username; A.name=r.name||r.username; A.pic='';
+    A.aff=r.aff||A.aff; A.affName=r.affName||A.affName;
     storeSession(r.session);
     setRole(r.role,null);
     showGate(false); gateMsg('');
@@ -1181,7 +1197,7 @@ function resumeSession(){
   A.session=tok; A.via='password';
   return backendPost('whoami',null).then(function(r){
     if(!r||!r.ok){A.session=null;A.via='';storeSession(null);return false}
-    A.email=r.email||''; A.name=r.email||''; A.pic='';
+    A.email=r.email||''; A.name=r.name||r.email||''; A.pic='';
     A.aff=r.aff||''; A.affName=r.affName||r.aff||''; A.needsAff=!!r.needsAff;
     setRole(r.role,null);
     if(A.needsAff){gateMode('join');return false}
@@ -1199,12 +1215,19 @@ function gateMode(mode){
   $('joinform').style.display = showJoin?'':'none';
   $('gsibtn').style.display   = showSignIn?'':'none';
   $('gateor').style.display   = showSignIn?'':'none';
+  $('sugoogle').style.display = showSignUp?'':'none';
   $('gateswitch').style.display = showJoin?'none':'';
   $('gateswitch').firstChild.textContent = showSignUp
     ? 'Already have an account? Sign in'
     : 'New here? Create an account';
   var h=document.querySelector('#gate h2');
   if(h)h.textContent = showSignUp?'Create your account':(showJoin?'One more step':'Sign in to continue');
+  var intro=$('gateintro');
+  if(intro)intro.innerHTML = showSignUp
+    ? 'You need two things from your club: which one you are joining, and its join code. Everything else is just your name and how you want to sign in.'
+    : (showJoin
+      ? 'You are signed in, but you are not in a club yet. Pick yours and enter the join code your officers gave you — until then there is nothing for you to see.'
+      : 'This page holds your club\u2019s roster, personality types, and points. Sign in with the account your club knows you by \u2014 what you can see and change depends on the role your officers gave you.');
   gateMsg('');
   if(showSignUp||showJoin)loadAffiliations(showSignUp?'su-aff':'jn-aff');
 }
@@ -1223,23 +1246,28 @@ function loadAffiliations(selId){
   });
 }
 function doSignupSubmit(){
-  var aff=$('su-aff').value, code=$('su-code').value.trim();
-  var u=$('su-user').value.trim().toLowerCase(), pw=$('su-pass').value;
+  var first=$('su-first').value.trim(), last=$('su-last').value.trim();
+  var email=$('su-email').value.trim().toLowerCase();
+  var pw=$('su-pass').value, aff=$('su-aff').value, code=$('su-code').value.trim();
+  if(!first){gateMsg('Enter your first name.',true);return}
+  if(!last){gateMsg('Enter your last name.',true);return}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){gateMsg('Enter a valid email address.',true);return}
+  if(pw.length<10){gateMsg('Pick a password of at least 10 characters.',true);return}
   if(!aff){gateMsg('Pick the club you are joining.',true);return}
   if(!code){gateMsg('You need the join code from your club officers.',true);return}
-  if(!/^[a-z0-9._-]{3,32}$/.test(u)){gateMsg('Usernames are 3–32 characters: letters, digits, dot, dash, underscore.',true);return}
-  if(pw.length<10){gateMsg('Pick a password of at least 10 characters.',true);return}
   $('su-go').disabled=true;
   gateMsg('Creating your account…');
   deriveForNew(pw).then(function(d){
-    return backendPost('signup',{username:u,affiliation:aff,joinCode:code,
+    return backendPost('signup',{firstName:first,lastName:last,email:email,
+      affiliation:aff,joinCode:code,
       dk:d.dk,clientSalt:d.clientSalt,iterations:d.iterations});
   }).then(function(r){
     $('su-go').disabled=false;
     if(!r){gateMsg('The club sheet did not answer. Try again in a moment.',true);return}
     if(!r.ok){gateMsg(r.error||'That did not work.',true);return}
     A.session=r.session; A.token=null; A.via='password';
-    A.email=r.username; A.name=r.username; A.aff=r.aff; A.affName=r.affName||r.aff;
+    A.email=r.email||r.username; A.name=r.name||r.username;
+    A.aff=r.aff; A.affName=r.affName||r.aff;
     storeSession(r.session);
     setRole(r.role,null);
     showGate(false); gateMsg('');
@@ -1290,6 +1318,7 @@ function initGsi(){
   if(!GOOGLE_CLIENT_ID){
     gateMsg('');
     $('gsibtn').innerHTML='<button id="golocal" style="width:100%">Continue without signing in</button>';
+    if($('sugoogle'))$('sugoogle').style.display='none';
     $('gatefoot').innerHTML='<b>Google sign-in is not configured.</b> A username and password still work if an officer created an account for you. With neither, the page runs on local data only and will not read or write the shared sheet.';
     $('golocal').addEventListener('click',function(){goOffline('No Google client ID is configured, so nothing on this page is syncing to the shared sheet.')});
     return;
@@ -1303,6 +1332,13 @@ function initGsi(){
     google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:onCredential,auto_select:true});
     $('gsibtn').innerHTML='';
     google.accounts.id.renderButton($('gsibtn'),{theme:'outline',size:'large',text:'signin_with',shape:'rectangular'});
+    /* The same credential flow, labelled for the sign-up screen. A Google
+       account that has not joined a club yet lands on the join step, which
+       is the only thing Google cannot tell us. */
+    if($('sugsibtn')){
+      $('sugsibtn').innerHTML='';
+      google.accounts.id.renderButton($('sugsibtn'),{theme:'outline',size:'large',text:'signup_with',shape:'rectangular'});
+    }
     google.accounts.id.prompt();
   }catch(e){ gateMsg('Google sign-in failed to start: '+e.message,true) }
 }
@@ -3123,10 +3159,27 @@ function renderAffs(){
     if(!rows.length){box.innerHTML='<p class="empty">No clubs yet. Create the first one above — until then nobody can sign up.</p>';return}
     box.innerHTML='<div class="acctrow head"><span>Club</span><span>Code</span><span></span></div>'+
       rows.map(function(a){
-        return '<div class="acctrow"><span>'+esc(a.name)+'</span>'+
+        return '<div class="acctrow"><span>'+esc(a.name)+
+               (a.code===A.aff?' <span class="lock">viewing</span>':'')+'</span>'+
                '<span class="em">'+esc(a.code)+'</span>'+
-               '<span>'+(a.code===A.aff?'<span class="lock">viewing</span>':'')+'</span></div>';
+               '<button class="kill affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+               '" title="Rename or rotate the join code" style="color:var(--slate)">edit</button></div>';
       }).join('');
+    /* Renaming changes the display name only. The short code is what every
+       row of data is stamped with, so changing that would orphan the club's
+       roster and points -- it stays fixed for the life of the club. */
+    Array.prototype.forEach.call(box.querySelectorAll('.affedit'),function(b){
+      b.addEventListener('click',function(){
+        var nm=prompt('Display name for this club (the short code "'+b.dataset.code+'" cannot change — every row of its data is stamped with it):',b.dataset.name);
+        if(nm===null)return;
+        var jc=prompt('New join code? Leave blank to keep the current one.\nChanging it stops any code already going around from working.','');
+        if(jc===null)jc='';
+        backendPost('updateAffiliation',{code:b.dataset.code,name:nm.trim(),joinCode:jc.trim()}).then(function(r){
+          if(r&&r.ok){affSay('Updated.','good');if(A.aff===b.dataset.code&&nm.trim()){A.affName=nm.trim();setRole(A.role,null)}renderAffs()}
+          else affSay((r&&r.error)||'That change was refused.');
+        });
+      });
+    });
     var sel=$('af-switch');
     if(sel){
       var opts=rows.slice();
