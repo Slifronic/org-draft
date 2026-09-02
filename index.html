@@ -638,6 +638,10 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 <!-- ============ DRAFT ============ -->
 <!-- ============ ROSTER ============ -->
 <div class="view" id="v-roster">
+  <div class="row" style="margin-top:0;margin-bottom:14px" data-req="master">
+    <div class="field" style="flex:1;max-width:320px"><label for="rs-club">Club being viewed</label><select id="rs-club"></select></div>
+    <button id="rs-go" class="ghost">Switch</button>
+  </div>
   <div class="panel">
     <h2>Who has signed up</h2>
     <p class="hint">Everyone holding an account in this club, however they signed in. This is the club’s roster — it fills itself as people join, so nothing here has to be imported or kept in step by hand. It is not the draft: people appear here the moment they make an account, whether or not the draft has been run.</p>
@@ -1760,7 +1764,10 @@ function setView(id){
   if(id==='v-cup')renderCup();
   if(id==='v-assist'){computeSwaps();renderAssistant()}
   if(id==='v-access'){renderAccess();renderUsers();renderAffs();renderSignups()}
-  if(id==='v-roster'){renderClubRoster();renderRosterLinks();renderFormKit()}
+  if(id==='v-roster'){
+    if(isMaster()&&$('rs-club')&&!$('rs-club').options.length)renderAffs();
+    renderClubRoster();renderRosterLinks();renderFormKit();
+  }
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
@@ -3806,14 +3813,12 @@ function renderAffs(){
         });
       });
     });
-    var dr=$('dr-club');
-    if(dr){
-      var dopts=rows.slice();
-      if(!dopts.some(function(a){return a.code==='default'}))dopts.unshift({code:'default',name:'default'});
-      dr.innerHTML=dopts.map(function(a){
-        return '<option value="'+esc(a.code)+'"'+(a.code===A.aff?' selected':'')+'>'+esc(a.name)+'</option>';
-      }).join('');
-    }
+    var dopts=rows.slice();
+    if(!dopts.some(function(a){return a.code==='default'}))dopts.unshift({code:'default',name:'default'});
+    var dhtml=dopts.map(function(a){
+      return '<option value="'+esc(a.code)+'"'+(a.code===A.aff?' selected':'')+'>'+esc(a.name)+'</option>';
+    }).join('');
+    ['dr-club','rs-club'].forEach(function(id){var el=$(id); if(el)el.innerHTML=dhtml});
     var sel=$('af-switch');
     if(sel){
       var opts=rows.slice();
@@ -3841,6 +3846,7 @@ function switchAff(code){
     if(!S.actions.length)S.actions=cloneActions();
     unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
     scoreAll();renderDraft();renderCup();renderAffs();renderRosterLinks();
+    renderClubRoster();renderFormKit();
     setRole(A.role,null);
     affSay('Now viewing '+(A.affName||A.aff)+' — '+S.people.length+' members, '+S.orgs.length+' teams.','good');
   });
@@ -4467,6 +4473,7 @@ $('formsubmit').addEventListener('click',submitClubForm);
 $('formskip').addEventListener('click',function(){$('navform').style.display='none';setView('v-profile')});
 $('af-go').addEventListener('click',function(){switchAff($('af-switch').value)});
 if($('dr-go'))$('dr-go').addEventListener('click',function(){switchAff($('dr-club').value)});
+if($('rs-go'))$('rs-go').addEventListener('click',function(){switchAff($('rs-club').value)});
 $('cardclose').addEventListener('click',function(){$('membercard').classList.remove('on')});
 $('membercard').addEventListener('click',function(e){if(e.target.id==='membercard')$('membercard').classList.remove('on')});
 $('af-add').addEventListener('click',function(){
