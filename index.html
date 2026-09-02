@@ -3078,6 +3078,7 @@ function wireMemberLinks(root){
 /* ================= TEAM VIEW ================= */
 function renderTeam(){
   if(!S.orgs.length){$('teampick').innerHTML='';waitingForDraft('teambody');return}
+  var tw=$('draftwait'); if(tw)tw.remove();
   $('teampick').innerHTML=S.orgs.map(function(g,i){
     return '<button data-org="'+i+'" aria-current="'+(i===S.team?'true':'false')+'">'+esc(orgLabel(i))+
       ' <span style="opacity:.6">'+g.length+'</span></button>';
