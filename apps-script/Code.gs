@@ -27,7 +27,9 @@ var NEEDS = {
   listUsers: 'master',   createUser: 'master',    deleteUser: 'master',
   resetPassword: 'master', setUserRole: 'master',
   myProfile: 'member',   joinAffiliation: 'member',
-  createAffiliation: 'master', updateAffiliation: 'master'
+  createAffiliation: 'master', updateAffiliation: 'master', deleteAffiliation: 'master',
+  getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
+  memberCard: 'member'
 };
 /* 'login' is deliberately absent: it is the one action that runs before any
    identity exists, and it is handled ahead of the permission check. */
@@ -62,7 +64,10 @@ var TAB = {
   users:      {name: 'Users',      cols: ['Username', 'ClientSalt', 'ServerSalt', 'Hash', 'Iterations',
                                           'Role', 'FailCount', 'LockedUntil', 'CreatedBy', 'CreatedAt', 'Affiliation',
                                           'FirstName', 'LastName', 'Email']},
-  affiliations: {name: 'Affiliations', cols: ['Code', 'Name', 'JoinCode', 'CreatedBy', 'CreatedAt']}
+  affiliations: {name: 'Affiliations', cols: ['Code', 'Name', 'JoinCode', 'CreatedBy', 'CreatedAt']},
+  /* Per-person editable details, separate from credentials so a Google user
+     who has no Users row still has somewhere to keep a name and a picture. */
+  profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo']}
 };
 var DEFAULT_AFF = 'default';
 
@@ -664,6 +669,109 @@ function dispatch(action, payload, email, role, id) {
       if (findAff(ac)) return {ok: false, error: 'That code is taken.'};
       tab('affiliations').appendRow([ac, an, aj, email, new Date()]);
       return {ok: true, created: ac, name: an};
+    }
+
+    case 'getProfile': {
+      var meE = String(email).toLowerCase(), got = null;
+      readScoped('profiles', aff).forEach(function (r) {
+        if (String(r.Email).toLowerCase() === meE) got = r;
+      });
+      return {ok: true, profile: got || null};
+    }
+
+    case 'saveProfile': {
+      var pE = String(email).toLowerCase();
+      var pf = String((payload || {}).firstName || '').trim();
+      var pl = String((payload || {}).lastName || '').trim();
+      var ph = String((payload || {}).photo || '');
+      if (ph === 'none') ph = ' ';   /* explicit clear */
+      if (ph.length > 200000) return {ok: false, error: 'That picture is too large.'};
+      var shP = tab('profiles'), vP = shP.getDataRange().getValues();
+      var idxP = {}; for (var c0 = 0; c0 < vP[0].length; c0++) idxP[String(vP[0][c0])] = c0;
+      for (var i0 = 1; i0 < vP.length; i0++) {
+        if (String(vP[i0][idxP.Email]).toLowerCase() !== pE) continue;
+        if (String(vP[i0][idxP.Affiliation]).toLowerCase() !== aff) continue;
+        if (pf) shP.getRange(i0 + 1, idxP.FirstName + 1).setValue(pf);
+        if (pl) shP.getRange(i0 + 1, idxP.LastName + 1).setValue(pl);
+        if (ph) shP.getRange(i0 + 1, idxP.Photo + 1).setValue(ph);
+        return {ok: true, saved: true};
+      }
+      shP.appendRow([pE, aff, pf, pl, ph]);
+      return {ok: true, saved: true};
+    }
+
+    /* Lets a Google account also gain a password, so the same person can come
+       in either door. Keyed on the verified email, never on anything typed. */
+    case 'setMyPassword': {
+      var mE = String(email).toLowerCase();
+      if (id.via !== 'google') return {ok: false, error: 'You already sign in with a password.'};
+      var mdk = String((payload || {}).dk || ''), msalt = String((payload || {}).clientSalt || '');
+      if (!mdk || !msalt) return {ok: false, error: 'The browser did not send a derived key.'};
+      var ex = findUser(mE);
+      var ss2 = Utilities.getUuid();
+      if (ex) {
+        setUserField(ex, 'ClientSalt', msalt);
+        setUserField(ex, 'ServerSalt', ss2);
+        setUserField(ex, 'Hash', hashDk(mdk, ss2));
+        setUserField(ex, 'Iterations', Number((payload || {}).iterations) || PBKDF2_ITERS);
+        return {ok: true, updated: true};
+      }
+      tab('users').appendRow([mE, msalt, ss2, hashDk(mdk, ss2),
+        Number((payload || {}).iterations) || PBKDF2_ITERS, role, 0, '',
+        'linked from Google', new Date(), aff,
+        String((payload || {}).firstName || ''), String((payload || {}).lastName || ''), mE]);
+      return {ok: true, created: true};
+    }
+
+    /* One member's public card: what any clubmate may see. Personality type
+       and points are withheld unless the asker is an officer or it is them. */
+    case 'memberCard': {
+      var flatN = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var want = flatN((payload || {}).name);
+      var row = null;
+      readScoped('teams', aff).forEach(function (r) { if (flatN(r.MemberName) === want) row = r; });
+      if (!row) return {ok: false, error: 'No such member in this club.'};
+      var self = flatN(id.name || email) === want;
+      var full = RANK[role] >= RANK.admin || self;
+      var pts = 0, evts = 0;
+      if (full) readScoped('pointsLog', aff).forEach(function (r) {
+        if (flatN(r.MemberName) !== want) return;
+        evts++; pts += Number(r.Points) || 0;
+      });
+      var ph = null;
+      readScoped('profiles', aff).forEach(function (r) {
+        if (flatN(String(r.FirstName) + String(r.LastName)) === want) ph = r.Photo;
+      });
+      return {ok: true, full: full, member: {
+        name: row.MemberName, org: row.Org, track: row.Track,
+        mbti: full ? row.MBTI : '', lead: row.IsLead,
+        notes: RANK[role] >= RANK.admin ? row.Notes : '',
+        points: full ? pts : null, entries: full ? evts : null, photo: ph}};
+    }
+
+    case 'deleteAffiliation': {
+      var dcode = normAff((payload || {}).code);
+      if (!dcode || dcode === DEFAULT_AFF) return {ok: false, error: 'That club cannot be deleted.'};
+      if (String((payload || {}).confirm) !== dcode)
+        return {ok: false, error: 'Type the club code to confirm.'};
+      /* Rows are removed bottom-up so earlier deletions do not shift the
+         indexes of rows not yet examined. */
+      ['teams', 'pointsLog', 'attendance', 'users', 'roles', 'profiles'].forEach(function (k) {
+        var sh = tab(k); if (!sh) return;
+        var v = sh.getDataRange().getValues();
+        var col = -1;
+        for (var c = 0; c < v[0].length; c++) if (String(v[0][c]) === 'Affiliation') col = c;
+        if (col < 0) return;
+        for (var r2 = v.length - 1; r2 >= 1; r2--)
+          if (normAff(v[r2][col]) === dcode) sh.deleteRow(r2 + 1);
+      });
+      var shC = tab('config'), vC = shC.getDataRange().getValues();
+      for (var q2 = vC.length - 1; q2 >= 1; q2--)
+        if (String(vC[q2][0]) === 'club:' + dcode) shC.deleteRow(q2 + 1);
+      var shA2 = tab('affiliations'), vA2 = shA2.getDataRange().getValues();
+      for (var z2 = vA2.length - 1; z2 >= 1; z2--)
+        if (normAff(vA2[z2][0]) === dcode) shA2.deleteRow(z2 + 1);
+      return {ok: true, deleted: dcode};
     }
 
     case 'deleteUser': {

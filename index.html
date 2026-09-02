@@ -351,6 +351,25 @@ body[data-role="member"] .act input,body[data-role="member"] .act select{pointer
 body[data-role="member"] .orgname{cursor:default}
 body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 
+/* ---- roster links ---- */
+.linkrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.linkbtn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rule);background:var(--paper);
+  padding:9px 13px;font-size:13px;color:var(--ink);text-decoration:none}
+.linkbtn:hover{border-color:var(--ink);background:var(--card)}
+.linkbtn b{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+.filterbar{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.filterbar input,.filterbar select{padding:8px 10px;border:1px solid var(--rule);background:var(--paper);
+  font-size:13px;color:var(--ink);font-family:'Archivo',sans-serif}
+.cardwrap{position:fixed;inset:0;background:rgba(26,22,19,.42);z-index:950;display:none;
+  align-items:center;justify-content:center;padding:20px}
+.cardwrap.on{display:flex}
+.cardbox{background:var(--card);border:1px solid var(--ink);max-width:430px;width:100%;
+  max-height:80vh;overflow:auto}
+.filterbar .lbl{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--slate);display:block;margin-bottom:4px}
+.nm.linked{cursor:pointer;border-bottom:1px dashed var(--rule)}
+.nm.linked:hover{border-bottom-color:var(--ink)}
+
 /* ---- club setup ---- */
 .setuprow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:12px}
 .trackrow{display:grid;grid-template-columns:22px 1fr 34px;gap:9px;align-items:center;padding:7px 0;border-bottom:1px solid #EFEDE6}
@@ -451,7 +470,6 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
     </div>
   </div>
   <h1><span id="h1title">Org System</span> <span>/ draft, teams, cup</span></h1>
-  <p class="sub" id="subline">One tool for the whole program: pull the roster from your sign-up form, draft balanced teams, run each team's page, and score the Cup off whatever actions you decide are worth points.</p>
   <nav id="nav">
     <button data-view="v-intake" aria-current="true" data-req="admin">Intake</button>
     <button data-view="v-draft" disabled>Draft</button>
@@ -465,7 +483,6 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 </header>
 
 <div class="offlinebar" id="offlinebar" style="display:none"><b>Local only</b><span id="offlinewhy"></span></div>
-<div class="readonly" id="readonlybar" style="display:none">You are signed in as a member. You can see who is on which team, the standings, and your own points — other members’ personality types and scores are their own, and the notes people wrote on the sign-up form are visible to officers only. Changing the roster, the points log, or the scoring rules is limited to club officers.</div>
 
 <!-- ============ INTAKE ============ -->
 <div class="view on" id="v-intake">
@@ -556,7 +573,17 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   <div class="msg" id="clubmsg"></div>
 </div>
 
-<div class="panel">
+<div class="panel" data-req="admin">
+  <h2>Club roster</h2>
+  <p class="hint">The sign-up form members fill in, and the sheet its answers land in. Paste them once and everyone running this club gets the same two links.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:1;min-width:220px"><label for="cf-form">Google Form link</label><input type="text" class="mono" id="cf-form" placeholder="https://docs.google.com/forms/..."></div>
+    <div class="field" style="flex:1;min-width:220px"><label for="cf-sheet">Response spreadsheet link</label><input type="text" class="mono" id="cf-sheet" placeholder="https://docs.google.com/spreadsheets/..."></div>
+  </div>
+  <div id="rosterlinks" style="margin-top:14px"></div>
+</div>
+
+<div class="panel" data-req="admin">
   <h2>Roster source</h2>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-pane="pane-sheet">Google Sheet</button>
@@ -602,8 +629,13 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 
 <!-- ============ DRAFT ============ -->
 <div class="view" id="v-draft">
+  <div class="row" style="margin-top:0;margin-bottom:14px" data-req="master">
+    <div class="field" style="flex:1;max-width:320px"><label for="dr-club">Club being viewed</label><select id="dr-club"></select></div>
+    <button id="dr-go" class="ghost">Switch</button>
+  </div>
   <div id="draftstats"></div>
   <div id="draftnotes"></div>
+  <div class="filterbar" id="draftfilters"></div>
   <div class="legend" id="legend"></div>
   <div class="grid" id="orggrid"></div>
   <div class="row">
@@ -712,7 +744,7 @@ Marcus Lee"></textarea>
   </div>
 </div>
 
-<div class="panel">
+<div class="panel" data-req="admin">
   <h2>Log <span class="savenote" id="logcount"></span></h2>
   <div id="logtable"></div>
 </div>
@@ -733,6 +765,11 @@ Marcus Lee"></textarea>
 <div id="advice"></div>
 </div>
 
+<div id="membercard" class="cardwrap"><div class="cardbox">
+  <div class="chathead"><div><b>Member</b></div><button id="cardclose" aria-label="Close">&times;</button></div>
+  <div id="cardbody" style="padding:18px"></div>
+</div></div>
+
 <!-- ============ PROFILE ============ -->
 <div class="view" id="v-profile">
   <div id="profbody"></div>
@@ -744,6 +781,7 @@ Marcus Lee"></textarea>
   <h2>Who can do what</h2>
   <p class="hint">Three roles. <b>Member</b> sees standings, their own Org page, and their own points — nothing else, and no private notes. <b>Admin</b> runs the club: draft, attendance, points, actions, manual moves. <b>Master</b> is you: everything an admin can do, plus this page.</p>
   <p class="hint">Anyone who signs in with a Google account that is not on this list is a member. Add an officer by their exact Google address — the one they actually sign in with.</p>
+  <p class="hint" id="rolescope"></p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:230px"><label for="newadmin">Google address</label><input type="text" class="mono" id="newadmin" placeholder="officer@gmail.com"></div>
     <div class="field"><label for="newrole">Role</label><select id="newrole"><option value="admin">Admin</option><option value="member">Member</option><option value="master">Master</option></select></div>
@@ -881,7 +919,8 @@ var DEFAULT_CLUB={
   useYear:true, newWord:'new member', oldWord:'returning member',
   useMbti:true, mbtiRequired:true,
   roleLead:'Org Lead', roleSenior:'Associate', roleJunior:'Analyst',
-  leadsPer:2
+  leadsPer:2,
+  formUrl:'', sheetUrl:''
 };
 function cloneClub(c){
   c=c||DEFAULT_CLUB;
@@ -891,7 +930,7 @@ function cloneClub(c){
     flexLabel:c.flexLabel, useYear:c.useYear, newWord:c.newWord, oldWord:c.oldWord,
     useMbti:c.useMbti, mbtiRequired:c.mbtiRequired,
     roleLead:c.roleLead, roleSenior:c.roleSenior, roleJunior:c.roleJunior,
-    leadsPer:c.leadsPer};
+    leadsPer:c.leadsPer, formUrl:c.formUrl||'', sheetUrl:c.sheetUrl||''};
 }
 
 /* Starter kits. Each one is only a starting point -- every field stays
@@ -1077,8 +1116,7 @@ function applyRole(){
     var need=btn&&btn.getAttribute('data-req');
     if(need&&!roleAtLeast(need))setView(S.orgs.length?'v-draft':'v-cup');
   }
-  var ro=$('readonlybar');
-  if(ro)ro.style.display=canEdit()?'none':'';
+
   if(S.orgs.length){renderDraft(); if($('v-teams').classList.contains('on'))renderTeam()}
 }
 
@@ -1632,6 +1670,7 @@ function setView(id){
   if(id==='v-assist'){computeSwaps();renderAssistant()}
   if(id==='v-access'){renderAccess();renderUsers();renderAffs()}
   if(id==='v-profile')renderProfile();
+  if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
   window.scrollTo(0,0);
 }
 Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
@@ -2669,7 +2708,7 @@ function renderDraft(){
   var tot=counts(S.people),sizes=S.orgs.map(function(g){return g.length});
   var noted=canSeeNotes()?S.people.filter(function(p){return p.note}):[];
   var flagged=S.orgs.filter(function(g){return orgFlags(g).length}).length;
-  $('draftstats').innerHTML='<div class="stats">'+
+  $('draftstats').innerHTML=!canEdit()?'':('<div class="stats">'+
     stat(S.people.length,'Members')+
     stat(S.orgs.length,esc(unitsWord()))+
     stat(Math.min.apply(null,sizes)+'\u2013'+Math.max.apply(null,sizes),esc(unitWord())+' size')+
@@ -2677,7 +2716,7 @@ function renderDraft(){
     (S.club.useYear?stat(tot.y2+' / '+tot.y1,esc(S.club.oldWord+' / '+S.club.newWord)):'')+
     (S.club.useMbti?stat(totalCost().toFixed(0),'Balance score',totalCost()<S.orgs.length*4?'good':''):'')+
     stat(flagged,esc(unitsWord())+' flagged',flagged?'bad':'good')+
-  '</div>';
+  '</div>');
 
   var nh='';
   if(S.draftNotes&&S.draftNotes.length)
@@ -2690,6 +2729,7 @@ function renderDraft(){
   }
   $('draftnotes').innerHTML=nh;
 
+  renderDraftFilters();
   $('legend').innerHTML=
     allBuckets().map(function(b){
       return '<span><i class="dot" style="background:'+b.color+'"></i>'+esc(b.label)+'</span>';
@@ -2699,6 +2739,7 @@ function renderDraft(){
 
   var html='';
   S.orgs.forEach(function(g,i){
+    if(FILT.unit!==''&&String(i)!==FILT.unit)return;
     var c=counts(g),n=g.length||1,flags=orgFlags(g),ac=axisCount(g);
     html+='<div class="org'+(flags.length?' flagged':'')+'">'+
       '<div class="orghead">'+
@@ -2723,22 +2764,24 @@ function renderDraft(){
     html+='</div>';
     flags.forEach(function(f){html+='<div class="warn">! '+f+'</div>'});
     html+='</div><ul class="roster">';
-    g.slice().sort(function(x,y){return (y.lead?1:0)-(x.lead?1:0)||y.year-x.year}).forEach(function(p){
+    var shown=g.filter(matchPerson);
+    shown.slice().sort(function(x,y){return (y.lead?1:0)-(x.lead?1:0)||y.year-x.year}).forEach(function(p){
       var role=personRole(p);
       var showNote=p.note&&canSeeNotes();
       html+='<li'+(showNote?' class="hasnote"':'')+'>'+
         '<i class="dot" style="background:'+trackColor(p.track)+'" title="'+esc(trackLabel(p.track))+'"></i>'+
-        '<span class="nm">'+esc(p.name)+'</span>'+
+        '<span class="nm linked" data-person="'+esc(p.name)+'" title="Open this member">'+esc(p.name)+'</span>'+
         (showNote?'<span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+
         (S.club.useMbti&&canSeePersonal(p)?'<span class="mbti'+(p.mbti?'':' none')+'">'+(p.mbti||'\u2014')+'</span>':'')+
         (S.log.length&&canSeePersonal(p)?'<span class="pts'+(p.evts?'':' zero')+'" title="'+p.evts+' entries, '+p.cross+' cross-track">'+p.pts+'</span>':'')+
         '<span class="role'+(p.lead?' lead':'')+'">'+role+'</span></li>';
     });
-    if(!g.length)html+='<li style="color:var(--slate)">Empty</li>';
+    if(!shown.length)html+='<li style="color:var(--slate)">'+(g.length?'No one matches the filter':'Empty')+'</li>';
     html+='</ul><div class="orgfoot"><button class="tiny ghost openteam" data-org="'+i+'">Open team page</button></div></div>';
   });
   $('orggrid').innerHTML=html;
 
+  wireMemberLinks($('orggrid'));
   Array.prototype.forEach.call($('orggrid').querySelectorAll('.openteam'),function(b){
     b.addEventListener('click',function(){S.team=parseInt(b.dataset.org,10);setView('v-teams')});
   });
@@ -2752,6 +2795,83 @@ function renderDraft(){
       renderDraft();renderStandings();save();
       syncTeams();
     });
+  });
+}
+
+/* ---- filtering ----
+   One predicate, used by every list that shows people, so a search typed on
+   the Draft page means the same thing as one typed on a team page. */
+var FILT={q:'',track:'',unit:'',role:''};
+function matchPerson(p){
+  if(FILT.q){
+    var q=FILT.q.toLowerCase();
+    if(p.name.toLowerCase().indexOf(q)<0)return false;
+  }
+  if(FILT.track&&p.track!==FILT.track)return false;
+  if(FILT.role==='lead'&&!p.lead)return false;
+  if(FILT.role==='new'&&p.year!==1)return false;
+  if(FILT.role==='returning'&&p.year!==2)return false;
+  return true;
+}
+function filtersActive(){return !!(FILT.q||FILT.track||FILT.unit||FILT.role)}
+function renderDraftFilters(){
+  var box=$('draftfilters'); if(!box)return;
+  var h='<div><span class="lbl">Search</span><input type="text" id="fl-q" placeholder="name…" value="'+esc(FILT.q)+'"></div>';
+  if(tracksOf().length){
+    h+='<div><span class="lbl">'+esc(S.club.trackWord)+'</span><select id="fl-track"><option value="">All</option>'+
+      allBuckets().map(function(b){return '<option value="'+esc(b.id)+'"'+(FILT.track===b.id?' selected':'')+'>'+esc(b.label)+'</option>'}).join('')+
+      '</select></div>';
+  }
+  h+='<div><span class="lbl">'+esc(unitWord())+'</span><select id="fl-unit"><option value="">All</option>'+
+    S.orgs.map(function(_,i){return '<option value="'+i+'"'+(FILT.unit===String(i)?' selected':'')+'>'+esc(orgLabel(i))+'</option>'}).join('')+
+    '</select></div>';
+  h+='<div><span class="lbl">Standing</span><select id="fl-role"><option value="">All</option>'+
+    '<option value="lead"'+(FILT.role==='lead'?' selected':'')+'>'+esc(S.club.roleLead)+'s</option>'+
+    (S.club.useYear?'<option value="returning"'+(FILT.role==='returning'?' selected':'')+'>'+esc(capFirst(S.club.oldWord))+'s</option>'+
+      '<option value="new"'+(FILT.role==='new'?' selected':'')+'>'+esc(capFirst(S.club.newWord))+'s</option>':'')+
+    '</select></div>';
+  if(filtersActive())h+='<div><button class="tiny ghost" id="fl-clear">Clear</button></div>';
+  box.innerHTML=h;
+  var upd=function(){
+    FILT.q=($('fl-q')||{}).value||'';
+    FILT.track=($('fl-track')||{}).value||'';
+    FILT.unit=($('fl-unit')||{}).value||'';
+    FILT.role=($('fl-role')||{}).value||'';
+    renderDraft();
+    var f=$('fl-q'); if(f&&FILT.q){f.focus();f.setSelectionRange(f.value.length,f.value.length)}
+  };
+  if($('fl-q'))$('fl-q').addEventListener('input',upd);
+  ['fl-track','fl-unit','fl-role'].forEach(function(id){if($(id))$(id).addEventListener('change',upd)});
+  if($('fl-clear'))$('fl-clear').addEventListener('click',function(){FILT={q:'',track:'',unit:'',role:''};renderDraft()});
+}
+
+/* ---- member card ---- */
+function openMemberCard(name){
+  var box=$('cardbody');
+  $('membercard').classList.add('on');
+  box.innerHTML='<p class="empty">Loading…</p>';
+  backendPost('memberCard',{name:name}).then(function(r){
+    if(!r||!r.ok){box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that member.')+'</p>';return}
+    var m=r.member;
+    var h='<div class="profhead">'+
+      (m.photo?'<img class="profavatar" src="'+esc(m.photo)+'" alt="">'
+             :'<div class="profavatar">'+esc(profInitials(m.name))+'</div>')+
+      '<div><div class="profname">'+esc(m.name)+'</div><div class="profmeta">'+
+      esc(String(m.org||''))+(m.track?' · '+esc(trackLabel(String(m.track))||String(m.track)):'')+
+      (String(m.lead||'').match(/^y/i)?' · '+esc(S.club.roleLead):'')+'</div></div></div>';
+    if(r.full){
+      h+='<div class="profgrid">'+stat(m.points,'Points')+stat(m.entries,'Entries')+
+         (m.mbti?stat(esc(String(m.mbti)),'Type'):'')+'</div>';
+    } else {
+      h+='<p class="hint" style="margin-top:16px">Their personality type and points are their own. Officers and the member themselves can see them.</p>';
+    }
+    if(m.notes)h+='<p class="hint" style="margin-top:14px;color:var(--compete)">Note: '+esc(m.notes)+'</p>';
+    box.innerHTML=h;
+  });
+}
+function wireMemberLinks(root){
+  Array.prototype.forEach.call(root.querySelectorAll('.nm.linked'),function(el){
+    el.addEventListener('click',function(){openMemberCard(el.dataset.person)});
   });
 }
 
@@ -2792,7 +2912,8 @@ function renderTeam(){
     var role=personRole(p);
     var sn=p.note&&canSeeNotes();
     h+='<tr'+(sn?' class="rowflag"':'')+'>'+
-      '<td class="l name">'+esc(p.name)+(sn?' <span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+'</td>'+
+      '<td class="l name"><span class="nm linked" data-person="'+esc(p.name)+'">'+esc(p.name)+'</span>'+
+      (sn?' <span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+'</td>'+
       '<td class="l">'+role+'</td>'+
       '<td class="l">'+(canSeePersonal(p)?'<span class="mbti">'+(p.mbti||'\u2014')+'</span>':'<span style="color:var(--mute)">—</span>')+'</td>'+
       '<td class="l">'+esc(trackLabel(p.track))+'</td>'+
@@ -2825,7 +2946,7 @@ function renderTeam(){
   h+='</div><div>';
 
   /* type composition */
-  if(S.club.useMbti){
+  if(S.club.useMbti&&canEdit()){
   h+='<div class="panel"><h2>Type composition</h2>';
   if(!ac.typed)h+='<p class="empty">No types on file for this '+esc(unitWord().toLowerCase())+'.</p>';
   else{
@@ -2847,10 +2968,12 @@ function renderTeam(){
   h+='</div>';
   }
 
-  /* advice */
-  h+='<div class="panel"><h2>Assistant notes</h2>';
-  orgAdvice(g,i).forEach(function(r){h+='<div class="rec '+r.sev+'">'+r.text+'</div>'});
-  h+='</div>';
+  /* advice: an officer tool, not something a member needs about their team */
+  if(canEdit()){
+    h+='<div class="panel"><h2>Assistant notes</h2>';
+    orgAdvice(g,i).forEach(function(r){h+='<div class="rec '+r.sev+'">'+r.text+'</div>'});
+    h+='</div>';
+  }
 
   /* recent activity */
   if(S.log.length){
@@ -2883,6 +3006,7 @@ function renderTeam(){
     });
   });
 
+  wireMemberLinks($('teambody'));
   $('teamname').addEventListener('change',function(e){
     if(!canEdit()){e.target.value=orgLabel(i);return}
     S.orgNames[i]=e.target.value.trim()||('Org '+pad(i));
@@ -2944,11 +3068,94 @@ function renderProfile(){
       h+='<div class="panel"><h2>Your recent points</h2><p class="empty">Nothing logged against your name yet.</p></div>';
     }
 
+    /* Editable self: name, picture, and for a Google account the option of a
+       password so the same person can use either door. */
+    h+='<div class="panel"><h2>Your details</h2>'+
+      '<div class="row" style="margin-top:0">'+
+        '<div class="field" style="flex:1;min-width:150px"><label for="me-first">First name</label><input type="text" id="me-first"></div>'+
+        '<div class="field" style="flex:1;min-width:150px"><label for="me-last">Last name</label><input type="text" id="me-last"></div>'+
+        '<button id="me-save">Save</button>'+
+      '</div>'+
+      '<h3>Profile picture</h3>'+
+      '<p class="hint">Kept small and stored with your club’s data. Square images look best.</p>'+
+      '<div class="row" style="margin-top:0"><input type="file" id="me-photo" accept="image/*" style="display:block">'+
+      '<button class="ghost" id="me-photo-clear">Remove picture</button></div>'+
+      '<div class="msg" id="me-msg"></div>'+
+    '</div>';
+
+    if(A.via==='google'){
+      h+='<div class="panel"><h2>Add a password</h2>'+
+        '<p class="hint">You sign in with Google. Setting a password here lets you use either — same account, same points, either door. Your Google sign-in keeps working.</p>'+
+        '<div class="row" style="margin-top:0">'+
+          '<div class="field" style="flex:1;min-width:200px"><label for="me-pw">New password</label><input type="password" id="me-pw" autocomplete="new-password" placeholder="at least 10 characters"></div>'+
+          '<button id="me-pw-go">Set password</button>'+
+        '</div><div class="msg" id="me-pw-msg"></div></div>';
+    }
+
     h+='<div class="panel"><h2>What others can see</h2>'+
        '<p class="hint" style="margin-bottom:0">Your name, team and points appear to your club’s officers and in the standings. '+
        'Anything you wrote in the sign-up form’s free-text box is visible to officers only, never to other members. '+
        'You are in <b>'+esc(A.affName||A.aff||'no club')+'</b>, and nothing you do here is visible to any other club.</p></div>';
     box.innerHTML=h;
+
+    backendPost('getProfile',null).then(function(pr){
+      var saved=(pr&&pr.ok&&pr.profile)||{};
+      if($('me-first'))$('me-first').value=saved.FirstName||(String(A.name||'').split(' ')[0]||'');
+      if($('me-last')) $('me-last').value =saved.LastName ||(String(A.name||'').split(' ').slice(1).join(' ')||'');
+      if(saved.Photo){
+        var av=$('profbody').querySelector('.profavatar');
+        if(av){var img=document.createElement('img');img.className='profavatar';img.src=saved.Photo;av.replaceWith(img)}
+      }
+    });
+
+    var pmsg=function(t,k){var m=$('me-msg');if(m){m.textContent=t;m.className='msg show'+(k?' '+k:'')}};
+    if($('me-save'))$('me-save').addEventListener('click',function(){
+      backendPost('saveProfile',{firstName:$('me-first').value.trim(),lastName:$('me-last').value.trim()})
+        .then(function(r){
+          if(r&&r.ok){A.name=($('me-first').value.trim()+' '+$('me-last').value.trim()).trim();
+            setRole(A.role,null);pmsg('Saved.','good')}
+          else pmsg((r&&r.error)||'That did not save.');
+        });
+    });
+    /* Downscaled in the browser: a phone photo is megabytes, and a sheet cell
+       is not the place for one. */
+    if($('me-photo'))$('me-photo').addEventListener('change',function(e){
+      var f=e.target.files[0]; if(!f)return;
+      pmsg('Resizing…','info');
+      var fr=new FileReader();
+      fr.onload=function(){
+        var img=new Image();
+        img.onload=function(){
+          var side=Math.min(img.width,img.height), c=document.createElement('canvas');
+          c.width=c.height=160;
+          c.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,160,160);
+          var data=c.toDataURL('image/jpeg',0.82);
+          backendPost('saveProfile',{photo:data}).then(function(r){
+            if(r&&r.ok){pmsg('Picture saved.','good');renderProfile()}
+            else pmsg((r&&r.error)||'That picture did not save.');
+          });
+        };
+        img.onerror=function(){pmsg('That file is not an image I can read.')};
+        img.src=fr.result;
+      };
+      fr.readAsDataURL(f);
+    });
+    if($('me-photo-clear'))$('me-photo-clear').addEventListener('click',function(){
+      backendPost('saveProfile',{photo:'none'}).then(function(){pmsg('Removed.','info');renderProfile()});
+    });
+
+    if($('me-pw-go'))$('me-pw-go').addEventListener('click',function(){
+      var m=$('me-pw-msg'), pw=$('me-pw').value;
+      if(pw.length<10){m.textContent='At least 10 characters.';m.className='msg show';return}
+      m.textContent='Deriving key…';m.className='msg show info';
+      deriveForNew(pw).then(function(d){
+        return backendPost('setMyPassword',{dk:d.dk,clientSalt:d.clientSalt,iterations:d.iterations,
+          firstName:($('me-first')||{}).value||'',lastName:($('me-last')||{}).value||''});
+      }).then(function(r){
+        if(r&&r.ok){$('me-pw').value='';m.textContent='Done. You can now sign in with '+esc(A.email)+' and that password.';m.className='msg show good'}
+        else {m.textContent=(r&&r.error)||'That did not work.';m.className='msg show'}
+      }).catch(function(e){m.textContent=(e&&e.message)||'That did not work.';m.className='msg show'});
+    });
   });
 }
 
@@ -2980,10 +3187,7 @@ function applyClubChrome(){
     : 'This club has no '+S.club.trackWord.toLowerCase()+'s, so only the full-team turnout bonus applies.';
   var fl=$('r-full-lbl'); if(fl)fl.textContent='Full-'+unitWord()+' bonus';
   var ft=$('r-thresh-lbl'); if(ft)ft.textContent='Full-'+unitWord()+' at %';
-  var sub=$('subline');
-  if(sub)sub.textContent='One tool for the whole program: pull the roster from your sign-up form, draft balanced '+
-    unitsWord()+', run each team\u2019s page, and score the '+unitWord()+
-    ' Cup off whatever actions you decide are worth points.';
+
   var cb=$('cross-lbl'); if(cb)cb.style.display=tracksOf().length?'':'none';
   var mo=document.getElementById('mbtibalwrap');
   if(mo)mo.style.display=S.club.useMbti?'':'none';
@@ -3034,6 +3238,16 @@ function renderTrackList(){
     });
   });
 }
+function renderRosterLinks(){
+  var box=$('rosterlinks'); if(!box)return;
+  var f=S.club.formUrl, sh=S.club.sheetUrl;
+  if(!f&&!sh){box.innerHTML='<p class="hint" style="margin:0">No links saved yet.</p>';return}
+  var h='<div class="linkrow">';
+  if(f)h+='<a class="linkbtn" href="'+esc(f)+'" target="_blank" rel="noopener"><b>Form</b> Open the sign-up form</a>';
+  if(sh)h+='<a class="linkbtn" href="'+esc(sh)+'" target="_blank" rel="noopener"><b>Sheet</b> Open the responses</a>';
+  h+='</div>';
+  box.innerHTML=h;
+}
 function renderClubSetup(){
   var sel=$('presetsel');
   if(sel&&!sel.options.length){
@@ -3043,6 +3257,7 @@ function renderClubSetup(){
   }
   if(sel)sel.value=S.preset;
   var v={'cf-club':'clubName','cf-unit':'unit','cf-units':'units','cf-trackword':'trackWord',
+         'cf-form':'formUrl','cf-sheet':'sheetUrl',
          'cf-flex':'flexLabel','cf-new':'newWord','cf-old':'oldWord','cf-rlead':'roleLead',
          'cf-rsenior':'roleSenior','cf-rjunior':'roleJunior','cf-leadsper':'leadsPer'};
   Object.keys(v).forEach(function(id){var el=$(id); if(el)el.value=S.club[v[id]]});
@@ -3052,17 +3267,19 @@ function renderClubSetup(){
   var mr=$('cf-mbtireq');  if(mr){mr.checked=!!S.club.mbtiRequired; mr.disabled=!S.club.useMbti}
   var tb=$('trackbox'); if(tb)tb.style.display=S.club.useTracks?'':'none';
   var yb=$('yearbox');  if(yb)yb.style.display=S.club.useYear?'':'none';
-  renderTrackList();
+  renderTrackList(); renderRosterLinks();
 }
 function wireClubSetup(){
   if(!$('cf-club'))return;
   var text={'cf-club':'clubName','cf-unit':'unit','cf-units':'units','cf-trackword':'trackWord',
+            'cf-form':'formUrl','cf-sheet':'sheetUrl',
             'cf-flex':'flexLabel','cf-new':'newWord','cf-old':'oldWord','cf-rlead':'roleLead',
             'cf-rsenior':'roleSenior','cf-rjunior':'roleJunior'};
   Object.keys(text).forEach(function(id){
     $(id).addEventListener('input',function(e){
       S.club[text[id]]=e.target.value;
       if(id==='cf-flex')renderTrackList();
+      if(id==='cf-form'||id==='cf-sheet')renderRosterLinks();
       clubChanged();
     });
   });
@@ -3106,6 +3323,9 @@ function wireClubSetup(){
 /* ================= ACCESS (master only) ================= */
 function accSay(t,kind){var m=$('accmsg');m.textContent=t;m.className='msg show'+(kind?' '+kind:'')}
 function renderAccess(){
+  var sc=$('rolescope');
+  if(sc)sc.innerHTML='Officers are per club. You are editing <b>'+esc(A.affName||A.aff||'—')+
+    '</b>, so anyone granted here is an officer of that club only. Switch club below to manage another.';
   var box=$('acctable');
   if(A.offline){box.innerHTML='<p class="empty">Roles live in the club sheet, and this browser is not connected to it.</p>';return}
   box.innerHTML='<p class="empty">Loading…</p>';
@@ -3162,12 +3382,27 @@ function renderAffs(){
         return '<div class="acctrow"><span>'+esc(a.name)+
                (a.code===A.aff?' <span class="lock">viewing</span>':'')+'</span>'+
                '<span class="em">'+esc(a.code)+'</span>'+
-               '<button class="kill affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
-               '" title="Rename or rotate the join code" style="color:var(--slate)">edit</button></div>';
+               '<span><button class="kill affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+               '" title="Rename or rotate the join code" style="color:var(--slate);width:auto;padding:6px 8px">edit</button>'+
+               '<button class="kill affdel" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+               '" title="Delete this club and all its data" style="width:auto;padding:6px 8px;margin-left:6px">delete</button></span></div>';
       }).join('');
     /* Renaming changes the display name only. The short code is what every
        row of data is stamped with, so changing that would orphan the club's
        roster and points -- it stays fixed for the life of the club. */
+    Array.prototype.forEach.call(box.querySelectorAll('.affdel'),function(b){
+      b.addEventListener('click',function(){
+        var typed=prompt('Deleting "'+b.dataset.name+'" removes its roster, points, attendance, accounts, officer list and setup. This cannot be undone.\n\nType the club code to confirm:\n'+b.dataset.code);
+        if(typed===null)return;
+        backendPost('deleteAffiliation',{code:b.dataset.code,confirm:typed.trim()}).then(function(r){
+          if(r&&r.ok){
+            affSay('Deleted '+b.dataset.name+'.','info');
+            if(A.aff===b.dataset.code)switchAff('default');
+            renderAffs();
+          } else affSay((r&&r.error)||'That was refused.');
+        });
+      });
+    });
     Array.prototype.forEach.call(box.querySelectorAll('.affedit'),function(b){
       b.addEventListener('click',function(){
         var nm=prompt('Display name for this club (the short code "'+b.dataset.code+'" cannot change — every row of its data is stamped with it):',b.dataset.name);
@@ -3180,6 +3415,14 @@ function renderAffs(){
         });
       });
     });
+    var dr=$('dr-club');
+    if(dr){
+      var dopts=rows.slice();
+      if(!dopts.some(function(a){return a.code==='default'}))dopts.unshift({code:'default',name:'default'});
+      dr.innerHTML=dopts.map(function(a){
+        return '<option value="'+esc(a.code)+'"'+(a.code===A.aff?' selected':'')+'>'+esc(a.name)+'</option>';
+      }).join('');
+    }
     var sel=$('af-switch');
     if(sel){
       var opts=rows.slice();
@@ -3206,7 +3449,7 @@ function switchAff(code){
     mergeBackendData(data);
     if(!S.actions.length)S.actions=cloneActions();
     unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
-    scoreAll();renderDraft();renderCup();renderAffs();
+    scoreAll();renderDraft();renderCup();renderAffs();renderRosterLinks();
     setRole(A.role,null);
     affSay('Now viewing '+(A.affName||A.aff)+' — '+S.people.length+' members, '+S.orgs.length+' teams.','good');
   });
@@ -3778,6 +4021,9 @@ $('accrefresh').addEventListener('click',renderAccess);
 $('userrefresh').addEventListener('click',renderUsers);
 $('affrefresh').addEventListener('click',renderAffs);
 $('af-go').addEventListener('click',function(){switchAff($('af-switch').value)});
+if($('dr-go'))$('dr-go').addEventListener('click',function(){switchAff($('dr-club').value)});
+$('cardclose').addEventListener('click',function(){$('membercard').classList.remove('on')});
+$('membercard').addEventListener('click',function(e){if(e.target.id==='membercard')$('membercard').classList.remove('on')});
 $('af-add').addEventListener('click',function(){
   var c=$('af-code').value.trim().toLowerCase(), nm=$('af-name').value.trim(), j=$('af-join').value.trim();
   if(!/^[a-z0-9-]{3,32}$/.test(c)){affSay('Codes are 3\u201332 characters: letters, digits, dashes.');return}
