@@ -31,7 +31,7 @@ var NEEDS = {
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
   listSignups: 'master', purgeClub: 'master',
-  clubRoster: 'admin'
+  clubRoster: 'admin', cloneForm: 'admin'
 };
 /* Every account, merged from the two doors people come in through: a password
    row in Users, or a Google address in Roles. Profiles supplies the name and
@@ -126,8 +126,14 @@ function authorize() {
   var sheets = book().getSheets().length;
   CacheService.getScriptCache().put('authcheck', '1', 10);
   var l = LockService.getScriptLock(); l.waitLock(2000); l.releaseLock();
+  /* Touching Drive and Forms here is what makes their scopes part of the
+     authorisation prompt. Without it the first club to press "Create the
+     form" fails at runtime with a permission error instead. */
+  var tpl = DriveApp.getFileById(FORM_TEMPLATE_ID).getName();
+  var q = FormApp.openById(FORM_TEMPLATE_ID).getItems().length;
   Logger.log('Authorised. tokeninfo reachable (HTTP ' + r.getResponseCode() +
-             '), ' + sheets + ' sheets visible, cache and lock OK.');
+             '), ' + sheets + ' sheets visible, cache and lock OK. ' +
+             'Form template \"' + tpl + '\" readable with ' + q + ' questions.');
 }
 
 /* ---------------- plumbing ---------------- */
@@ -843,6 +849,48 @@ function dispatch(action, payload, email, role, id) {
        spreadsheet someone imported. Officers of a club get their own club's
        list; nothing here is credential-shaped. */
     case 'clubRoster': return {ok: true, roster: accountsFor(aff)};
+
+    /* Gives a club its own copy of the standard sign-up form, with a response
+       spreadsheet attached, and writes both links into the club's setup so the
+       rest of the tool picks them up without anyone pasting a URL. Copying
+       rather than sharing matters: a club that edits its questions must not be
+       editing another club's form. Refuses to run twice -- a second copy would
+       split the club's answers across two spreadsheets. */
+    case 'cloneForm': {
+      var cfKey = 'club:' + aff, cfSheet = tab('config'), cfVals = cfSheet.getDataRange().getValues();
+      var cfRow = -1, cfg = {};
+      for (var ci = 1; ci < cfVals.length; ci++) {
+        if (String(cfVals[ci][0]) === cfKey) {
+          cfRow = ci + 1;
+          try { cfg = JSON.parse(cfVals[ci][1]) || {}; } catch (e) { cfg = {}; }
+          break;
+        }
+      }
+      if (cfg.formUrl && !(payload || {}).replace)
+        return {ok: false, error: 'This club already has a form. Clear the link first if you really want a new one.'};
+
+      var clubName = (findAff(aff) || {}).name || aff;
+      var title = clubName + ' sign-up';
+      var copy, form, ss;
+      try {
+        copy = DriveApp.getFileById(FORM_TEMPLATE_ID).makeCopy(title);
+        form = FormApp.openById(copy.getId());
+        form.setTitle(title);
+        ss = SpreadsheetApp.create(title + ' (responses)');
+        form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+      } catch (e) {
+        return {ok: false, error: 'Could not copy the form: ' + e.message};
+      }
+
+      cfg.formUrl  = form.getPublishedUrl();
+      cfg.sheetUrl = ss.getUrl();
+      var cfJson = JSON.stringify(cfg);
+      if (cfRow > 0) cfSheet.getRange(cfRow, 2).setValue(cfJson);
+      else cfSheet.appendRow([cfKey, cfJson]);
+
+      return {ok: true, formUrl: cfg.formUrl, sheetUrl: cfg.sheetUrl,
+              editUrl: form.getEditUrl(), title: title};
+    }
 
     /* Clears a club's roster, points and attendance but keeps the club, its
        accounts and its setup. Used to hand a club over between semesters. */

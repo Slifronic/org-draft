@@ -488,6 +488,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   <h1><span id="h1title">Org System</span> <span>/ draft, teams, cup</span></h1>
   <nav id="nav">
     <button data-view="v-intake" aria-current="true" data-req="admin">Intake</button>
+    <button data-view="v-roster" data-req="admin">Roster</button>
     <button data-view="v-draft" disabled>Draft</button>
     <button data-view="v-teams" disabled>Teams</button>
     <button data-view="v-attend" disabled data-req="admin">Attendance</button>
@@ -504,7 +505,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 <!-- ============ INTAKE ============ -->
 <div class="view on" id="v-intake">
 
-<details class="spec">
+<details class="spec" open>
   <summary>What the sign-up form has to ask</summary>
   <div class="specbody">
     <ol>
@@ -522,7 +523,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   </div>
 </details>
 
-<details class="spec">
+<details class="spec" open>
   <summary>Connecting your Google Sheet</summary>
   <div class="specbody">
     <p style="margin-top:0">This runs entirely in your browser — there's no server. To read a sheet directly, it has to be readable without a login.</p>
@@ -591,24 +592,6 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 </div>
 
 <div class="panel" data-req="admin">
-  <h2>Club roster</h2>
-  <p class="hint">The sign-up form members fill in, and the sheet its answers land in. Paste them once and everyone running this club gets the same two links.</p>
-  <div class="row" style="margin-top:0">
-    <div class="field" style="flex:1;min-width:220px"><label for="cf-form">Google Form link</label><input type="text" class="mono" id="cf-form" placeholder="https://docs.google.com/forms/..."></div>
-    <div class="field" style="flex:1;min-width:220px"><label for="cf-sheet">Response spreadsheet link</label><input type="text" class="mono" id="cf-sheet" placeholder="https://docs.google.com/spreadsheets/..."></div>
-  </div>
-  <div id="rosterlinks" style="margin-top:14px"></div>
-  <h3 class="rosterhd">Who has signed up</h3>
-  <p class="hint">Everyone holding an account in this club, however they signed in. This is the club’s roster — it fills itself as people join, so nothing here has to be imported or kept in step by hand.</p>
-  <div class="row" style="margin-top:0">
-    <div class="field" style="flex:1;min-width:180px"><label for="cr-q">Search</label><input type="text" id="cr-q" placeholder="Name or email"></div>
-    <div class="field" style="width:150px"><label for="cr-role">Role</label><select id="cr-role"><option value="">All roles</option><option value="member">Member</option><option value="admin">Admin</option><option value="master">Master</option></select></div>
-    <button id="cr-refresh" class="ghost">Refresh</button>
-  </div>
-  <div id="crtable" style="margin-top:12px"></div>
-</div>
-
-<div class="panel" data-req="admin">
   <h2>Roster source</h2>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-pane="pane-sheet">Google Sheet</button>
@@ -653,6 +636,32 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 </div>
 
 <!-- ============ DRAFT ============ -->
+<!-- ============ ROSTER ============ -->
+<div class="view" id="v-roster">
+  <div class="panel">
+    <h2>Who has signed up</h2>
+    <p class="hint">Everyone holding an account in this club, however they signed in. This is the club’s roster — it fills itself as people join, so nothing here has to be imported or kept in step by hand. It is not the draft: people appear here the moment they make an account, whether or not the draft has been run.</p>
+    <div class="row" style="margin-top:0">
+      <div class="field" style="flex:1;min-width:180px"><label for="cr-q">Search</label><input type="text" id="cr-q" placeholder="Name or email"></div>
+      <div class="field" style="width:150px"><label for="cr-role">Role</label><select id="cr-role"><option value="">All roles</option><option value="member">Member</option><option value="admin">Admin</option><option value="master">Master</option></select></div>
+      <button id="cr-refresh" class="ghost">Refresh</button>
+    </div>
+    <div id="crtable" style="margin-top:12px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>The club’s form and sheet</h2>
+    <p class="hint">The sign-up form members fill in, and the spreadsheet its answers land in. Set once and everyone running this club gets the same two links. Edit them here if either link changes.</p>
+    <div id="formkit" style="margin-bottom:14px"></div>
+    <div class="row" style="margin-top:0">
+      <div class="field" style="flex:1;min-width:220px"><label for="cf-form">Google Form link</label><input type="text" class="mono" id="cf-form" placeholder="https://docs.google.com/forms/..."></div>
+      <div class="field" style="flex:1;min-width:220px"><label for="cf-sheet">Response spreadsheet link</label><input type="text" class="mono" id="cf-sheet" placeholder="https://docs.google.com/spreadsheets/..."></div>
+    </div>
+    <div class="msg" id="formkitmsg"></div>
+    <div id="rosterlinks" style="margin-top:14px"></div>
+  </div>
+</div>
+
 <div class="view" id="v-draft">
   <div class="row" style="margin-top:0;margin-bottom:14px" data-req="master">
     <div class="field" style="flex:1;max-width:320px"><label for="dr-club">Club being viewed</label><select id="dr-club"></select></div>
@@ -1751,7 +1760,7 @@ function setView(id){
   if(id==='v-cup')renderCup();
   if(id==='v-assist'){computeSwaps();renderAssistant()}
   if(id==='v-access'){renderAccess();renderUsers();renderAffs();renderSignups()}
-  if(id==='v-intake')renderClubRoster();
+  if(id==='v-roster'){renderClubRoster();renderRosterLinks();renderFormKit()}
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
@@ -2877,7 +2886,8 @@ function orgFlags(g){
   return flags;
 }
 function renderDraft(){
-  if(!S.orgs.length)return;
+  if(!S.orgs.length){waitingForDraft('draftstats');return}
+  var wd=$('draftwait'); if(wd)wd.remove();
   var tot=counts(S.people),sizes=S.orgs.map(function(g){return g.length});
   var noted=canSeeNotes()?S.people.filter(function(p){return p.note}):[];
   var flagged=S.orgs.filter(function(g){return orgFlags(g).length}).length;
@@ -2987,6 +2997,23 @@ function matchPerson(p){
   return true;
 }
 function filtersActive(){return !!(FILT.q||FILT.track||FILT.unit||FILT.role)}
+/* Draft and Teams used to return silently when there was nothing drafted,
+   which left the page blank with no way to tell "not run yet" from "broken".
+   Officers get told what to do next; members get told to wait, because
+   running it is not theirs to do. */
+function waitingForDraft(boxId){
+  var box=$(boxId); if(!box)return;
+  var host=box.parentNode, old=$('draftwait'); if(old)old.remove();
+  box.innerHTML='';
+  var d=document.createElement('div');
+  d.id='draftwait'; d.className='panel';
+  d.innerHTML=canEdit()
+    ? '<h2>Waiting for the draft</h2><p class="hint">No teams have been drawn for '+
+      esc(A.affName||A.aff||'this club')+' yet. Bring the roster in under <b>Intake</b>, then run the draft \u2014 teams, the Cup and attendance all come from it. Anyone who has signed up is already on the <b>Roster</b> tab.</p>'
+    : '<h2>Waiting for the draft</h2><p class="hint">Your officers have not run the draft yet. Your '+
+      esc(S.club.unit||'team')+' and the people on it will appear here once they do. Nothing is needed from you.</p>';
+  host.insertBefore(d, box);
+}
 function renderDraftFilters(){
   var box=$('draftfilters'); if(!box)return;
   var h='<div><span class="lbl">Search</span><input type="text" id="fl-q" placeholder="name…" value="'+esc(FILT.q)+'"></div>';
@@ -3050,7 +3077,7 @@ function wireMemberLinks(root){
 
 /* ================= TEAM VIEW ================= */
 function renderTeam(){
-  if(!S.orgs.length)return;
+  if(!S.orgs.length){$('teampick').innerHTML='';waitingForDraft('teambody');return}
   $('teampick').innerHTML=S.orgs.map(function(g,i){
     return '<button data-org="'+i+'" aria-current="'+(i===S.team?'true':'false')+'">'+esc(orgLabel(i))+
       ' <span style="opacity:.6">'+g.length+'</span></button>';
@@ -3411,6 +3438,42 @@ function renderTrackList(){
     });
   });
 }
+/* One button that gives a club its own copy of the standard form, attaches a
+   response spreadsheet, and files both links against the club. The alternative
+   -- telling officers to copy a form, publish it, link a sheet, then paste two
+   URLs back -- is four chances to paste the wrong thing. */
+function renderFormKit(){
+  var box=$('formkit'); if(!box)return;
+  if(A.offline){box.innerHTML='';return}
+  if(S.club.formUrl){
+    box.innerHTML='<p class="hint" style="margin:0">This club has its own sign-up form. The links below point at it; edit them only if you have moved the form or the sheet.</p>';
+    return;
+  }
+  box.innerHTML='<div class="linkrow" style="margin:0"><button id="mkform">Create this club’s sign-up form</button></div>'+
+    '<p class="hint">Makes a copy of the standard form for '+esc(A.affName||A.aff||'this club')+
+    ', attaches a fresh response spreadsheet, and fills both links in below. The copy is this club’s own — editing its questions does not touch any other club.</p>';
+  $('mkform').addEventListener('click',function(){
+    var b=$('mkform'); b.disabled=true; b.textContent='Creating…';
+    formKitSay('Copying the form and attaching a spreadsheet. This takes a few seconds.','info');
+    backendPost('cloneForm',null).then(function(r){
+      if(r&&r.ok){
+        S.club.formUrl=r.formUrl; S.club.sheetUrl=r.sheetUrl;
+        var f=$('cf-form'); if(f)f.value=r.formUrl;
+        var sh=$('cf-sheet'); if(sh)sh.value=r.sheetUrl;
+        save(); syncClub();
+        renderFormKit(); renderRosterLinks();
+        formKitSay('Created “'+r.title+'”. It is linked to this club now — share the form link with members.','good');
+      } else {
+        b.disabled=false; b.textContent='Create this club’s sign-up form';
+        formKitSay((r&&r.error)||'That was refused.');
+      }
+    });
+  });
+}
+function formKitSay(t,kind){
+  var m=$('formkitmsg'); if(!m)return;
+  m.textContent=t; m.className='msg show'+(kind?' '+kind:'');
+}
 function renderRosterLinks(){
   var box=$('rosterlinks'); if(!box)return;
   var f=S.club.formUrl, sh=S.club.sheetUrl;
@@ -3481,7 +3544,7 @@ function renderClubSetup(){
   var mr=$('cf-mbtireq');  if(mr){mr.checked=!!S.club.mbtiRequired; mr.disabled=!S.club.useMbti}
   var tb=$('trackbox'); if(tb)tb.style.display=S.club.useTracks?'':'none';
   var yb=$('yearbox');  if(yb)yb.style.display=S.club.useYear?'':'none';
-  renderTrackList(); renderRosterLinks(); renderClubRoster();
+  renderTrackList(); renderRosterLinks(); renderFormKit();
 }
 function wireClubSetup(){
   if(!$('cf-club'))return;
