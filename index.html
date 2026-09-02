@@ -3491,7 +3491,27 @@ function renderFormKit(){
   var box=$('formkit'); if(!box)return;
   if(A.offline){box.innerHTML='';return}
   if(S.club.formUrl){
-    box.innerHTML='<p class="hint" style="margin:0">This club has its own sign-up form. The links below point at it; edit them only if you have moved the form or the sheet.</p>';
+    /* A form copied before the publish step existed opens as "This document is
+       not published". Repairing it is one button rather than a walk through
+       the Forms editor. */
+    box.innerHTML='<p class="hint" style="margin:0 0 10px">This club has its own sign-up form. The links below point at it; edit them only if you have moved the form or the sheet.</p>'+
+      '<div class="linkrow" style="margin:0"><button id="repubform" class="ghost">Republish the form</button></div>'+
+      '<p class="hint">Use this if opening the form says <b>“This document is not published.”</b> It turns publishing back on and makes sure the form is accepting answers. Nothing about the questions or the responses already collected changes.</p>';
+    $('repubform').addEventListener('click',function(){
+      var b=$('repubform'); b.disabled=true; b.textContent='Republishing…';
+      backendPost('republishForm',null).then(function(r){
+        b.disabled=false; b.textContent='Republish the form';
+        if(r&&r.ok){
+          S.club.formUrl=r.formUrl;
+          var f=$('cf-form'); if(f)f.value=r.formUrl;
+          save(); syncClub(); renderRosterLinks();
+          formKitSay('Republished'+(r.did&&r.did.length?' \u2014 '+esc(r.did.join(', ')):'')+
+            '. Open the form link to check it.'+
+            (r.failed&&r.failed.length?' Some settings were refused: '+esc(r.failed.join('; ')):''),
+            (r.failed&&r.failed.length)?'':'good');
+        } else formKitSay((r&&r.error)||'That was refused.');
+      });
+    });
     return;
   }
   box.innerHTML='<div class="linkrow" style="margin:0"><button id="mkform">Create this club’s sign-up form</button></div>'+

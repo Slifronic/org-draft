@@ -31,8 +31,32 @@ var NEEDS = {
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
   listSignups: 'master', purgeClub: 'admin',
-  clubRoster: 'admin', cloneForm: 'admin'
+  clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin'
 };
+/* A form copied through Drive arrives unpublished. Google's newer Forms
+   publishing model then serves "This document is not published" on the very
+   URL getPublishedUrl() hands back, which is exactly what a club sees when it
+   opens its brand new form. The method names differ across Apps Script
+   runtimes, so each is feature-detected and each failure is reported rather
+   than swallowed -- a form that silently is not accepting answers is worse
+   than one that says so. */
+function publishForm(form) {
+  var did = [], failed = [];
+  if (typeof form.setPublished === 'function') {
+    try { form.setPublished(true); did.push('published'); }
+    catch (e) { failed.push('setPublished: ' + e.message); }
+  }
+  if (typeof form.setPublishedAudience === 'function') {
+    try { form.setPublishedAudience('ANYONE'); did.push('audience=anyone'); }
+    catch (e) { failed.push('setPublishedAudience: ' + e.message); }
+  }
+  try { form.setAcceptingResponses(true); did.push('accepting responses'); }
+  catch (e) { failed.push('setAcceptingResponses: ' + e.message); }
+  try { form.setRequireLogin(false); did.push('no sign-in required'); }
+  catch (e) { /* consumer accounts reject this; not fatal */ }
+  return {did: did, failed: failed};
+}
+
 /* ---------------- one-time authorisation ----------------
    Run this once from the editor after pasting or changing this file, and
    accept the prompt. Verifying a sign-in means calling Google's tokeninfo
@@ -59,7 +83,24 @@ function authorize() {
   var form = FormApp.openById(copy.getId());
   var ss   = SpreadsheetApp.create('Scope check \u2014 safe to delete');
   form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  var pubres = publishForm(form);
   var pub  = form.getPublishedUrl();
+  /* Fetch the published URL before throwing the copy away. Asking Google
+     whether the form is reachable is the only check that means anything --
+     setPublished can return without error and still leave "This document is
+     not published" on the page a club would open. */
+  var vis = 'not checked', got = -1;
+  try {
+    var chk = UrlFetchApp.fetch(pub, {muteHttpExceptions: true, followRedirects: true});
+    got = chk.getResponseCode();
+    var body = chk.getContentText();
+    vis = (got === 200 && body.indexOf('not published') < 0) ? 'REACHABLE'
+        : (body.indexOf('not published') > -1 ? 'STILL UNPUBLISHED' : 'HTTP ' + got);
+  } catch (e) { vis = 'fetch failed: ' + e.message; }
+  Logger.log('Publish step -- did: ' + pubres.did.join(', ') +
+             (pubres.failed.length ? ' | FAILED: ' + pubres.failed.join(' ; ') : '') +
+             '\nPublished URL: ' + pub +
+             '\nRespondent view: ' + vis + ' (HTTP ' + got + ')');
   DriveApp.getFileById(copy.getId()).setTrashed(true);
   DriveApp.getFileById(ss.getId()).setTrashed(true);
   Logger.log('Authorised. tokeninfo reachable (HTTP ' + r.getResponseCode() +
@@ -866,6 +907,44 @@ function dispatch(action, payload, email, role, id) {
        list; nothing here is credential-shaped. */
     case 'clubRoster': return {ok: true, roster: accountsFor(aff)};
 
+    /* Republishes a club's existing form. Forms created before the publish
+       step above exist but serve "This document is not published", and there
+       is otherwise no way to fix one from here: the saved link is a published
+       URL, not a file id, so an older club's form is found by name in Drive. */
+    case 'republishForm': {
+      var rKey = 'club:' + aff, rSheet = tab('config'), rVals = rSheet.getDataRange().getValues();
+      var rRow = -1, rCfg = {};
+      for (var ri = 1; ri < rVals.length; ri++) {
+        if (String(rVals[ri][0]) === rKey) {
+          rRow = ri + 1;
+          try { rCfg = JSON.parse(rVals[ri][1]) || {}; } catch (e) { rCfg = {}; }
+          break;
+        }
+      }
+      if (!rCfg.formUrl) return {ok: false, error: 'This club has no form yet.'};
+      var rName = ((findAff(aff) || {}).name || aff) + ' sign-up', rForm = null;
+      try {
+        if (rCfg.formId) rForm = FormApp.openById(rCfg.formId);
+        else {
+          var it = DriveApp.getFilesByName(rName);
+          if (it.hasNext()) rForm = FormApp.openById(it.next().getId());
+        }
+      } catch (e) {
+        return {ok: false, error: 'Could not open the form: ' + e.message};
+      }
+      if (!rForm)
+        return {ok: false, error: 'Could not find a form named "' + rName + '" in Drive.'};
+
+      var rres = publishForm(rForm);
+      rCfg.formUrl = rForm.getPublishedUrl();
+      rCfg.formId  = rForm.getId();
+      var rJson = JSON.stringify(rCfg);
+      if (rRow > 0) rSheet.getRange(rRow, 2).setValue(rJson);
+      else rSheet.appendRow([rKey, rJson]);
+
+      return {ok: true, formUrl: rCfg.formUrl, did: rres.did, failed: rres.failed};
+    }
+
     /* Gives a club its own copy of the standard sign-up form, with a response
        spreadsheet attached, and writes both links into the club's setup so the
        rest of the tool picks them up without anyone pasting a URL. Copying
@@ -894,12 +973,17 @@ function dispatch(action, payload, email, role, id) {
         form.setTitle(title);
         ss = SpreadsheetApp.create(title + ' (responses)');
         form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+        publishForm(form);
       } catch (e) {
         return {ok: false, error: 'Could not copy the form: ' + e.message};
       }
 
       cfg.formUrl  = form.getPublishedUrl();
       cfg.sheetUrl = ss.getUrl();
+      /* Kept so the form can be reopened later -- the published URL is not the
+         file id, so without this a form can only be found by guessing at its
+         name in Drive. */
+      cfg.formId   = copy.getId();
       var cfJson = JSON.stringify(cfg);
       if (cfRow > 0) cfSheet.getRange(cfRow, 2).setValue(cfJson);
       else cfSheet.appendRow([cfKey, cfJson]);
