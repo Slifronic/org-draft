@@ -1084,6 +1084,12 @@ function nextTrackId(){
 function unitWord(){return S.club.unit}
 function unitsWord(){return S.club.units}
 var SAVE_KEY='orgsystem.v1';
+/* The draft lives in two places: the sheet, and a working copy in this
+   browser. That copy used to be filed under one key for the whole system, so
+   every club shared it -- switch club and the previous club's teams were still
+   on screen. It is filed per club now. The bare key is still read once, so a
+   draft saved before this change is not thrown away. */
+function saveKey(){return SAVE_KEY+':'+(A.aff||'default')}
 var WEBAPP_URL='https://script.google.com/macros/s/AKfycbwNGnp7lMZaX-jKnC7wlez_LECLTq-WINWmIPcW8WddGGKVveqkInQPo0fFO53OBt_5YA/exec';
 
 /* ================= IDENTITY & ROLES =================
@@ -1477,7 +1483,7 @@ function applyPreset(key){
 function save(){
   histPush();
   try{
-    localStorage.setItem(SAVE_KEY,JSON.stringify(serialize()));
+    localStorage.setItem(saveKey(),JSON.stringify(serialize()));
     var el=$('savestamp'); if(el)el.textContent='saved '+new Date().toLocaleTimeString();
   }catch(e){}
 }
@@ -1510,7 +1516,12 @@ function restore(d){
   return true;
 }
 function loadSaved(){
-  try{var s=localStorage.getItem(SAVE_KEY);return s?JSON.parse(s):null}catch(e){return null}
+  try{
+    var s=localStorage.getItem(saveKey());
+    /* Fall back to the old unscoped key so an existing draft survives. */
+    if(s===null&&(A.aff||'default')==='default')s=localStorage.getItem(SAVE_KEY);
+    return s?JSON.parse(s):null;
+  }catch(e){return null}
 }
 
 /* ---------------- undo / redo (Cmd/Ctrl-Z) ----------------
@@ -1648,6 +1659,20 @@ function mergeBackendData(data){
   if(data.config&&data.config.unit){
     S.club=mergeClub(DEFAULT_CLUB,data.config);
     changed=true;
+  }
+  /* A successful club read is the whole truth about that club, empty included.
+     Treating empty as "no news" is what left cleared clubs still showing their
+     teams. Only an authenticated read (ok) is trusted this way -- a failed or
+     offline call still leaves the working copy alone. Guarded on there being a
+     drafted state to clear, because teams only reach the sheet once the draft
+     is run: a roster imported and not yet drafted exists nowhere else, and an
+     empty read must not be what destroys it. */
+  if(data.ok&&data.teams&&!data.teams.length&&S.orgs.length){
+    S.people=[];S.orgs=[];S.orgNames=[];S.standings=[];
+    changed=true;
+  }
+  if(data.ok&&data.pointsLog&&!data.pointsLog.length&&S.log.length){
+    S.log=[];changed=true;
   }
   if(data.teams&&data.teams.length){
     var byName={};
@@ -3681,7 +3706,12 @@ function renderAffs(){
             affSay('Cleared the data in '+b.dataset.name+'.','info');
             if(A.aff===b.dataset.code){
               S.people=[];S.orgs=[];S.orgNames=[];S.log=[];S.standings=[];
+              save();
               scoreAll();renderDraft();renderCup();
+            } else {
+              /* Clearing a club you are not currently viewing still has to
+                 reach the copy this browser holds for it. */
+              try{localStorage.removeItem(SAVE_KEY+':'+b.dataset.code)}catch(e){}
             }
           } else affSay((r&&r.error)||'That was refused.');
         });
@@ -4445,7 +4475,7 @@ $('loadjson').addEventListener('change',function(e){
 });
 $('wipe').addEventListener('click',function(){
   if(!confirm('Delete the saved draft, log, and action catalog from this browser? Export a save file first if you want to keep it.'))return;
-  try{localStorage.removeItem(SAVE_KEY)}catch(e){}
+  try{localStorage.removeItem(saveKey());localStorage.removeItem(SAVE_KEY)}catch(e){}
   location.reload();
 });
 
