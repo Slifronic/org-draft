@@ -624,6 +624,20 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   <p class="hint">Matched automatically from your headers. Starred fields are required — the draft won't run without them.</p>
   <div id="maprows"></div>
   <div id="mapstatus"></div>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:1;min-width:240px">
+      <label for="dr-target">Draft into</label>
+      <select id="dr-target"></select>
+    </div>
+  </div>
+  <div id="newclubfields" style="display:none">
+    <div class="row" style="margin-top:0">
+      <div class="field" style="flex:1;min-width:150px"><label for="nc-code">Short code</label><input type="text" class="mono" id="nc-code" placeholder="deanza-pbl-s26" autocapitalize="none" spellcheck="false"></div>
+      <div class="field" style="flex:1;min-width:170px"><label for="nc-name">Display name</label><input type="text" id="nc-name" placeholder="De Anza PBL — Spring 26"></div>
+      <div class="field" style="flex:1;min-width:150px"><label for="nc-join">Join code</label><input type="text" class="mono" id="nc-join" placeholder="at least 6 characters"></div>
+    </div>
+    <p class="hint">The new club starts empty and takes this club's setup — track names, ranks, whether MBTI is used. It does not take its form, its sheet or its accounts. The club you are viewing now is left exactly as it is.</p>
+  </div>
   <div class="row">
     <div class="field">
       <label for="orgcount" id="orgcountlbl">Number of Orgs</label>
@@ -2145,6 +2159,21 @@ function draft(people,n,useMbti){
   });
   return groups;
 }
+/* Running the draft replaces a club's teams, so an officer starting a new
+   semester needs somewhere else to put it. The alternative is drafting over
+   the top of a term that is still running. */
+function renderDraftTarget(){
+  var sel=$('dr-target'); if(!sel)return;
+  var here=A.affName||A.aff||'this club';
+  sel.innerHTML='<option value="">'+esc(here)+' \u2014 replaces its current teams</option>'+
+                '<option value="__new">A new club\u2026</option>';
+  toggleNewClub();
+}
+function toggleNewClub(){
+  var sel=$('dr-target'), box=$('newclubfields');
+  if(!sel||!box)return;
+  box.style.display=sel.value==='__new'?'':'none';
+}
 function run(){
   var n=parseInt($('orgcount').value,10);
   if(!n||n<2){say('Set the number of Orgs to 2 or more.');return}
@@ -2154,6 +2183,30 @@ function run(){
     say('Every member needs an MBTI type before the draft runs \u2014 '+r.noType.length+' still missing.');return}
   if(r.people.length<n*2){say('Only '+r.people.length+' members for '+n+' '+unitsWord()+'. That is fewer than two per '+unitWord()+' \u2014 lower the count.');return}
 
+  var tgt=($('dr-target')||{}).value||'';
+  if(tgt==='__new'){
+    var nc=($('nc-code')||{}).value.trim(), nn=($('nc-name')||{}).value.trim(), nj=($('nc-join')||{}).value.trim();
+    if(!/^[a-z0-9-]{3,32}$/.test(nc)){say('The new club needs a short code: 3\u201332 characters, letters, digits and dashes.');return}
+    if(!nn){say('Give the new club a display name.');return}
+    if(nj.length<6){say('The new club needs a join code of at least 6 characters.');return}
+    say('Creating '+nn+'\u2026','info');
+    backendPost('forkClub',{code:nc,name:nn,joinCode:nj}).then(function(res){
+      if(!res||!res.ok){say((res&&res.error)||'That club could not be created.');return}
+      /* Move to the new club before the draft is written, so setTeams lands
+         there. switchAff is deliberately not used: it reloads from the sheet
+         and would throw away the roster just imported. */
+      A.aff=res.code; A.affName=res.name; storeAff(res.code);
+      S.club.clubName=res.name;
+      setRole(A.role,null); applyClubChrome(); syncClub();
+      finishDraft(r,n);
+      renderAffs();
+      say('Drafted into '+res.name+'. You are now viewing that club; the one you came from was not touched.','good');
+    });
+    return;
+  }
+  finishDraft(r,n);
+}
+function finishDraft(r,n){
   S.people=r.people;
   S.orgs=draft(r.people,n,$('mbtibal').checked);
   S.orgs.forEach(function(g,i){g.forEach(function(p){p.org=i})});
@@ -3609,7 +3662,7 @@ function renderClubSetup(){
   var mr=$('cf-mbtireq');  if(mr){mr.checked=!!S.club.mbtiRequired; mr.disabled=!S.club.useMbti}
   var tb=$('trackbox'); if(tb)tb.style.display=S.club.useTracks?'':'none';
   var yb=$('yearbox');  if(yb)yb.style.display=S.club.useYear?'':'none';
-  renderTrackList(); renderRosterLinks(); renderFormKit();
+  renderTrackList(); renderRosterLinks(); renderFormKit(); renderDraftTarget();
 }
 function wireClubSetup(){
   if(!$('cf-club'))return;
@@ -4445,6 +4498,7 @@ $('refresh').addEventListener('click',function(){loadSheet(S.lastSheetUrl||$('sh
 $('readpaste').addEventListener('click',function(){ingest($('input').value,'your pasted rows')});
 $('sample').addEventListener('click',sampleRoster);
 $('run').addEventListener('click',run);
+if($('dr-target'))$('dr-target').addEventListener('change',toggleNewClub);
 $('redraw').addEventListener('click',function(){
   if(!S.people.length)return;
   S.orgs=draft(S.people,S.orgs.length,$('mbtibal').checked);

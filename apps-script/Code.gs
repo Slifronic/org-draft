@@ -31,7 +31,8 @@ var NEEDS = {
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
   listSignups: 'master', purgeClub: 'admin',
-  clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin'
+  clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
+  forkClub: 'admin'
 };
 /* A form copied through Drive arrives unpublished. Google's newer Forms
    publishing model then serves "This document is not published" on the very
@@ -906,6 +907,52 @@ function dispatch(action, payload, email, role, id) {
        spreadsheet someone imported. Officers of a club get their own club's
        list; nothing here is credential-shaped. */
     case 'clubRoster': return {ok: true, roster: accountsFor(aff)};
+
+    /* Starts a new club and hands the officer who asked for it the keys, so a
+       draft can be run somewhere new instead of over the top of a running
+       club's teams. Deliberately narrower than createAffiliation, which stays
+       master-only: this one cannot name an existing club, copies the current
+       club's setup so the new one speaks the same vocabulary, and grants admin
+       only to the caller. Nothing is read from or written to the club being
+       left behind. */
+    case 'forkClub': {
+      var fc = normAff((payload || {}).code);
+      var fn = String((payload || {}).name || '').trim();
+      var fj = String((payload || {}).joinCode || '').trim();
+      if (!/^[a-z0-9-]{3,32}$/.test(fc))
+        return {ok: false, error: 'Codes are 3-32 characters: letters, digits, dashes.'};
+      if (!fn) return {ok: false, error: 'Give the new club a display name.'};
+      if (fj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
+      if (findAff(fc)) return {ok: false, error: 'That code is taken.'};
+
+      tab('affiliations').appendRow([fc, fn, fj, email, new Date()]);
+
+      /* The caller has to be an officer of the club they just made, or they
+         would be locked out of it the moment they switched. Master already
+         reaches every club and needs no row. */
+      if (RANK[role] < RANK.master) {
+        tab('roles').appendRow([String(email).toLowerCase(), 'admin', String(email).toLowerCase(),
+                                new Date(), fc]);
+      }
+
+      /* Carry the setup across -- track names, roles, whether MBTI is used --
+         but not the form or sheet links, which belong to the old club. */
+      var srcKey = 'club:' + aff, cfgSheet = tab('config');
+      var cfgVals = cfgSheet.getDataRange().getValues(), srcCfg = null;
+      for (var fi = 1; fi < cfgVals.length; fi++) {
+        if (String(cfgVals[fi][0]) === srcKey) {
+          try { srcCfg = JSON.parse(cfgVals[fi][1]); } catch (e) { srcCfg = null; }
+          break;
+        }
+      }
+      if (srcCfg) {
+        delete srcCfg.formUrl; delete srcCfg.sheetUrl; delete srcCfg.formId;
+        srcCfg.clubName = fn;
+        cfgSheet.appendRow(['club:' + fc, JSON.stringify(srcCfg)]);
+      }
+
+      return {ok: true, code: fc, name: fn, copiedSetup: !!srcCfg};
+    }
 
     /* Republishes a club's existing form. Forms created before the publish
        step above exist but serve "This document is not published", and there
