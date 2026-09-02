@@ -10,13 +10,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#1A1613; --slate:#6B655C; --mute:#9A938A; --rule:#DAD6CC; --paper:#F3F1EB; --card:#FBFAF6;
+  --ink:#1A1613; --slate:#6B655C; --mute:#7C766C; --rule:#DAD6CC; --paper:#F3F1EB; --card:#FBFAF6;
   --consult:#3D5A9E; --compete:#C0552E; --either:#7C7A5C; --flag:#B23A2E; --ok:#3E7D52;
   --wash:#ECEAF7; --warmwash:#FBF4E4; --accent:#6B48D9;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
-body{background:var(--paper);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;font-size:15px;line-height:1.5;padding:0 0 90px}
+body{background:var(--paper);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;font-size:15px;line-height:1.5;padding:0 0 108px}
 .wrap{max-width:1240px;margin:0 auto;padding:0 20px}
 .mono{font-family:'IBM Plex Mono',monospace}
 
@@ -127,11 +127,11 @@ ul.roster li.hasnote{background:var(--warmwash)}
 .dot.c{background:var(--consult)} .dot.k{background:var(--compete)} .dot.e{background:var(--either)}
 .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note{cursor:help;color:var(--compete);font-weight:700;flex-shrink:0}
-.mbti{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;padding:1px 4px;flex-shrink:0;background:var(--paper);border:1px solid var(--rule);color:var(--ink)}
+.mbti{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:1px 4px;flex-shrink:0;background:var(--paper);border:1px solid var(--rule);color:var(--ink)}
 .mbti.none{color:var(--flag);border-color:var(--flag)}
-.pts{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:var(--compete);flex-shrink:0;min-width:24px;text-align:right}
+.pts{font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:var(--compete);flex-shrink:0;min-width:24px;text-align:right}
 .pts.zero{color:var(--flag)}
-.role{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);border:1px solid var(--rule);padding:1px 5px;flex-shrink:0}
+.role{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);border:1px solid var(--rule);padding:1px 5px;flex-shrink:0}
 .role.lead{background:var(--ink);color:#fff;border-color:var(--ink)}
 .orgfoot{border-top:1px solid var(--rule);padding:9px 16px}
 .legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:12.5px;color:var(--slate);align-items:center}
@@ -140,7 +140,7 @@ ul.roster li.hasnote{background:var(--warmwash)}
 /* tables */
 .tablewrap{overflow-x:auto;margin-top:6px}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);text-align:right;padding:7px 8px;border-bottom:1px solid var(--ink);font-weight:600;white-space:nowrap}
+th{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);text-align:right;padding:7px 8px;border-bottom:1px solid var(--ink);font-weight:600;white-space:nowrap}
 th.l{text-align:left}
 td{padding:7px 8px;border-bottom:1px solid #EFEDE6;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;vertical-align:middle}
 td.l{text-align:left;font-family:'Archivo',sans-serif;font-size:13.5px}
@@ -155,7 +155,7 @@ tr.rowflag{background:var(--warmwash)}
 .act{display:grid;grid-template-columns:1fr 92px 132px 78px 34px;gap:9px;align-items:center;padding:9px 0;border-bottom:1px solid #EFEDE6}
 .act input[type=text]{font-size:13.5px}
 .act.head{border-bottom:1px solid var(--ink);padding-bottom:6px}
-.act.head span{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+.act.head span{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
 .act.off{opacity:.45}
 .act .kill{border:1px solid var(--rule);background:transparent;color:var(--flag);padding:6px 0;font-size:13px;font-weight:700;width:34px}
 .act .kill:hover{background:var(--flag);color:#fff;opacity:1}
@@ -213,6 +213,10 @@ tr.rowflag{background:var(--warmwash)}
 .notes li{margin-left:18px;margin-bottom:5px}
 .empty{color:var(--slate);font-size:13.5px;padding:20px 0}
 footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--slate)}
+/* The chat button floats over the bottom-right corner, so the last row of any
+   page needs room to clear it rather than sitting underneath. */
+.savebar,footer{padding-right:84px}
+@media(max-width:560px){.savebar,footer{padding-right:0;padding-bottom:66px}}
 .savebar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--rule)}
 .savenote{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--mute);letter-spacing:.05em}
 @media(max-width:600px){.stat{min-width:50%;border-bottom:1px solid var(--rule)}.maprow{grid-template-columns:1fr;gap:5px}}
@@ -241,7 +245,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .chathead button:hover{background:var(--ink);color:#fff;border-color:var(--ink);opacity:1}
 #chatlog{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
 .cmsg{max-width:92%}
-.cmsg .cwho{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;
+.cmsg .cwho{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--mute);margin-bottom:4px}
 .cmsg .cbody{font-size:13.5px;line-height:1.5}
 .cmsg .cbody b{font-weight:600}
@@ -289,7 +293,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .gateswitch button{background:transparent;border:none;color:var(--accent);font-size:12.5px;
   padding:4px;text-decoration:underline;font-weight:500}
 .gateswitch button:hover{opacity:.75}
-.affchip{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+.affchip{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--slate);border:1px solid var(--rule);padding:2px 6px;margin-left:8px;white-space:nowrap}
 
 /* ---- member profile ---- */
@@ -304,10 +308,10 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .profgrid .stat:last-child{border-right:none}
 .userrow{display:grid;grid-template-columns:1fr 120px 34px 34px;gap:9px;align-items:center;
   padding:9px 0;border-bottom:1px solid #EFEDE6}
-.userrow.head span{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;
+.userrow.head span{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--slate)}
 .userrow .un{font-family:'IBM Plex Mono',monospace;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
-.userrow .lockflag{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--flag)}
+.userrow .lockflag{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--flag)}
 .userrow button{border:1px solid var(--rule);background:transparent;padding:6px 0;font-size:12px;width:34px}
 .userrow .ukey{color:var(--slate)} .userrow .ukey:hover{background:var(--ink);color:#fff;opacity:1}
 .userrow .ukill{color:var(--flag)} .userrow .ukill:hover{background:var(--flag);color:#fff;opacity:1}
@@ -327,7 +331,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .whoami img{width:28px;height:28px;border-radius:50%;border:1px solid var(--rule)}
 .whoami .wtext{display:flex;flex-direction:column;line-height:1.25;min-width:0}
 .whoami .wname{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
-.rolebadge{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.rolebadge{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
 .rolebadge b{color:var(--accent);font-weight:600}
 .rolebadge.master b{color:var(--compete)}
 .signout{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--rule);color:var(--slate);padding:5px 8px}
@@ -381,7 +385,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 
 /* ---- access control table ---- */
 .acctrow{display:grid;grid-template-columns:1fr 130px 60px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #EFEDE6}
-.acctrow.head span{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+.acctrow.head span{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
 .acctrow .em{font-family:'IBM Plex Mono',monospace;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .acctrow .lock{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--compete);letter-spacing:.08em}
 @media(max-width:560px){.acctrow{grid-template-columns:1fr 100px 44px}}
@@ -478,6 +482,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
     <button data-view="v-cup" disabled>Cup</button>
     <button data-view="v-assist" disabled data-req="admin">Assistant</button>
     <button data-view="v-profile">Profile</button>
+    <button data-view="v-form" id="navform" style="display:none">Sign-up form</button>
     <button data-view="v-access" data-req="master">Access</button>
   </nav>
 </header>
@@ -770,6 +775,17 @@ Marcus Lee"></textarea>
   <div id="cardbody" style="padding:18px"></div>
 </div></div>
 
+<div class="view" id="v-form">
+  <div class="panel">
+    <h2 id="formtitle">Club sign-up form</h2>
+    <p class="hint" id="formintro">Your club's own form, filled in here. Your name and email are already in.</p>
+    <div id="formfields"></div>
+    <div class="row"><button id="formsubmit">Submit to the club</button>
+      <button id="formskip" class="ghost">Skip for now</button></div>
+    <div class="msg" id="formmsg"></div>
+  </div>
+</div>
+
 <!-- ============ PROFILE ============ -->
 <div class="view" id="v-profile">
   <div id="profbody"></div>
@@ -813,6 +829,19 @@ Marcus Lee"></textarea>
     <button id="af-go" class="ghost">Switch to this club</button>
     <button id="affrefresh" class="ghost">Refresh list</button>
   </div>
+</div>
+
+<div class="panel">
+  <h2>Everyone who has signed up</h2>
+  <p class="hint">Every account on this system and the club it belongs to — the ones created here, the ones people made themselves, and the Google addresses granted a role. Credentials are never shown.</p>
+  <div class="filterbar" style="margin-bottom:12px">
+    <div><span class="lbl">Search</span><input type="text" id="sg-q" placeholder="name, email…"></div>
+    <div><span class="lbl">Club</span><select id="sg-aff"><option value="">All</option></select></div>
+    <div><span class="lbl">Role</span><select id="sg-role"><option value="">All</option>
+      <option value="member">Member</option><option value="admin">Admin</option><option value="master">Master</option></select></div>
+    <div><button class="tiny ghost" id="sg-refresh">Refresh</button></div>
+  </div>
+  <div id="sgtable"></div>
 </div>
 
 <div class="panel">
@@ -920,7 +949,7 @@ var DEFAULT_CLUB={
   useMbti:true, mbtiRequired:true,
   roleLead:'Org Lead', roleSenior:'Associate', roleJunior:'Analyst',
   leadsPer:2,
-  formUrl:'', sheetUrl:''
+  formUrl:'', sheetUrl:'', formEmbed:true
 };
 function cloneClub(c){
   c=c||DEFAULT_CLUB;
@@ -930,7 +959,8 @@ function cloneClub(c){
     flexLabel:c.flexLabel, useYear:c.useYear, newWord:c.newWord, oldWord:c.oldWord,
     useMbti:c.useMbti, mbtiRequired:c.mbtiRequired,
     roleLead:c.roleLead, roleSenior:c.roleSenior, roleJunior:c.roleJunior,
-    leadsPer:c.leadsPer, formUrl:c.formUrl||'', sheetUrl:c.sheetUrl||''};
+    leadsPer:c.leadsPer, formUrl:c.formUrl||'', sheetUrl:c.sheetUrl||'',
+    formEmbed:c.formEmbed!==false};
 }
 
 /* Starter kits. Each one is only a starting point -- every field stays
@@ -1311,6 +1341,7 @@ function doSignupSubmit(){
     showGate(false); gateMsg('');
     $('su-pass').value='';
     afterSignIn();
+    if(S.club.formUrl!==undefined)offerClubForm();
   }).catch(function(e){
     $('su-go').disabled=false;
     gateMsg(e&&e.message?e.message:'Could not create that account.',true);
@@ -1330,6 +1361,7 @@ function doJoinSubmit(){
     setRole('member',null);
     showGate(false); gateMsg('');
     afterSignIn();
+    offerClubForm();
   });
 }
 function initGate(){
@@ -1524,8 +1556,13 @@ document.addEventListener('keydown',function(e){
    signed-in account may ask for. The server re-checks all of it -- this only
    avoids firing requests that are certain to be refused. */
 var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
+/* Anything a member may legitimately ask for. Leaving an action out of here
+   silently blocks it in the browser before it is ever sent, which is how
+   setting a password, saving a profile and opening a member card all failed
+   for exactly the people they were built for. */
 var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
-                   myProfile:1,joinAffiliation:1};
+                   myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
+                   setMyPassword:1,memberCard:1,formSchema:1,submitForm:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -1668,8 +1705,9 @@ function setView(id){
   if(id==='v-attend')renderAttend();
   if(id==='v-cup')renderCup();
   if(id==='v-assist'){computeSwaps();renderAssistant()}
-  if(id==='v-access'){renderAccess();renderUsers();renderAffs()}
+  if(id==='v-access'){renderAccess();renderUsers();renderAffs();renderSignups()}
   if(id==='v-profile')renderProfile();
+  if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
   window.scrollTo(0,0);
 }
@@ -3367,6 +3405,92 @@ function renderAccess(){
   });
 }
 
+/* ---- the club's own Google Form, rendered here ----
+   The backend reads the form's published page and hands back its questions
+   and entry ids, so the member fills it in without leaving the app and the
+   answers land in the club's existing response sheet exactly as if they had
+   used the form directly. */
+var FORM={schema:null,loaded:false};
+function formField(f,i){
+  var id='ff_'+i, req=f.required?' <span style="color:var(--flag)">*</span>':'';
+  var h='<div class="field" style="margin-top:14px"><label for="'+id+'">'+esc(f.label)+req+'</label>';
+  if(f.type===2||f.type===4){                     // radio / checkbox
+    h+='<div style="margin-top:6px">'+f.options.map(function(o,j){
+      return '<label class="check" style="margin-bottom:6px"><input type="'+(f.type===4?'checkbox':'radio')+
+        '" name="'+id+'" value="'+esc(o)+'"> '+esc(o)+'</label>';
+    }).join('')+'</div>';
+  } else if(f.type===3){                          // dropdown
+    h+='<select id="'+id+'"><option value="">—</option>'+
+      f.options.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+'</option>'}).join('')+'</select>';
+  } else if(f.type===1){                          // paragraph
+    h+='<textarea id="'+id+'" style="height:88px"></textarea>';
+  } else {
+    h+='<input type="text" id="'+id+'">';
+  }
+  return h+'</div>';
+}
+function renderClubForm(){
+  var box=$('formfields'); if(!box)return;
+  if(!S.club.formUrl){
+    box.innerHTML='<p class="empty">No sign-up form is linked to this club yet. An officer adds it under Intake.</p>';
+    $('formsubmit').style.display='none'; return;
+  }
+  box.innerHTML='<p class="empty">Loading the form…</p>';
+  backendPost('formSchema',{formUrl:S.club.formUrl}).then(function(r){
+    if(!r||!r.ok){
+      box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that form.')+
+        ' <a href="'+esc(S.club.formUrl)+'" target="_blank" rel="noopener">Open it directly instead</a>.</p>';
+      $('formsubmit').style.display='none'; return;
+    }
+    FORM.schema=r; FORM.loaded=true;
+    $('formtitle').textContent=r.title;
+    $('formsubmit').style.display='';
+    box.innerHTML=r.fields.map(formField).join('');
+    /* Prefill anything that is obviously asking for a name or an email. */
+    var first=String(A.name||'').split(' ')[0]||'';
+    var last=String(A.name||'').split(' ').slice(1).join(' ');
+    r.fields.forEach(function(f,i){
+      var el=$('ff_'+i); if(!el)return;
+      var L=f.label.toLowerCase();
+      if(/e-?mail/.test(L))el.value=A.email||'';
+      else if(/first/.test(L)&&/name/.test(L))el.value=first;
+      else if(/last|surname|family/.test(L)&&/name/.test(L))el.value=last;
+      else if(/full name|your name|^name$/.test(L))el.value=A.name||'';
+    });
+  });
+}
+/* Shown once, right after joining: the club's form is the thing that puts a
+   new member on the roster, so it is offered rather than buried. */
+function offerClubForm(){
+  setTimeout(function(){
+    if(!S.club.formUrl)return;
+    $('navform').style.display='';
+    setView('v-form');
+  },1400);
+}
+function submitClubForm(){
+  var m=$('formmsg');
+  if(!FORM.loaded){m.textContent='The form has not loaded.';m.className='msg show';return}
+  var answers={},missing=[];
+  FORM.schema.fields.forEach(function(f,i){
+    var id='ff_'+i, val='';
+    if(f.type===2||f.type===4){
+      var picked=Array.prototype.filter.call(document.getElementsByName(id),function(x){return x.checked})
+        .map(function(x){return x.value});
+      val=picked.length?(f.type===4?picked:picked[0]):'';
+    } else { var el=$(id); val=el?el.value:''; }
+    if(f.required&&(!val||!val.length))missing.push(f.label);
+    if(val&&val.length)answers[f.id]=val;
+  });
+  if(missing.length){m.textContent='Still needed: '+missing.slice(0,3).join(', ')+'.';m.className='msg show';return}
+  m.textContent='Sending…';m.className='msg show info';
+  backendPost('submitForm',{action:FORM.schema.action,answers:answers}).then(function(r){
+    if(r&&r.ok){m.textContent='Sent. Your answers are in the club’s response sheet.';m.className='msg show good';
+      $('navform').style.display='none'; setTimeout(function(){setView('v-profile')},1200);}
+    else {m.textContent=(r&&r.error)||'That did not send.';m.className='msg show';}
+  });
+}
+
 /* ---- clubs (master only) ---- */
 function affSay(t,kind){var m=$('affmsg');m.textContent=t;m.className='msg show'+(kind?' '+kind:'')}
 function renderAffs(){
@@ -3375,21 +3499,41 @@ function renderAffs(){
   box.innerHTML='<p class="empty">Loading…</p>';
   backendPost('listAffiliations',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the club list.</p>';return}
-    var rows=r.affiliations||[];
-    if(!rows.length){box.innerHTML='<p class="empty">No clubs yet. Create the first one above — until then nobody can sign up.</p>';return}
+    var rows=(r.affiliations||[]).slice();
+    /* "default" is not a club anyone joins -- it is where rows written before
+       affiliations existed still live. It is listed so its leftovers can be
+       cleared, but it cannot be renamed or deleted. */
+    rows.push({code:'default',name:'default (pre-existing data)',legacy:true});
     box.innerHTML='<div class="acctrow head"><span>Club</span><span>Code</span><span></span></div>'+
       rows.map(function(a){
         return '<div class="acctrow"><span>'+esc(a.name)+
                (a.code===A.aff?' <span class="lock">viewing</span>':'')+'</span>'+
                '<span class="em">'+esc(a.code)+'</span>'+
-               '<span><button class="kill affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
-               '" title="Rename or rotate the join code" style="color:var(--slate);width:auto;padding:6px 8px">edit</button>'+
-               '<button class="kill affdel" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
-               '" title="Delete this club and all its data" style="width:auto;padding:6px 8px;margin-left:6px">delete</button></span></div>';
+               '<span>'+(a.legacy?'':'<button class="kill affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+               '" title="Rename or rotate the join code" style="color:var(--slate);width:auto;padding:6px 8px">edit</button>')+
+               '<button class="kill affpurge" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+               '" title="Empty this club\u2019s roster and points, keep the club" style="color:var(--slate);width:auto;padding:6px 8px;margin-left:6px">empty</button>'+
+               (a.legacy?'':'<button class="kill affdel" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+               '" title="Delete this club and all its data" style="width:auto;padding:6px 8px;margin-left:6px">delete</button>')+'</span></div>';
       }).join('');
     /* Renaming changes the display name only. The short code is what every
        row of data is stamped with, so changing that would orphan the club's
        roster and points -- it stays fixed for the life of the club. */
+    Array.prototype.forEach.call(box.querySelectorAll('.affpurge'),function(b){
+      b.addEventListener('click',function(){
+        var t=prompt('Empty "'+b.dataset.name+'" — removes its roster, points and attendance but keeps the club, its accounts and its setup.\n\nType the club code to confirm:\n'+b.dataset.code);
+        if(t===null)return;
+        backendPost('purgeClub',{code:b.dataset.code,confirm:t.trim()}).then(function(r){
+          if(r&&r.ok){
+            affSay('Emptied '+b.dataset.name+'.','info');
+            if(A.aff===b.dataset.code){
+              S.people=[];S.orgs=[];S.orgNames=[];S.log=[];S.standings=[];
+              scoreAll();renderDraft();renderCup();
+            }
+          } else affSay((r&&r.error)||'That was refused.');
+        });
+      });
+    });
     Array.prototype.forEach.call(box.querySelectorAll('.affdel'),function(b){
       b.addEventListener('click',function(){
         var typed=prompt('Deleting "'+b.dataset.name+'" removes its roster, points, attendance, accounts, officer list and setup. This cannot be undone.\n\nType the club code to confirm:\n'+b.dataset.code);
@@ -3452,6 +3596,50 @@ function switchAff(code){
     scoreAll();renderDraft();renderCup();renderAffs();renderRosterLinks();
     setRole(A.role,null);
     affSay('Now viewing '+(A.affName||A.aff)+' — '+S.people.length+' members, '+S.orgs.length+' teams.','good');
+  });
+}
+
+/* ---- everyone who has signed up (master only) ---- */
+var SIGNUPS=[];
+function renderSignupTable(){
+  var box=$('sgtable'); if(!box)return;
+  var q=(($('sg-q')||{}).value||'').toLowerCase();
+  var fa=($('sg-aff')||{}).value||'', fr=($('sg-role')||{}).value||'';
+  var rows=SIGNUPS.filter(function(u){
+    if(fa&&u.aff!==fa)return false;
+    if(fr&&u.role!==fr)return false;
+    if(q&&(String(u.first)+' '+String(u.last)+' '+String(u.email)+' '+String(u.who)).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+  if(!rows.length){box.innerHTML='<p class="empty">Nobody matches.</p>';return}
+  var h='<div class="tablewrap"><table><thead><tr><th class="l"></th><th class="l">Name</th>'+
+    '<th class="l">Email</th><th class="l">Club</th><th class="l">Role</th><th class="l">Via</th><th class="l">Joined</th></tr></thead><tbody>';
+  rows.forEach(function(u){
+    var nm=((u.first||'')+' '+(u.last||'')).trim();
+    h+='<tr><td class="l">'+(u.photo?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
+      '<td class="l name">'+esc(nm||'—')+'</td>'+
+      '<td class="l"><span class="mono" style="font-size:12px">'+esc(u.email||u.who)+'</span></td>'+
+      '<td class="l">'+esc(u.affName||u.aff)+'</td>'+
+      '<td class="l">'+esc(u.role)+'</td>'+
+      '<td class="l">'+(u.kind==='google'?'Google':'Password')+'</td>'+
+      '<td class="l"><span class="mono" style="font-size:11px">'+esc(String(u.joined||'').slice(0,10))+'</span></td></tr>';
+  });
+  box.innerHTML=h+'</tbody></table></div><p class="hint" style="margin-top:10px">'+rows.length+' of '+SIGNUPS.length+' shown.</p>';
+}
+function renderSignups(){
+  var box=$('sgtable'); if(!box)return;
+  if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
+  box.innerHTML='<p class="empty">Loading…</p>';
+  backendPost('listSignups',null).then(function(r){
+    if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the account list.</p>';return}
+    SIGNUPS=r.signups||[];
+    var sel=$('sg-aff'), seen={};
+    if(sel){
+      sel.innerHTML='<option value="">All</option>'+SIGNUPS.filter(function(u){
+        if(seen[u.aff])return false; seen[u.aff]=1; return true;
+      }).map(function(u){return '<option value="'+esc(u.aff)+'">'+esc(u.affName||u.aff)+'</option>'}).join('');
+    }
+    renderSignupTable();
   });
 }
 
@@ -4020,6 +4208,12 @@ $('signout').addEventListener('click',signOut);
 $('accrefresh').addEventListener('click',renderAccess);
 $('userrefresh').addEventListener('click',renderUsers);
 $('affrefresh').addEventListener('click',renderAffs);
+$('sg-refresh').addEventListener('click',renderSignups);
+['sg-q','sg-aff','sg-role'].forEach(function(id){
+  $(id).addEventListener(id==='sg-q'?'input':'change',renderSignupTable);
+});
+$('formsubmit').addEventListener('click',submitClubForm);
+$('formskip').addEventListener('click',function(){$('navform').style.display='none';setView('v-profile')});
 $('af-go').addEventListener('click',function(){switchAff($('af-switch').value)});
 if($('dr-go'))$('dr-go').addEventListener('click',function(){switchAff($('dr-club').value)});
 $('cardclose').addEventListener('click',function(){$('membercard').classList.remove('on')});
