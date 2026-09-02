@@ -384,11 +384,22 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 .setupsub{font-size:12.5px;color:var(--slate);margin-top:6px;max-width:76ch}
 
 /* ---- access control table ---- */
-.acctrow{display:grid;grid-template-columns:1fr 130px 60px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #EFEDE6}
+.acctrow{display:grid;grid-template-columns:1fr 130px 232px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #EFEDE6}
+/* The actions cell used to be a fixed 60px holding three buttons, so they spilled
+   over the join code beside them and could not reliably be hit. It is now wide
+   enough for all three -- and a fixed width, because every row is its own grid,
+   so an auto cell put the code column in a different place on each row. */
+.acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.acts button{width:auto;border:1px solid var(--rule);background:var(--card);color:var(--slate);
+  font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;padding:6px 10px;border-radius:3px;cursor:pointer}
+.acts button:hover{border-color:var(--ink);color:var(--ink)}
+.acts button.danger{color:var(--flag)}
+.acts button.danger:hover{border-color:var(--flag);background:var(--flag);color:#fff}
 .acctrow.head span{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
 .acctrow .em{font-family:'IBM Plex Mono',monospace;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .acctrow .lock{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--compete);letter-spacing:.08em}
-@media(max-width:560px){.acctrow{grid-template-columns:1fr 100px 44px}}
+@media(max-width:560px){.acctrow{grid-template-columns:1fr;gap:6px}.acts{justify-content:flex-start}.acctrow.head{display:none}}
 </style>
 </head>
 <body data-role="none">
@@ -813,7 +824,7 @@ Marcus Lee"></textarea>
 <div class="panel">
   <h2>Clubs on this system</h2>
   <p class="hint">Each club is its own world: separate roster, separate teams, separate points, separate officers. Nothing crosses between them. Somebody signing up picks their club from a list and has to produce its join code, so the club's name being public does not let anyone in.</p>
-  <p class="hint">Give the join code out the way you would a door code — to the people who belong there. Change it by editing the <b>Affiliations</b> tab of your sheet if it gets around.</p>
+  <p class="hint">Give the join code out the way you would a door code — to the people who belong there. If it gets around, <b>Edit</b> the club below to issue a new one. <b>Clear data</b> empties a club’s roster, points and attendance for a new semester while keeping its accounts and setup; <b>Delete</b> removes the club and everything in it.</p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:1;min-width:150px"><label for="af-code">Short code</label><input type="text" class="mono" id="af-code" placeholder="riverside-pbl" autocapitalize="none" spellcheck="false"></div>
     <div class="field" style="flex:1;min-width:160px"><label for="af-name">Display name</label><input type="text" id="af-name" placeholder="Riverside PBL"></div>
@@ -3504,28 +3515,30 @@ function renderAffs(){
        affiliations existed still live. It is listed so its leftovers can be
        cleared, but it cannot be renamed or deleted. */
     rows.push({code:'default',name:'default (pre-existing data)',legacy:true});
-    box.innerHTML='<div class="acctrow head"><span>Club</span><span>Code</span><span></span></div>'+
+    box.innerHTML='<div class="acctrow head"><span>Club</span><span>Code</span><span>Actions</span></div>'+
       rows.map(function(a){
+        var acts='';
+        if(!a.legacy)acts+='<button class="affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+          '" title="Rename this club or issue a new join code">Edit</button>';
+        acts+='<button class="affpurge" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+          '" title="Remove this club\u2019s roster, points and attendance. Keeps the club, its accounts and its setup.">Clear data</button>';
+        if(!a.legacy)acts+='<button class="danger affdel" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
+          '" title="Delete this club and everything in it, including its accounts">Delete</button>';
         return '<div class="acctrow"><span>'+esc(a.name)+
                (a.code===A.aff?' <span class="lock">viewing</span>':'')+'</span>'+
                '<span class="em">'+esc(a.code)+'</span>'+
-               '<span>'+(a.legacy?'':'<button class="kill affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
-               '" title="Rename or rotate the join code" style="color:var(--slate);width:auto;padding:6px 8px">edit</button>')+
-               '<button class="kill affpurge" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
-               '" title="Empty this club\u2019s roster and points, keep the club" style="color:var(--slate);width:auto;padding:6px 8px;margin-left:6px">empty</button>'+
-               (a.legacy?'':'<button class="kill affdel" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
-               '" title="Delete this club and all its data" style="width:auto;padding:6px 8px;margin-left:6px">delete</button>')+'</span></div>';
+               '<span class="acts">'+acts+'</span></div>';
       }).join('');
     /* Renaming changes the display name only. The short code is what every
        row of data is stamped with, so changing that would orphan the club's
        roster and points -- it stays fixed for the life of the club. */
     Array.prototype.forEach.call(box.querySelectorAll('.affpurge'),function(b){
       b.addEventListener('click',function(){
-        var t=prompt('Empty "'+b.dataset.name+'" — removes its roster, points and attendance but keeps the club, its accounts and its setup.\n\nType the club code to confirm:\n'+b.dataset.code);
+        var t=prompt('Clear data for "'+b.dataset.name+'" — removes its roster, points and attendance. The club, its accounts and its setup stay.\n\nType the club code to confirm:\n'+b.dataset.code);
         if(t===null)return;
         backendPost('purgeClub',{code:b.dataset.code,confirm:t.trim()}).then(function(r){
           if(r&&r.ok){
-            affSay('Emptied '+b.dataset.name+'.','info');
+            affSay('Cleared the data in '+b.dataset.name+'.','info');
             if(A.aff===b.dataset.code){
               S.people=[];S.orgs=[];S.orgNames=[];S.log=[];S.standings=[];
               scoreAll();renderDraft();renderCup();
