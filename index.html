@@ -1726,6 +1726,7 @@ function setView(id){
   if(id==='v-cup')renderCup();
   if(id==='v-assist'){computeSwaps();renderAssistant()}
   if(id==='v-access'){renderAccess();renderUsers();renderAffs();renderSignups()}
+  if(id==='v-intake')renderClubRoster();
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
@@ -3403,6 +3404,7 @@ var CROSTER=[];
 function renderClubRoster(){
   var box=$('crtable'); if(!box)return;
   if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
+  if(!canEdit()){box.innerHTML='';return}
   box.innerHTML='<p class="empty">Loading\u2026</p>';
   backendPost('clubRoster',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the roster.</p>';return}
@@ -4359,6 +4361,10 @@ $('signout').addEventListener('click',signOut);
 $('accrefresh').addEventListener('click',renderAccess);
 $('userrefresh').addEventListener('click',renderUsers);
 $('affrefresh').addEventListener('click',renderAffs);
+$('cr-refresh').addEventListener('click',renderClubRoster);
+['cr-q','cr-role'].forEach(function(id){
+  $(id).addEventListener(id==='cr-q'?'input':'change',renderClubRosterTable);
+});
 $('sg-refresh').addEventListener('click',renderSignups);
 ['sg-q','sg-aff','sg-role'].forEach(function(id){
   $(id).addEventListener(id==='sg-q'?'input':'change',renderSignupTable);
