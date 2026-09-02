@@ -29,7 +29,8 @@ var NEEDS = {
   myProfile: 'member',   joinAffiliation: 'member',
   createAffiliation: 'master', updateAffiliation: 'master', deleteAffiliation: 'master',
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
-  memberCard: 'member'
+  memberCard: 'member', formSchema: 'member', submitForm: 'member',
+  listSignups: 'master', purgeClub: 'master'
 };
 /* 'login' is deliberately absent: it is the one action that runs before any
    identity exists, and it is handled ahead of the permission check. */
@@ -747,6 +748,104 @@ function dispatch(action, payload, email, role, id) {
         mbti: full ? row.MBTI : '', lead: row.IsLead,
         notes: RANK[role] >= RANK.admin ? row.Notes : '',
         points: full ? pts : null, entries: full ? evts : null, photo: ph}};
+    }
+
+    /* Reads a Google Form's own published page and pulls the question list
+       out of FB_PUBLIC_LOAD_DATA_, the blob the form itself renders from. That
+       gives the entry ids needed to prefill and to submit, without anyone
+       copying field ids by hand. */
+    case 'formSchema': {
+      var furl = String((payload || {}).formUrl || '');
+      if (!/^https:\/\/docs\.google\.com\/forms\//.test(furl))
+        return {ok: false, error: 'That is not a Google Forms link.'};
+      var viewUrl = furl.replace(/\/edit.*$/, '/viewform').replace(/\?.*$/, '');
+      if (viewUrl.indexOf('/viewform') < 0) viewUrl = viewUrl.replace(/\/*$/, '') + '/viewform';
+      var res = UrlFetchApp.fetch(viewUrl, {muteHttpExceptions: true, followRedirects: true});
+      if (res.getResponseCode() !== 200)
+        return {ok: false, error: 'Could not open that form. Is it accepting responses and visible to anyone with the link?'};
+      var html = res.getContentText();
+      var m = html.match(/FB_PUBLIC_LOAD_DATA_\s*=\s*(\[[\s\S]*?\]);\s*<\/script>/);
+      if (!m) return {ok: false, error: 'That form did not return a readable question list.'};
+      var data;
+      try { data = JSON.parse(m[1]); } catch (e) { return {ok: false, error: 'Could not parse that form.'}; }
+      var title = (data[3] || data[1] && data[1][8]) || 'Club sign-up form';
+      var raw = (data[1] && data[1][1]) || [], fields = [];
+      raw.forEach(function (q) {
+        var type = q[3], title2 = q[1] || '', entries = q[4] || [];
+        entries.forEach(function (en) {
+          var opts = (en[1] || []).map(function (o) { return String(o[0]); }).filter(String);
+          fields.push({id: 'entry.' + en[0], label: String(title2), type: type,
+                       required: !!en[2], options: opts});
+        });
+      });
+      return {ok: true, title: String(title), action: viewUrl.replace(/\/viewform$/, '/formResponse'),
+              fields: fields};
+    }
+
+    case 'submitForm': {
+      var act = String((payload || {}).action || '');
+      if (!/^https:\/\/docs\.google\.com\/forms\/.*formResponse$/.test(act))
+        return {ok: false, error: 'Bad form target.'};
+      var body2 = (payload || {}).answers || {};
+      var r2 = UrlFetchApp.fetch(act, {method: 'post', payload: body2,
+                                       muteHttpExceptions: true, followRedirects: true});
+      var code = r2.getResponseCode();
+      return (code === 200 || code === 302)
+        ? {ok: true, submitted: true}
+        : {ok: false, error: 'The form rejected that (HTTP ' + code + ').'};
+    }
+
+    /* Every account on the system, with the club it belongs to. Master only,
+       and deliberately does not return anything credential-shaped. */
+    case 'listSignups': {
+      var affNames = {};
+      allAffiliations().forEach(function (a) { affNames[a.code] = a.name; });
+      var profs = {};
+      readTab('profiles').forEach(function (r) {
+        profs[String(r.Email).toLowerCase() + '|' + normAff(r.Affiliation)] =
+          {first: r.FirstName, last: r.LastName, photo: r.Photo};
+      });
+      var out3 = [];
+      readTab('users').forEach(function (r) {
+        if (!r.Username) return;
+        var a = normAff(r.Affiliation || DEFAULT_AFF);
+        var pr = profs[String(r.Username).toLowerCase() + '|' + a] || {};
+        out3.push({who: String(r.Username), kind: 'password',
+                   first: r.FirstName || pr.first || '', last: r.LastName || pr.last || '',
+                   email: r.Email || r.Username, role: String(r.Role || 'member').toLowerCase(),
+                   aff: a, affName: affNames[a] || a, joined: r.CreatedAt || '',
+                   how: r.CreatedBy || '', photo: pr.photo || ''});
+      });
+      readTab('roles').forEach(function (r) {
+        if (!r.Email) return;
+        var a = normAff(r.Affiliation || DEFAULT_AFF);
+        var pr = profs[String(r.Email).toLowerCase() + '|' + a] || {};
+        out3.push({who: String(r.Email), kind: 'google',
+                   first: pr.first || '', last: pr.last || '', email: String(r.Email),
+                   role: String(r.Role || 'member').toLowerCase(),
+                   aff: a, affName: affNames[a] || a, joined: r.GrantedAt || '',
+                   how: r.GrantedBy || '', photo: pr.photo || ''});
+      });
+      return {ok: true, signups: out3};
+    }
+
+    /* Clears a club's roster, points and attendance but keeps the club, its
+       accounts and its setup. Used to hand a club over between semesters. */
+    case 'purgeClub': {
+      var pc = normAff((payload || {}).code || aff);
+      if (String((payload || {}).confirm) !== pc)
+        return {ok: false, error: 'Type the club code to confirm.'};
+      var wiped = {};
+      ['teams', 'pointsLog', 'attendance'].forEach(function (k) {
+        var sh = tab(k); if (!sh) return;
+        var v = sh.getDataRange().getValues(), col = -1, cnt = 0;
+        for (var c = 0; c < v[0].length; c++) if (String(v[0][c]) === 'Affiliation') col = c;
+        if (col < 0) return;
+        for (var r3 = v.length - 1; r3 >= 1; r3--)
+          if (normAff(v[r3][col]) === pc) { sh.deleteRow(r3 + 1); cnt++; }
+        wiped[k] = cnt;
+      });
+      return {ok: true, purged: pc, wiped: wiped};
     }
 
     case 'deleteAffiliation': {
