@@ -390,6 +390,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
    enough for all three -- and a fixed width, because every row is its own grid,
    so an auto cell put the code column in a different place on each row. */
 .acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.rosterhd{margin:22px 0 4px;padding-top:18px;border-top:1px solid var(--rule);font-size:15px;font-weight:700;letter-spacing:-.01em}
 .acts button{width:auto;border:1px solid var(--rule);background:var(--card);color:var(--slate);
   font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;padding:6px 10px;border-radius:3px;cursor:pointer}
@@ -597,6 +598,14 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
     <div class="field" style="flex:1;min-width:220px"><label for="cf-sheet">Response spreadsheet link</label><input type="text" class="mono" id="cf-sheet" placeholder="https://docs.google.com/spreadsheets/..."></div>
   </div>
   <div id="rosterlinks" style="margin-top:14px"></div>
+  <h3 class="rosterhd">Who has signed up</h3>
+  <p class="hint">Everyone holding an account in this club, however they signed in. This is the club’s roster — it fills itself as people join, so nothing here has to be imported or kept in step by hand.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:1;min-width:180px"><label for="cr-q">Search</label><input type="text" id="cr-q" placeholder="Name or email"></div>
+    <div class="field" style="width:150px"><label for="cr-role">Role</label><select id="cr-role"><option value="">All roles</option><option value="member">Member</option><option value="admin">Admin</option><option value="master">Master</option></select></div>
+    <button id="cr-refresh" class="ghost">Refresh</button>
+  </div>
+  <div id="crtable" style="margin-top:12px"></div>
 </div>
 
 <div class="panel" data-req="admin">
@@ -1778,30 +1787,96 @@ function sheetToCsvUrl(url){
   return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv&gid='+gid;
 }
 /* ================= INTAKE ================= */
+/* Column matching. Two things make this harder than a substring search: form
+   questions are whole sentences ("Which side of the club are you drawn to?"),
+   and a single word can belong to two fields -- "What type of work interests
+   you?" reads as both a personality type and a track. The old matcher took the
+   first header a pattern hit and moved on, so one column could be claimed by
+   two fields at once and quietly feed the wrong data into both. */
 var FIELDS=[
   {key:'name', label:'Name', req:true,
-   pats:[/full name/i,/^name$/i,/your name/i,/name/i]},
+   exact:['name','full name','your name','member name','student name'],
+   pats:[/full name/i,/^name$/i,/your name/i,/name/i],
+   no:[/user\s*name/i,/nick\s*name/i,/file\s*name/i,/name of (your|the)/i]},
+  {key:'email', label:'Email', req:false,
+   exact:['email','email address','e-mail','your email','school email'],
+   pats:[/e-?mail/i],
+   no:[/verif/i,/confirm/i]},
   {key:'year', label:'Year in club', req:true,
-   pats:[/year.*(club|member)/i,/class year/i,/first or second/i,/\byear\b/i,/returning/i]},
+   exact:['year','year in club','years in club'],
+   pats:[/year.*(club|member|program)/i,/class year/i,/first or second/i,/\byears?\b/i,/returning/i,/new or returning/i]},
   {key:'track', label:'Track lean', req:true,
-   pats:[/side of the club/i,/\btrack\b/i,/consult.*compet|compet.*consult/i,/interested in\?/i,/interest/i]},
+   exact:['track','side','interest','focus'],
+   pats:[/side of the club/i,/\btracks?\b/i,/consult.*compet|compet.*consult/i,/which.*(side|branch|arm)/i,/interested in\?/i,/interest/i,/focus/i],
+   no:[/personality/i,/mbti/i]},
   {key:'mbti', label:'MBTI type', req:false,
-   pats:[/mbti/i,/myers.?briggs/i,/16\s*person/i,/personality/i,/\btype\b/i]},
+   exact:['mbti','type','personality type','16 personalities'],
+   pats:[/mbti/i,/myers.?briggs/i,/16\s*person/i,/personality/i,/\btype\b/i],
+   no:[/what type of/i,/type of work/i]},
   {key:'lead', label:'Lead interest', req:false,
-   pats:[/org lead/i,/interested in being/i,/\blead\b/i]},
+   exact:['lead','leadership'],
+   pats:[/org lead/i,/interested in (being|leading)/i,/leadership/i,/\blead\b/i]},
   {key:'note', label:'Notes (optional)', req:false,
-   pats:[/anything.*(know|else)/i,/\bnotes?\b/i,/comment/i,/request/i]}
+   exact:['notes','note','comments','anything else'],
+   pats:[/anything.*(know|else|add)/i,/\bnotes?\b/i,/comment/i,/request/i]}
 ];
-function guessCol(pats){
-  for(var p=0;p<pats.length;p++)
-    for(var i=0;i<S.headers.length;i++)
-      if(pats[p].test(S.headers[i]))return i;
+/* Google Forms adds these to every response sheet and none of them is ever a
+   field we want, so they are taken out of the running before matching. */
+var NOISE=[/^timestamp$/i,/^score$/i,/^last modified/i,/^submitted at/i,/^id$/i];
+
+/* Sentences arrive with hard line breaks, non-breaking spaces from pasted
+   documents, and trailing "*" or ":" from required-field markers. */
+function normHead(h){
+  return String(h==null?'':h)
+    .replace(/[\u00A0\u200B-\u200D\uFEFF]/g,' ')
+    .replace(/\s+/g,' ')
+    .replace(/[\s*:?.]+$/,'')
+    .trim();
+}
+/* How well one field fits one column. Higher is a better fit; -1 means the
+   column is not eligible for this field at all. An exact header match always
+   beats a pattern, and among patterns the earlier (more specific) one wins,
+   so "Which side of the club?" goes to track rather than to whatever else
+   happens to contain the word "club". */
+function fieldScore(f,head){
+  var h=normHead(head); if(!h)return -1;
+  var i;
+  for(i=0;i<NOISE.length;i++)if(NOISE[i].test(h))return -1;
+  if(f.no)for(i=0;i<f.no.length;i++)if(f.no[i].test(h))return -1;
+  var low=h.toLowerCase();
+  if(f.exact)for(i=0;i<f.exact.length;i++)if(low===f.exact[i])return 1000-i;
+  for(i=0;i<f.pats.length;i++)if(f.pats[i].test(h))return 100-i;
   return -1;
+}
+/* Assigns columns to fields as a whole rather than one field at a time. Every
+   plausible pairing is scored, the strongest is taken first, and both sides
+   are then spent -- so no column is handed to two fields, and a weak match
+   cannot steal a column that a stronger one needs. */
+function guessCols(){
+  var pairs=[],fi,ci;
+  for(fi=0;fi<FIELDS.length;fi++)
+    for(ci=0;ci<S.headers.length;ci++){
+      var sc=fieldScore(FIELDS[fi],S.headers[ci]);
+      if(sc>=0)pairs.push({f:fi,c:ci,s:sc});
+    }
+  pairs.sort(function(a,b){
+    if(b.s!==a.s)return b.s-a.s;
+    var ra=FIELDS[a.f].req?0:1, rb=FIELDS[b.f].req?0:1;
+    if(ra!==rb)return ra-rb;
+    return a.c-b.c;
+  });
+  var byField={},usedCol={};
+  pairs.forEach(function(pr){
+    if(byField[pr.f]!==undefined||usedCol[pr.c])return;
+    byField[pr.f]=pr.c; usedCol[pr.c]=1;
+  });
+  return byField;
 }
 function buildMapper(){
   var box=$('maprows');box.innerHTML='';
-  FIELDS.forEach(function(f){
-    var guessed=guessCol(f.pats);
+  var guess=guessCols();
+  FIELDS.forEach(function(f,fidx){
+    var guessed=guess[fidx]===undefined?-1:guess[fidx];
     var div=document.createElement('div');div.className='maprow';
     var lab=document.createElement('label');
     lab.textContent=f.label;lab.className=f.req?'req':'';lab.setAttribute('for','map-'+f.key);
@@ -1809,7 +1884,7 @@ function buildMapper(){
     var opt=document.createElement('option');opt.value='-1';opt.textContent='\u2014 not used \u2014';sel.appendChild(opt);
     S.headers.forEach(function(h,i){
       var o=document.createElement('option');o.value=String(i);
-      o.textContent=(h.length>70?h.slice(0,70)+'\u2026':h)||('Column '+(i+1));
+      var hn=normHead(h);o.textContent=(hn.length>70?hn.slice(0,70)+'\u2026':hn)||('Column '+(i+1));
       sel.appendChild(o);
     });
     sel.value=String(guessed);
@@ -1860,6 +1935,28 @@ function normName(s){
   return s.toLowerCase().replace(/[^a-z\s]/g,'').replace(/\s+/g,' ').trim();
 }
 
+/* The sheet and the roster are two different lists of the same people: the
+   sheet has the answers the draft needs, the roster has the accounts. Email is
+   what ties a row to an account, so if it is mapped, say plainly how many rows
+   found one -- a row nobody signed up for is usually a typo or somebody who
+   filled the form and never made an account. */
+function matchNote(people){
+  if(!CROSTER.length||mapped('email')<0)return '';
+  var have={};
+  CROSTER.forEach(function(u){var e=String(u.email||u.who||'').toLowerCase();if(e)have[e]=1});
+  var hit=0,miss=[];
+  people.forEach(function(p){
+    if(!p.email)return;
+    if(have[p.email])hit++; else miss.push(p.name);
+  });
+  var withEmail=people.filter(function(p){return !!p.email}).length;
+  if(!withEmail)return '';
+  var h='<p class="hint" style="margin-top:8px">'+hit+' of '+withEmail+
+        ' row'+(withEmail>1?'s':'')+' matched to an account on the roster';
+  if(miss.length)h+=' \u2014 no account yet for '+esc(miss.slice(0,6).join(', '))+
+                    (miss.length>6?', and '+(miss.length-6)+' more':'');
+  return h+'.</p>';
+}
 function buildPeople(){
   var ci={};FIELDS.forEach(function(f){ci[f.key]=mapped(f.key)});
   var miss=FIELDS.filter(function(f){return f.req&&ci[f.key]<0}).map(function(f){return f.label});
@@ -1875,6 +1972,7 @@ function buildPeople(){
     if(track===null){track=FLEX_ID;unknownTrack++}
     if(!mbti)noType.push(name);
     people.push({name:name,year:year,track:track,mbti:mbti,
+      email:ci.email>=0?String(r[ci.email]||'').trim().toLowerCase():'',
       lead:(ci.lead>=0?normLead(r[ci.lead]):false)&&year===2,
       note:ci.note>=0?(r[ci.note]||'').trim():'',
       org:0,pts:0,evts:0,cross:0,hist:[]});
@@ -1907,7 +2005,7 @@ function checkMapping(){
   if(r.unknownTrack)warn.push(r.unknownTrack+' unreadable track value'+(r.unknownTrack>1?'s':'')+' will default to Either');
   box.innerHTML='<div class="msg show good">'+r.people.length+' members ready'+
     (S.club.useMbti&&!r.noType.length?', all typed':'')+
-    (warn.length?' \u2014 '+esc(warn.join('; ')):'')+'.</div>';
+    (warn.length?' \u2014 '+esc(warn.join('; ')):'')+'.</div>'+matchNote(r.people);
   $('run').disabled=false;
 }
 
@@ -3297,6 +3395,46 @@ function renderRosterLinks(){
   h+='</div>';
   box.innerHTML=h;
 }
+var CROSTER=[];
+/* A club's roster is its accounts, not an imported sheet. It is kept separate
+   from the draft's people list on purpose: signing up is how you get on the
+   roster, and the form is how you get the attributes the draft needs. Matching
+   the two is done on email in the intake mapper. */
+function renderClubRoster(){
+  var box=$('crtable'); if(!box)return;
+  if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
+  box.innerHTML='<p class="empty">Loading\u2026</p>';
+  backendPost('clubRoster',null).then(function(r){
+    if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the roster.</p>';return}
+    CROSTER=r.roster||[];
+    renderClubRosterTable();
+  });
+}
+function renderClubRosterTable(){
+  var box=$('crtable'); if(!box)return;
+  var q=(($('cr-q')||{}).value||'').toLowerCase(), fr=($('cr-role')||{}).value||'';
+  var rows=CROSTER.filter(function(u){
+    if(fr&&u.role!==fr)return false;
+    if(q&&((u.first||'')+' '+(u.last||'')+' '+(u.email||u.who||'')).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+  if(!CROSTER.length){box.innerHTML='<p class="empty">Nobody has signed up for this club yet. Share the join code and the sign-up form.</p>';return}
+  if(!rows.length){box.innerHTML='<p class="empty">Nobody matches.</p>';return}
+  var h='<div class="tablewrap"><table><thead><tr><th class="l"></th><th class="l">Name</th>'+
+    '<th class="l">Email</th><th class="l">Role</th><th class="l">Via</th><th class="l">Joined</th></tr></thead><tbody>';
+  rows.forEach(function(u){
+    var nm=((u.first||'')+' '+(u.last||'')).trim();
+    h+='<tr><td class="l">'+(u.photo?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
+      '<td class="l">'+(nm?'<span class="nm linked" data-person="'+esc(nm)+'">'+esc(nm)+'</span>':'<span class="mute">\u2014</span>')+'</td>'+
+      '<td class="l"><span class="mono" style="font-size:12px">'+esc(u.email||u.who)+'</span></td>'+
+      '<td class="l">'+esc(u.role)+'</td>'+
+      '<td class="l">'+(u.kind==='google'?'Google':'Password')+'</td>'+
+      '<td class="l"><span class="mono" style="font-size:11px">'+esc(String(u.joined||'').slice(0,10))+'</span></td></tr>';
+  });
+  box.innerHTML=h+'</tbody></table></div><p class="hint" style="margin-top:10px">'+rows.length+
+    (rows.length===CROSTER.length?' on the roster.':' of '+CROSTER.length+' shown.');
+  wireMemberLinks(box);
+}
 function renderClubSetup(){
   var sel=$('presetsel');
   if(sel&&!sel.options.length){
@@ -3316,7 +3454,7 @@ function renderClubSetup(){
   var mr=$('cf-mbtireq');  if(mr){mr.checked=!!S.club.mbtiRequired; mr.disabled=!S.club.useMbti}
   var tb=$('trackbox'); if(tb)tb.style.display=S.club.useTracks?'':'none';
   var yb=$('yearbox');  if(yb)yb.style.display=S.club.useYear?'':'none';
-  renderTrackList(); renderRosterLinks();
+  renderTrackList(); renderRosterLinks(); renderClubRoster();
 }
 function wireClubSetup(){
   if(!$('cf-club'))return;

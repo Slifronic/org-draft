@@ -30,8 +30,48 @@ var NEEDS = {
   createAffiliation: 'master', updateAffiliation: 'master', deleteAffiliation: 'master',
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
-  listSignups: 'master', purgeClub: 'master'
+  listSignups: 'master', purgeClub: 'master',
+  clubRoster: 'admin'
 };
+/* Every account, merged from the two doors people come in through: a password
+   row in Users, or a Google address in Roles. Profiles supplies the name and
+   photo they set afterwards. Pass an affiliation to get just that club, or
+   null for the whole system. Returns nothing credential-shaped -- no hash, no
+   salt, no token -- because both callers hand this straight to a browser. */
+function accountsFor(only) {
+  var affNames = {};
+  allAffiliations().forEach(function (a) { affNames[a.code] = a.name; });
+  var profs = {};
+  readTab('profiles').forEach(function (r) {
+    profs[String(r.Email).toLowerCase() + '|' + normAff(r.Affiliation)] =
+      {first: r.FirstName, last: r.LastName, photo: r.Photo};
+  });
+  var out = [];
+  function push(who, kind, a, pr, r, joined, how, email) {
+    if (only && a !== normAff(only)) return;
+    out.push({who: who, kind: kind,
+              first: r.FirstName || pr.first || '', last: r.LastName || pr.last || '',
+              email: email, role: String(r.Role || 'member').toLowerCase(),
+              aff: a, affName: affNames[a] || a, joined: joined || '',
+              how: how || '', photo: pr.photo || ''});
+  }
+  readTab('users').forEach(function (r) {
+    if (!r.Username) return;
+    var a = normAff(r.Affiliation || DEFAULT_AFF);
+    push(String(r.Username), 'password', a,
+         profs[String(r.Username).toLowerCase() + '|' + a] || {}, r,
+         r.CreatedAt, r.CreatedBy, r.Email || r.Username);
+  });
+  readTab('roles').forEach(function (r) {
+    if (!r.Email) return;
+    var a = normAff(r.Affiliation || DEFAULT_AFF);
+    push(String(r.Email), 'google', a,
+         profs[String(r.Email).toLowerCase() + '|' + a] || {}, r,
+         r.GrantedAt, r.GrantedBy, String(r.Email));
+  });
+  return out;
+}
+
 /* 'login' is deliberately absent: it is the one action that runs before any
    identity exists, and it is handled ahead of the permission check. */
 
@@ -797,37 +837,12 @@ function dispatch(action, payload, email, role, id) {
 
     /* Every account on the system, with the club it belongs to. Master only,
        and deliberately does not return anything credential-shaped. */
-    case 'listSignups': {
-      var affNames = {};
-      allAffiliations().forEach(function (a) { affNames[a.code] = a.name; });
-      var profs = {};
-      readTab('profiles').forEach(function (r) {
-        profs[String(r.Email).toLowerCase() + '|' + normAff(r.Affiliation)] =
-          {first: r.FirstName, last: r.LastName, photo: r.Photo};
-      });
-      var out3 = [];
-      readTab('users').forEach(function (r) {
-        if (!r.Username) return;
-        var a = normAff(r.Affiliation || DEFAULT_AFF);
-        var pr = profs[String(r.Username).toLowerCase() + '|' + a] || {};
-        out3.push({who: String(r.Username), kind: 'password',
-                   first: r.FirstName || pr.first || '', last: r.LastName || pr.last || '',
-                   email: r.Email || r.Username, role: String(r.Role || 'member').toLowerCase(),
-                   aff: a, affName: affNames[a] || a, joined: r.CreatedAt || '',
-                   how: r.CreatedBy || '', photo: pr.photo || ''});
-      });
-      readTab('roles').forEach(function (r) {
-        if (!r.Email) return;
-        var a = normAff(r.Affiliation || DEFAULT_AFF);
-        var pr = profs[String(r.Email).toLowerCase() + '|' + a] || {};
-        out3.push({who: String(r.Email), kind: 'google',
-                   first: pr.first || '', last: pr.last || '', email: String(r.Email),
-                   role: String(r.Role || 'member').toLowerCase(),
-                   aff: a, affName: affNames[a] || a, joined: r.GrantedAt || '',
-                   how: r.GrantedBy || '', photo: pr.photo || ''});
-      });
-      return {ok: true, signups: out3};
-    }
+    case 'listSignups': return {ok: true, signups: accountsFor(null)};
+
+    /* The club's roster is the people who actually signed up for it -- not a
+       spreadsheet someone imported. Officers of a club get their own club's
+       list; nothing here is credential-shaped. */
+    case 'clubRoster': return {ok: true, roster: accountsFor(aff)};
 
     /* Clears a club's roster, points and attendance but keeps the club, its
        accounts and its setup. Used to hand a club over between semesters. */
