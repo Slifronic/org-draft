@@ -33,6 +33,42 @@ var NEEDS = {
   listSignups: 'master', purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin'
 };
+/* ---------------- one-time authorisation ----------------
+   Run this once from the editor after pasting or changing this file, and
+   accept the prompt. Verifying a sign-in means calling Google's tokeninfo
+   endpoint, which needs the script.external_request scope; a deployment
+   authorised under an older version of this file will not have it, and every
+   signed-in request fails with "You do not have permission to call
+   UrlFetchApp.fetch" until someone grants it. It is deliberately the first
+   function in the file so the editor's Run menu selects it by default. */
+function authorize() {
+  var r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=x',
+                            {muteHttpExceptions: true});
+  var sheets = book().getSheets().length;
+  CacheService.getScriptCache().put('authcheck', '1', 10);
+  var l = LockService.getScriptLock(); l.waitLock(2000); l.releaseLock();
+  /* Apps Script works out which scopes to ask for from the calls it can see,
+     so this has to perform the same writes cloneForm does, not just reads.
+     Reading the template only earned drive.readonly, and makeCopy needs
+     drive -- which is why the first real attempt still failed. Doing the
+     whole sequence here and throwing the results away both requests the
+     right scopes and proves the path works before a club depends on it. */
+  var tpl  = DriveApp.getFileById(FORM_TEMPLATE_ID).getName();
+  var q    = FormApp.openById(FORM_TEMPLATE_ID).getItems().length;
+  var copy = DriveApp.getFileById(FORM_TEMPLATE_ID).makeCopy('Scope check \u2014 safe to delete');
+  var form = FormApp.openById(copy.getId());
+  var ss   = SpreadsheetApp.create('Scope check \u2014 safe to delete');
+  form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  var pub  = form.getPublishedUrl();
+  DriveApp.getFileById(copy.getId()).setTrashed(true);
+  DriveApp.getFileById(ss.getId()).setTrashed(true);
+  Logger.log('Authorised. tokeninfo reachable (HTTP ' + r.getResponseCode() +
+             '), ' + sheets + ' sheets visible, cache and lock OK. ' +
+             'Template \"' + tpl + '\" readable with ' + q + ' questions. ' +
+             'Copy, response sheet and link all succeeded (' + pub.slice(0, 48) +
+             '...) and both test files were trashed.');
+}
+
 /* Every account, merged from the two doors people come in through: a password
    row in Users, or a Google address in Roles. Profiles supplies the name and
    photo they set afterwards. Pass an affiliation to get just that club, or
@@ -115,29 +151,6 @@ var DEFAULT_AFF = 'default';
    club editing its questions cannot change another club's form. */
 var FORM_TEMPLATE_ID = '1J1Y-GqHHukEvjBSC12yN2rfcRpBxPXWkhY0Ve0JbRZ0';
 
-/* ---------------- one-time authorisation ----------------
-   Run this once from the editor after pasting or changing this file, and
-   accept the prompt. Verifying a sign-in means calling Google's tokeninfo
-   endpoint, which needs the script.external_request scope; a deployment
-   authorised under an older version of this file will not have it, and every
-   signed-in request fails with "You do not have permission to call
-   UrlFetchApp.fetch" until someone grants it. It is deliberately the first
-   function in the file so the editor's Run menu selects it by default. */
-function authorize() {
-  var r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=x',
-                            {muteHttpExceptions: true});
-  var sheets = book().getSheets().length;
-  CacheService.getScriptCache().put('authcheck', '1', 10);
-  var l = LockService.getScriptLock(); l.waitLock(2000); l.releaseLock();
-  /* Touching Drive and Forms here is what makes their scopes part of the
-     authorisation prompt. Without it the first club to press "Create the
-     form" fails at runtime with a permission error instead. */
-  var tpl = DriveApp.getFileById(FORM_TEMPLATE_ID).getName();
-  var q = FormApp.openById(FORM_TEMPLATE_ID).getItems().length;
-  Logger.log('Authorised. tokeninfo reachable (HTTP ' + r.getResponseCode() +
-             '), ' + sheets + ' sheets visible, cache and lock OK. ' +
-             'Form template \"' + tpl + '\" readable with ' + q + ' questions.');
-}
 
 /* ---------------- plumbing ---------------- */
 
