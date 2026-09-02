@@ -275,7 +275,29 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
   text-transform:uppercase;color:var(--slate)}
 #pwform input{width:100%;padding:9px 10px;border:1px solid var(--rule);background:var(--paper);
   font-size:13.5px;color:var(--ink);font-family:'Archivo',sans-serif}
-#pwform input[type=password]{font-family:'IBM Plex Mono',monospace;letter-spacing:.08em}
+#pwform input[type=password],#suform input[type=password]{font-family:'IBM Plex Mono',monospace;letter-spacing:.08em}
+#suform .field label,#joinform .field label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+#suform input,#suform select,#joinform input,#joinform select{width:100%;padding:9px 10px;
+  border:1px solid var(--rule);background:var(--paper);font-size:13.5px;color:var(--ink);
+  font-family:'Archivo',sans-serif}
+.gateswitch{margin-top:14px;text-align:center}
+.gateswitch button{background:transparent;border:none;color:var(--accent);font-size:12.5px;
+  padding:4px;text-decoration:underline;font-weight:500}
+.gateswitch button:hover{opacity:.75}
+.affchip{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--slate);border:1px solid var(--rule);padding:2px 6px;margin-left:8px;white-space:nowrap}
+
+/* ---- member profile ---- */
+.profhead{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.profavatar{width:58px;height:58px;border-radius:50%;background:var(--ink);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0}
+.profname{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.profmeta{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--slate);margin-top:3px}
+.profgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;
+  border:1px solid var(--rule);background:var(--card);margin-top:20px}
+.profgrid .stat{border-right:1px solid var(--rule)}
+.profgrid .stat:last-child{border-right:none}
 .userrow{display:grid;grid-template-columns:1fr 120px 34px 34px;gap:9px;align-items:center;
   padding:9px 0;border-bottom:1px solid #EFEDE6}
 .userrow.head span{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;
@@ -358,6 +380,28 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
         <input type="password" id="pw-pass" name="password" autocomplete="current-password"></div>
       <button type="submit" id="pw-go" style="width:100%;margin-top:14px">Sign in</button>
     </form>
+
+    <form id="suform" autocomplete="on" style="display:none">
+      <div class="field"><label for="su-aff">Which club are you joining?</label>
+        <select id="su-aff"></select></div>
+      <div class="field" style="margin-top:10px"><label for="su-code">Join code</label>
+        <input type="text" id="su-code" class="mono" placeholder="from your club officers" autocapitalize="none" spellcheck="false"></div>
+      <div class="field" style="margin-top:10px"><label for="su-user">Choose a username</label>
+        <input type="text" id="su-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+      <div class="field" style="margin-top:10px"><label for="su-pass">Choose a password</label>
+        <input type="password" id="su-pass" name="password" autocomplete="new-password" placeholder="at least 10 characters"></div>
+      <button type="submit" id="su-go" style="width:100%;margin-top:14px">Create account</button>
+    </form>
+
+    <form id="joinform" autocomplete="off" style="display:none">
+      <div class="field"><label for="jn-aff">Which club are you in?</label>
+        <select id="jn-aff"></select></div>
+      <div class="field" style="margin-top:10px"><label for="jn-code">Join code</label>
+        <input type="text" id="jn-code" class="mono" placeholder="from your club officers" autocapitalize="none" spellcheck="false"></div>
+      <button type="submit" id="jn-go" style="width:100%;margin-top:14px">Join this club</button>
+    </form>
+
+    <div class="gateswitch"><button type="button" id="gateswitch">New here? Create an account</button></div>
     <div class="gatemsg" id="gatemsg"></div>
     <div class="gatefoot" id="gatefoot">Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
   </div>
@@ -400,12 +444,13 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
     <button data-view="v-attend" disabled data-req="admin">Attendance</button>
     <button data-view="v-cup" disabled>Cup</button>
     <button data-view="v-assist" disabled data-req="admin">Assistant</button>
+    <button data-view="v-profile">Profile</button>
     <button data-view="v-access" data-req="master">Access</button>
   </nav>
 </header>
 
 <div class="offlinebar" id="offlinebar" style="display:none"><b>Local only</b><span id="offlinewhy"></span></div>
-<div class="readonly" id="readonlybar" style="display:none">You are signed in as a member. You can see the standings, your Org, and your own points. Changing the roster, the points log, or the scoring rules is limited to club officers.</div>
+<div class="readonly" id="readonlybar" style="display:none">You are signed in as a member. You can see who is on which team, the standings, and your own points — other members’ personality types and scores are their own, and the notes people wrote on the sign-up form are visible to officers only. Changing the roster, the points log, or the scoring rules is limited to club officers.</div>
 
 <!-- ============ INTAKE ============ -->
 <div class="view on" id="v-intake">
@@ -673,6 +718,11 @@ Marcus Lee"></textarea>
 <div id="advice"></div>
 </div>
 
+<!-- ============ PROFILE ============ -->
+<div class="view" id="v-profile">
+  <div id="profbody"></div>
+</div>
+
 <!-- ============ ACCESS (master only) ============ -->
 <div class="view" id="v-access">
 <div class="panel">
@@ -691,6 +741,27 @@ Marcus Lee"></textarea>
   <div id="acctable"></div>
   <div class="row"><button id="accrefresh" class="ghost">Refresh from sheet</button></div>
 </div>
+<div class="panel">
+  <h2>Clubs on this system</h2>
+  <p class="hint">Each club is its own world: separate roster, separate teams, separate points, separate officers. Nothing crosses between them. Somebody signing up picks their club from a list and has to produce its join code, so the club's name being public does not let anyone in.</p>
+  <p class="hint">Give the join code out the way you would a door code — to the people who belong there. Change it by editing the <b>Affiliations</b> tab of your sheet if it gets around.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:1;min-width:150px"><label for="af-code">Short code</label><input type="text" class="mono" id="af-code" placeholder="riverside-pbl" autocapitalize="none" spellcheck="false"></div>
+    <div class="field" style="flex:1;min-width:160px"><label for="af-name">Display name</label><input type="text" id="af-name" placeholder="Riverside PBL"></div>
+    <div class="field" style="flex:1;min-width:150px"><label for="af-join">Join code</label><input type="text" class="mono" id="af-join" placeholder="at least 6 characters"></div>
+    <button id="af-add">Create club</button>
+  </div>
+  <div class="msg" id="affmsg"></div>
+  <div id="afftable" style="margin-top:16px"></div>
+  <h3>Which club am I looking at?</h3>
+  <p class="hint">You run this system, so you can look inside any club on it. Everyone else only ever sees their own. Switching here reloads the roster, the points and the setup for that club.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:2;min-width:220px"><label for="af-switch">Currently viewing</label><select id="af-switch"></select></div>
+    <button id="af-go" class="ghost">Switch to this club</button>
+    <button id="affrefresh" class="ghost">Refresh list</button>
+  </div>
+</div>
+
 <div class="panel">
   <h2>Password accounts</h2>
   <p class="hint">For members who cannot use a Google account. These are weaker than Google sign-in — a password can be shared, guessed, or reused from somewhere else — so hand them out only where they are needed, and give each person their own rather than one shared login.</p>
@@ -923,14 +994,29 @@ var WEBAPP_URL='https://script.google.com/macros/s/AKfycbwNGnp7lMZaX-jKnC7wlez_L
    member sees and nothing about what the sheet will accept. */
 var GOOGLE_CLIENT_ID='60468094639-p10c21qva7269q2p6lqhucg488g98caa.apps.googleusercontent.com';   /* <-- paste your OAuth Web client ID here */
 var RANK={none:0,member:1,admin:2,master:3};
-var A={token:null,session:null,email:'',name:'',pic:'',role:'none',offline:false,via:''};
+var A={token:null,session:null,email:'',name:'',pic:'',role:'none',offline:false,via:'',
+       aff:'',affName:'',needsAff:false};
 var SESSION_KEY='orgsystem.session';
 function loadSession(){try{return localStorage.getItem(SESSION_KEY)}catch(e){return null}}
+/* Only the global master can be in more than one club, so only the master has
+   a choice worth remembering across reloads. Everyone else is pinned by the
+   backend and this is ignored. */
+var AFF_KEY='orgsystem.aff';
+function loadAff(){try{return localStorage.getItem(AFF_KEY)||''}catch(e){return ''}}
+function storeAff(v){try{v?localStorage.setItem(AFF_KEY,v):localStorage.removeItem(AFF_KEY)}catch(e){}}
 function storeSession(v){try{v?localStorage.setItem(SESSION_KEY,v):localStorage.removeItem(SESSION_KEY)}catch(e){}}
 
 function roleAtLeast(r){return RANK[A.role]>=RANK[r]}
 function canEdit(){return roleAtLeast('admin')}
 function canSeeNotes(){return roleAtLeast('admin')}
+/* A member may see who is on which team -- that is ordinary club knowledge --
+   but another member's personality type and points are theirs. Officers see
+   everything because running the draft and the Cup requires it. */
+function isMe(p){
+  var mine=String(A.name||A.email||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  return !!mine && String(p.name||'').toLowerCase().replace(/[^a-z0-9]/g,'')===mine;
+}
+function canSeePersonal(p){return roleAtLeast('admin')||isMe(p)}
 function isMaster(){return A.role==='master'}
 
 /* Display only. Never a permission decision -- see the note above. */
@@ -957,7 +1043,8 @@ function setRole(role,claims){
   if(A.role==='none'&&!A.offline){if(w)w.style.display='none';return}
   if(w)w.style.display='flex';
   $('wname').textContent=A.offline?'Local only':(A.name||A.email||'Signed in');
-  $('wrole').innerHTML=A.offline?'<b>not synced</b>':'signed in as <b>'+esc(A.role)+'</b>';
+  $('wrole').innerHTML=A.offline?'<b>not synced</b>'
+    :('signed in as <b>'+esc(A.role)+'</b>'+(A.affName?' · '+esc(A.affName):''));
   $('wrole').className='rolebadge'+(A.role==='master'?' master':'');
   var pic=$('wpic');
   if(pic){ if(A.pic){pic.src=A.pic;pic.style.display=''} else pic.style.display='none' }
@@ -991,7 +1078,11 @@ function onCredential(resp){
       gateMsg((r&&r.error)||'The club sheet did not answer. Ask whoever runs it to redeploy the script.',true);
       A.token=null;return;
     }
+    A.aff=r.aff||A.aff; A.affName=r.affName||A.affName;
+    A.needsAff=!!r.needsAff;
+    if(r.role==='master'&&!r.needsAff&&loadAff())A.aff=loadAff();
     setRole(r.role,claims);
+    if(A.needsAff){ gateMode('join'); return; }
     showGate(false);
     afterSignIn();
   });
@@ -999,7 +1090,8 @@ function onCredential(resp){
 function signOut(){
   try{if(window.google&&google.accounts&&google.accounts.id)google.accounts.id.disableAutoSelect()}catch(e){}
   A.token=null;A.session=null;A.role='none';A.email='';A.name='';A.pic='';A.offline=false;A.via='';
-  storeSession(null);
+  A.aff='';A.affName='';A.needsAff=false;
+  storeSession(null);storeAff('');
   document.body.dataset.role='none';
   var w=$('whoami'); if(w)w.style.display='none';
   var mp=$('mypwpanel'); if(mp)mp.style.display='none';
@@ -1090,10 +1182,88 @@ function resumeSession(){
   return backendPost('whoami',null).then(function(r){
     if(!r||!r.ok){A.session=null;A.via='';storeSession(null);return false}
     A.email=r.email||''; A.name=r.email||''; A.pic='';
+    A.aff=r.aff||''; A.affName=r.affName||r.aff||''; A.needsAff=!!r.needsAff;
     setRole(r.role,null);
+    if(A.needsAff){gateMode('join');return false}
     showGate(false);
     afterSignIn();
     return true;
+  });
+}
+/* The gate has three faces: sign in, sign up, and "you are signed in but not
+   in a club yet". Only one is ever on screen. */
+function gateMode(mode){
+  var showSignIn = mode==='signin', showSignUp = mode==='signup', showJoin = mode==='join';
+  $('pwform').style.display   = showSignIn?'':'none';
+  $('suform').style.display   = showSignUp?'':'none';
+  $('joinform').style.display = showJoin?'':'none';
+  $('gsibtn').style.display   = showSignIn?'':'none';
+  $('gateor').style.display   = showSignIn?'':'none';
+  $('gateswitch').style.display = showJoin?'none':'';
+  $('gateswitch').firstChild.textContent = showSignUp
+    ? 'Already have an account? Sign in'
+    : 'New here? Create an account';
+  var h=document.querySelector('#gate h2');
+  if(h)h.textContent = showSignUp?'Create your account':(showJoin?'One more step':'Sign in to continue');
+  gateMsg('');
+  if(showSignUp||showJoin)loadAffiliations(showSignUp?'su-aff':'jn-aff');
+}
+function loadAffiliations(selId){
+  var sel=$(selId); if(!sel)return;
+  sel.innerHTML='<option value="">Loading…</option>';
+  backendPost('listAffiliations',null).then(function(r){
+    if(!r||!r.ok||!r.affiliations||!r.affiliations.length){
+      sel.innerHTML='<option value="">No clubs set up yet</option>';
+      gateMsg('No clubs exist yet. Whoever runs this needs to create one first.',true);
+      return;
+    }
+    sel.innerHTML=r.affiliations.map(function(a){
+      return '<option value="'+esc(a.code)+'">'+esc(a.name)+'</option>';
+    }).join('');
+  });
+}
+function doSignupSubmit(){
+  var aff=$('su-aff').value, code=$('su-code').value.trim();
+  var u=$('su-user').value.trim().toLowerCase(), pw=$('su-pass').value;
+  if(!aff){gateMsg('Pick the club you are joining.',true);return}
+  if(!code){gateMsg('You need the join code from your club officers.',true);return}
+  if(!/^[a-z0-9._-]{3,32}$/.test(u)){gateMsg('Usernames are 3–32 characters: letters, digits, dot, dash, underscore.',true);return}
+  if(pw.length<10){gateMsg('Pick a password of at least 10 characters.',true);return}
+  $('su-go').disabled=true;
+  gateMsg('Creating your account…');
+  deriveForNew(pw).then(function(d){
+    return backendPost('signup',{username:u,affiliation:aff,joinCode:code,
+      dk:d.dk,clientSalt:d.clientSalt,iterations:d.iterations});
+  }).then(function(r){
+    $('su-go').disabled=false;
+    if(!r){gateMsg('The club sheet did not answer. Try again in a moment.',true);return}
+    if(!r.ok){gateMsg(r.error||'That did not work.',true);return}
+    A.session=r.session; A.token=null; A.via='password';
+    A.email=r.username; A.name=r.username; A.aff=r.aff; A.affName=r.affName||r.aff;
+    storeSession(r.session);
+    setRole(r.role,null);
+    showGate(false); gateMsg('');
+    $('su-pass').value='';
+    afterSignIn();
+  }).catch(function(e){
+    $('su-go').disabled=false;
+    gateMsg(e&&e.message?e.message:'Could not create that account.',true);
+  });
+}
+function doJoinSubmit(){
+  var aff=$('jn-aff').value, code=$('jn-code').value.trim();
+  if(!aff){gateMsg('Pick your club.',true);return}
+  if(!code){gateMsg('You need the join code from your club officers.',true);return}
+  $('jn-go').disabled=true;
+  gateMsg('Checking…');
+  backendPost('joinAffiliation',{affiliation:aff,joinCode:code}).then(function(r){
+    $('jn-go').disabled=false;
+    if(!r){gateMsg('The club sheet did not answer.',true);return}
+    if(!r.ok){gateMsg(r.error||'That did not work.',true);return}
+    A.aff=r.joined; A.affName=r.name; A.needsAff=false;
+    setRole('member',null);
+    showGate(false); gateMsg('');
+    afterSignIn();
   });
 }
 function initGate(){
@@ -1107,7 +1277,13 @@ function initGate(){
       $('pw-go').disabled=true;
       pwLogin(u,p).then(function(){ $('pw-go').disabled=false; $('pw-pass').value=''; });
     });
+    $('suform').addEventListener('submit',function(e){e.preventDefault();doSignupSubmit()});
+    $('joinform').addEventListener('submit',function(e){e.preventDefault();doJoinSubmit()});
+    $('gateswitch').addEventListener('click',function(){
+      gateMode($('suform').style.display==='none'?'signup':'signin');
+    });
   }
+  gateMode('signin');
   resumeSession().then(function(resumed){ if(!resumed)initGsi(); });
 }
 function initGsi(){
@@ -1273,8 +1449,9 @@ document.addEventListener('keydown',function(e){
 /* login runs before any identity exists; the rest of these are things any
    signed-in account may ask for. The server re-checks all of it -- this only
    avoids firing requests that are certain to be refused. */
-var NO_AUTH={login:1,getSalt:1};
-var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1};
+var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
+var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
+                   myProfile:1,joinAffiliation:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -1298,6 +1475,7 @@ function backendPost(action,payload){
   if(!NO_AUTH[action]&&!ANY_SIGNED_IN[action]&&!canEdit())return Promise.resolve(null);
   var body={action:action,payload:payload};
   if(A.session)body.session=A.session; else if(A.token)body.token=A.token;
+  if(A.aff)body.aff=A.aff;
   return fetch(WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(body)})
     .then(function(r){return r.ok?r.json():null}).catch(function(){return null});
@@ -1416,7 +1594,8 @@ function setView(id){
   if(id==='v-attend')renderAttend();
   if(id==='v-cup')renderCup();
   if(id==='v-assist'){computeSwaps();renderAssistant()}
-  if(id==='v-access'){renderAccess();renderUsers()}
+  if(id==='v-access'){renderAccess();renderUsers();renderAffs()}
+  if(id==='v-profile')renderProfile();
   window.scrollTo(0,0);
 }
 Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
@@ -2500,7 +2679,7 @@ function renderDraft(){
         }).join(' \u00B7 ')+'</span>'+
         (S.club.useYear?'<span>'+c.y2+' / '+c.y1+'</span>':'')+'</div>'+
         '<div class="axis">';
-    AXES.forEach(function(pair){
+    if(canEdit())AXES.forEach(function(pair){
       var a=ac.c[pair[0]],b=ac.c[pair[1]];
       var cls=(a===0||b===0)?'void':(ac.typed&&Math.max(a,b)/ac.typed>=0.75?'skew':'');
       html+='<span class="'+cls+'"><b>'+a+'</b>'+pair[0]+'/<b>'+b+'</b>'+pair[1]+'</span>';
@@ -2515,8 +2694,8 @@ function renderDraft(){
         '<i class="dot" style="background:'+trackColor(p.track)+'" title="'+esc(trackLabel(p.track))+'"></i>'+
         '<span class="nm">'+esc(p.name)+'</span>'+
         (showNote?'<span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+
-        '<span class="mbti'+(p.mbti?'':' none')+'">'+(p.mbti||'\u2014')+'</span>'+
-        (S.log.length?'<span class="pts'+(p.evts?'':' zero')+'" title="'+p.evts+' entries, '+p.cross+' cross-track">'+p.pts+'</span>':'')+
+        (S.club.useMbti&&canSeePersonal(p)?'<span class="mbti'+(p.mbti?'':' none')+'">'+(p.mbti||'\u2014')+'</span>':'')+
+        (S.log.length&&canSeePersonal(p)?'<span class="pts'+(p.evts?'':' zero')+'" title="'+p.evts+' entries, '+p.cross+' cross-track">'+p.pts+'</span>':'')+
         '<span class="role'+(p.lead?' lead':'')+'">'+role+'</span></li>';
     });
     if(!g.length)html+='<li style="color:var(--slate)">Empty</li>';
@@ -2579,10 +2758,10 @@ function renderTeam(){
     h+='<tr'+(sn?' class="rowflag"':'')+'>'+
       '<td class="l name">'+esc(p.name)+(sn?' <span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+'</td>'+
       '<td class="l">'+role+'</td>'+
-      '<td class="l"><span class="mbti">'+(p.mbti||'\u2014')+'</span></td>'+
+      '<td class="l">'+(canSeePersonal(p)?'<span class="mbti">'+(p.mbti||'\u2014')+'</span>':'<span style="color:var(--mute)">—</span>')+'</td>'+
       '<td class="l">'+esc(trackLabel(p.track))+'</td>'+
-      '<td>'+p.pts+'</td>'+
-      (S.log.length?'<td>'+p.evts+'</td><td>'+p.cross+'</td>':'')+
+      '<td>'+(canSeePersonal(p)?p.pts:'—')+'</td>'+
+      (S.log.length?'<td>'+(canSeePersonal(p)?p.evts:'—')+'</td><td>'+(canSeePersonal(p)?p.cross:'—')+'</td>':'')+
       '<td class="l"><select class="movesel" data-name="'+esc(p.name)+'">'+
         S.orgs.map(function(_,j){return '<option value="'+j+'"'+(j===i?' selected':'')+'>'+esc(orgLabel(j))+'</option>'}).join('')+
       '</select></td></tr>';
@@ -2673,6 +2852,67 @@ function renderTeam(){
     S.orgNames[i]=e.target.value.trim()||('Org '+pad(i));
     renderTeam();renderDraft();renderStandings();save();
     syncTeams();
+  });
+}
+
+/* ================= MEMBER PROFILE =================
+   One person's own page. It asks the backend rather than reading S, because a
+   member's browser never holds the whole roster -- that is the point of the
+   member role -- so the sheet is the only place their record exists. */
+function profInitials(nm){
+  var parts=String(nm||'?').trim().split(/\s+/);
+  return ((parts[0]||'?')[0]+(parts.length>1?parts[parts.length-1][0]:'')).toUpperCase();
+}
+function renderProfile(){
+  var box=$('profbody');
+  if(A.offline){
+    box.innerHTML='<div class="panel"><h2>Your profile</h2><p class="empty">This browser is not connected to a club sheet, so there is no profile to show.</p></div>';
+    return;
+  }
+  box.innerHTML='<div class="panel"><p class="empty">Loading your profile…</p></div>';
+  backendPost('myProfile',{name:A.name||A.email}).then(function(r){
+    if(!r||!r.ok){
+      box.innerHTML='<div class="panel"><h2>Your profile</h2><p class="empty">Could not load your profile.</p></div>';
+      return;
+    }
+    var p=r.profile, nm=(p&&p.MemberName)||A.name||A.email;
+    var h='<div class="panel"><div class="profhead">'+
+      '<div class="profavatar">'+esc(profInitials(nm))+'</div>'+
+      '<div><div class="profname">'+esc(nm)+'</div>'+
+      '<div class="profmeta">'+esc(A.role)+(A.affName?' · '+esc(A.affName):'')+
+      (p&&p.Org?' · '+esc(p.Org):'')+'</div></div></div>';
+
+    if(!p){
+      h+='<p class="hint" style="margin-top:18px">You are signed in, but no one on the roster matches this account yet. '+
+         'That is normal before the draft has run, or if your roster name is spelled differently from your username '+
+         '— ask an officer to line them up.</p>';
+    } else {
+      h+='<div class="profgrid">'+
+        stat(r.points,'Points')+
+        stat(r.entries,'Entries')+
+        (p.Track?stat(esc(trackLabel(String(p.Track))||String(p.Track)),S.club.trackWord):'')+
+        (p.MBTI?stat(esc(String(p.MBTI)),'Type'):'')+
+        (String(p.IsLead||'').match(/^y/i)?stat('Yes','Leader'):'')+
+      '</div>';
+    }
+    h+='</div>';
+
+    if(r.history&&r.history.length){
+      h+='<div class="panel"><h2>Your recent points</h2>';
+      r.history.slice().reverse().forEach(function(e){
+        h+='<div class="evtline"><span>'+esc(e.label||'Attendance')+'</span>'+
+           '<span>'+(e.when?esc(String(e.when).slice(0,10))+' · ':'')+'+'+esc(String(e.points))+'</span></div>';
+      });
+      h+='</div>';
+    } else if(p){
+      h+='<div class="panel"><h2>Your recent points</h2><p class="empty">Nothing logged against your name yet.</p></div>';
+    }
+
+    h+='<div class="panel"><h2>What others can see</h2>'+
+       '<p class="hint" style="margin-bottom:0">Your name, team and points appear to your club’s officers and in the standings. '+
+       'Anything you wrote in the sign-up form’s free-text box is visible to officers only, never to other members. '+
+       'You are in <b>'+esc(A.affName||A.aff||'no club')+'</b>, and nothing you do here is visible to any other club.</p></div>';
+    box.innerHTML=h;
   });
 }
 
@@ -2868,6 +3108,54 @@ function renderAccess(){
         });
       });
     });
+  });
+}
+
+/* ---- clubs (master only) ---- */
+function affSay(t,kind){var m=$('affmsg');m.textContent=t;m.className='msg show'+(kind?' '+kind:'')}
+function renderAffs(){
+  var box=$('afftable'); if(!box)return;
+  if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
+  box.innerHTML='<p class="empty">Loading…</p>';
+  backendPost('listAffiliations',null).then(function(r){
+    if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the club list.</p>';return}
+    var rows=r.affiliations||[];
+    if(!rows.length){box.innerHTML='<p class="empty">No clubs yet. Create the first one above — until then nobody can sign up.</p>';return}
+    box.innerHTML='<div class="acctrow head"><span>Club</span><span>Code</span><span></span></div>'+
+      rows.map(function(a){
+        return '<div class="acctrow"><span>'+esc(a.name)+'</span>'+
+               '<span class="em">'+esc(a.code)+'</span>'+
+               '<span>'+(a.code===A.aff?'<span class="lock">viewing</span>':'')+'</span></div>';
+      }).join('');
+    var sel=$('af-switch');
+    if(sel){
+      var opts=rows.slice();
+      if(!opts.some(function(a){return a.code==='default'}))
+        opts.unshift({code:'default',name:'default (unassigned data)'});
+      sel.innerHTML=opts.map(function(a){
+        return '<option value="'+esc(a.code)+'"'+(a.code===A.aff?' selected':'')+'>'+esc(a.name)+'</option>';
+      }).join('');
+    }
+  });
+}
+/* Switching club is a full context change: the roster, points, config and
+   setup all belong to the club being left, so everything local is dropped
+   and refetched rather than merged. */
+function switchAff(code){
+  if(!code||code===A.aff)return;
+  A.aff=code; A.affName=code; storeAff(code);
+  S.people=[];S.orgs=[];S.orgNames=[];S.log=[];S.standings=[];
+  S.club=cloneClub(DEFAULT_CLUB);S.actions=cloneActions();
+  setRole(A.role,null);
+  affSay('Switched. Loading that club…','info');
+  backendGet().then(function(data){
+    if(data&&data.aff){A.aff=data.aff;A.affName=data.affName||data.aff}
+    mergeBackendData(data);
+    if(!S.actions.length)S.actions=cloneActions();
+    unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
+    scoreAll();renderDraft();renderCup();renderAffs();
+    setRole(A.role,null);
+    affSay('Now viewing '+(A.affName||A.aff)+' — '+S.people.length+' members, '+S.orgs.length+' teams.','good');
   });
 }
 
@@ -3350,7 +3638,11 @@ function sampleSemester(){
     });
   });
   scoreAll();refreshScored();
-  cupSay('Loaded '+S.log.length+' entries across '+plan.length+' events. Standings, team pages, and the Assistant are all running on it.','good');
+  /* Push it to the sheet like any other logging would. Without this the
+     sample lives only in this browser, so a second officer sees an empty
+     Cup and a member's own profile shows no points. */
+  syncLogEntries(S.log);
+  cupSay('Loaded '+S.log.length+' entries across '+plan.length+' events, and synced them to the sheet. Standings, team pages, and the Assistant are all running on it.','good');
 }
 
 /* ================= WIRING ================= */
@@ -3431,6 +3723,19 @@ $('swapall').addEventListener('click',function(){
 $('signout').addEventListener('click',signOut);
 $('accrefresh').addEventListener('click',renderAccess);
 $('userrefresh').addEventListener('click',renderUsers);
+$('affrefresh').addEventListener('click',renderAffs);
+$('af-go').addEventListener('click',function(){switchAff($('af-switch').value)});
+$('af-add').addEventListener('click',function(){
+  var c=$('af-code').value.trim().toLowerCase(), nm=$('af-name').value.trim(), j=$('af-join').value.trim();
+  if(!/^[a-z0-9-]{3,32}$/.test(c)){affSay('Codes are 3\u201332 characters: letters, digits, dashes.');return}
+  if(!nm){affSay('Give the club a display name.');return}
+  if(j.length<6){affSay('Join codes must be at least 6 characters.');return}
+  backendPost('createAffiliation',{code:c,name:nm,joinCode:j}).then(function(r){
+    if(r&&r.ok){$('af-code').value='';$('af-name').value='';$('af-join').value='';
+      affSay('Created '+nm+'. Members sign up by picking it and entering the join code.','good');renderAffs()}
+    else affSay((r&&r.error)||'That was refused by the sheet.');
+  });
+});
 $('nu-add').addEventListener('click',function(){
   var u=$('nu-name').value.trim().toLowerCase(), pw=$('nu-pass').value, role=$('nu-role').value;
   if(!/^[a-z0-9._-]{3,32}$/.test(u)){userSay('Usernames are 3\u201332 characters: letters, digits, dot, dash, underscore.');return}
@@ -3499,8 +3804,13 @@ $('wipe').addEventListener('click',function(){
    whatever this browser had cached in localStorage. */
 function afterSignIn(){
   unlockNav();
+  if(A.needsAff){ showGate(true); gateMode('join'); return; }
   if($('v-intake').classList.contains('on')&&!canEdit())setView(S.orgs.length?'v-draft':'v-cup');
   backendGet().then(function(data){
+    if(data&&data.ok){
+      if(data.needsAff){ A.needsAff=true; showGate(true); gateMode('join'); return; }
+      if(data.aff){A.aff=data.aff; A.affName=data.affName||data.aff; setRole(A.role,null)}
+    }
     if(!mergeBackendData(data))return;
     if(!S.actions.length)S.actions=cloneActions();
     unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
