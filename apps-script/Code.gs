@@ -25,7 +25,9 @@ var NEEDS = {
   changePassword: 'member',
   listRoles: 'master',   setRole: 'master',       removeRole: 'master',
   listUsers: 'master',   createUser: 'master',    deleteUser: 'master',
-  resetPassword: 'master', setUserRole: 'master'
+  resetPassword: 'master', setUserRole: 'master',
+  myProfile: 'member',   joinAffiliation: 'member',
+  createAffiliation: 'master'
 };
 /* 'login' is deliberately absent: it is the one action that runs before any
    identity exists, and it is handled ahead of the permission check. */
@@ -44,16 +46,22 @@ var PW_MIN = 10;
 var MAX_FAILS = 8;              // consecutive failures before a lockout
 var LOCKOUT_MS = 15 * 60 * 1000;
 var SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+/* Affiliation is appended to every tab that holds club data, and is always the
+   LAST column, so a sheet written by an earlier version can be upgraded by
+   adding cells rather than being rebuilt. One spreadsheet now holds several
+   clubs side by side; nothing is read or written without a scope. */
 var TAB = {
-  roles:      {name: 'Roles',      cols: ['Email', 'Role', 'GrantedBy', 'GrantedAt']},
-  teams:      {name: 'Teams',      cols: ['MemberName', 'Org', 'Track', 'Year', 'MBTI', 'LeadInterest', 'IsLead', 'Notes']},
-  pointsLog:  {name: 'PointsLog',  cols: ['Timestamp', 'MemberName', 'ActionId', 'ActionLabel', 'Points', 'Track', 'Org']},
-  attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org']},
+  roles:      {name: 'Roles',      cols: ['Email', 'Role', 'GrantedBy', 'GrantedAt', 'Affiliation']},
+  teams:      {name: 'Teams',      cols: ['MemberName', 'Org', 'Track', 'Year', 'MBTI', 'LeadInterest', 'IsLead', 'Notes', 'Affiliation']},
+  pointsLog:  {name: 'PointsLog',  cols: ['Timestamp', 'MemberName', 'ActionId', 'ActionLabel', 'Points', 'Track', 'Org', 'Affiliation']},
+  attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation']},
   roster:     {name: 'Form Responses 1', cols: null, readOnly: true},
   config:     {name: 'Config',     cols: ['Key', 'Value']},
   users:      {name: 'Users',      cols: ['Username', 'ClientSalt', 'ServerSalt', 'Hash', 'Iterations',
-                                          'Role', 'FailCount', 'LockedUntil', 'CreatedBy', 'CreatedAt']}
+                                          'Role', 'FailCount', 'LockedUntil', 'CreatedBy', 'CreatedAt', 'Affiliation']},
+  affiliations: {name: 'Affiliations', cols: ['Code', 'Name', 'JoinCode', 'CreatedBy', 'CreatedAt']}
 };
+var DEFAULT_AFF = 'default';
 
 /* ---------------- one-time authorisation ----------------
    Run this once from the editor after pasting or changing this file, and
@@ -89,38 +97,61 @@ function book() {
    schema change they did not know was happening -- and a clean one is started.
    Accounts on the archived sheet need recreating; that is deliberate, because
    a credential read out of the wrong column is worse than an absent one. */
-function usersSheet() {
-  var ss = book(), name = TAB.users.name, cols = TAB.users.cols;
-  var sh = ss.getSheetByName(name);
-  if (!sh) {
-    sh = ss.insertSheet(name);
+/* Every tab's header is checked against what this version expects. Columns
+   added at the end are filled in place, because that is a widening and loses
+   nothing. Anything else is a genuine mismatch: the old sheet is renamed and
+   kept -- nobody should lose data to a schema change they did not know was
+   happening -- and a clean one started. */
+function ensureHeader(sh, cols, name, ss) {
+  var width = Math.max(cols.length, sh.getLastColumn() || 0);
+  var head = sh.getLastRow() ? sh.getRange(1, 1, 1, width).getValues()[0] : [];
+  var blank = true;
+  for (var b = 0; b < head.length; b++) if (String(head[b]) !== '') { blank = false; break; }
+  if (blank) {
     sh.getRange(1, 1, 1, cols.length).setValues([cols]);
     sh.setFrozenRows(1);
     return sh;
   }
-  var head = sh.getRange(1, 1, 1, cols.length).getValues()[0], same = true;
-  for (var i = 0; i < cols.length; i++)
-    if (String(head[i]) !== cols[i]) { same = false; break; }
-  if (!same) {
-    sh.setName(name + ' (old ' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd-HHmmss') + ')');
-    sh = ss.insertSheet(name);
-    sh.getRange(1, 1, 1, cols.length).setValues([cols]);
-    sh.setFrozenRows(1);
+  var isPrefix = true;
+  for (var i = 0; i < cols.length && i < head.length; i++)
+    if (String(head[i]) !== cols[i]) { isPrefix = false; break; }
+  if (isPrefix && head.length <= cols.length) {
+    for (var j = head.length; j < cols.length; j++)
+      sh.getRange(1, j + 1).setValue(cols[j]);
+    return sh;
   }
-  return sh;
+  if (isPrefix) return sh;   // sheet has extra columns of its own; leave them
+  sh.setName(name + ' (old ' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd-HHmmss') + ')');
+  var fresh = ss.insertSheet(name);
+  fresh.getRange(1, 1, 1, cols.length).setValues([cols]);
+  fresh.setFrozenRows(1);
+  return fresh;
 }
 
 function tab(key) {
-  if (key === 'users') return usersSheet();
   var spec = TAB[key], ss = book(), sh = ss.getSheetByName(spec.name);
   if (!sh) {
     // The Form response tab belongs to the Form; never conjure a fake one.
     if (spec.readOnly) return null;
     sh = ss.insertSheet(spec.name);
-    sh.appendRow(spec.cols);
+    sh.getRange(1, 1, 1, spec.cols.length).setValues([spec.cols]);
     sh.setFrozenRows(1);
+    return sh;
   }
-  return sh;
+  if (!spec.cols) return sh;
+  return ensureHeader(sh, spec.cols, spec.name, ss);
+}
+function usersSheet() { return tab('users'); }
+
+/* Reads a tab and keeps only the rows belonging to one affiliation. Rows
+   written before affiliations existed have a blank one and belong to the
+   default club, so an existing roster keeps working. */
+function readScoped(key, aff) {
+  aff = String(aff || DEFAULT_AFF).toLowerCase();
+  return readTab(key).filter(function (r) {
+    var a = String(r.Affiliation || DEFAULT_AFF).toLowerCase();
+    return a === aff;
+  });
 }
 function readTab(key) {
   var sh = tab(key);
@@ -249,6 +280,28 @@ function normUser(u) { return String(u || '').toLowerCase().trim(); }
    kind of bug that fails silently and looks like a wrong password, so the
    layout is never assumed -- reorder or insert a column and this still reads
    the right cells. */
+/* ---------------- affiliations ---------------- */
+function normAff(a) { return String(a || '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'); }
+function allAffiliations() {
+  return readTab('affiliations').filter(function (r) { return r.Code; }).map(function (r) {
+    return {code: normAff(r.Code), name: String(r.Name || r.Code), joinCode: String(r.JoinCode || '')};
+  });
+}
+function findAff(code) {
+  var c = normAff(code), all = allAffiliations();
+  for (var i = 0; i < all.length; i++) if (all[i].code === c) return all[i];
+  return null;
+}
+/* The affiliation a Google address belongs to, from the Roles tab. */
+function affForEmail(email) {
+  var rows = readTab('roles'), e = String(email || '').toLowerCase();
+  for (var i = 0; i < rows.length; i++)
+    if (String(rows[i].Email).toLowerCase().trim() === e)
+      return {aff: normAff(rows[i].Affiliation || DEFAULT_AFF),
+              role: String(rows[i].Role || 'member').toLowerCase()};
+  return null;
+}
+
 function findUser(username) {
   var u = normUser(username);
   if (!u) return null;
@@ -265,6 +318,7 @@ function findUser(username) {
     };
     return {row: i + 1, username: u, col: idx, sheet: sh,
             clientSalt: g('ClientSalt'), serverSalt: g('ServerSalt'), hash: g('Hash'),
+            affiliation: normAff(g('Affiliation') || DEFAULT_AFF),
             iters: Number(g('Iterations')) || PBKDF2_ITERS,
             role: String(g('Role') || 'member').toLowerCase(),
             fails: Number(g('FailCount')) || 0,
@@ -309,6 +363,37 @@ function doLogin(payload) {
           username: rec.username, expires: exp};
 }
 
+/* Self-service sign-up. Anyone may create an account, but only into an
+   affiliation whose join code they can produce, and only ever as a member --
+   role is not something a stranger gets to choose. */
+function doSignup(payload) {
+  var p = payload || {};
+  var u = normUser(p.username);
+  var aff = findAff(p.affiliation);
+  var given = String(p.joinCode || '').trim();
+
+  if (!/^[a-z0-9._-]{3,32}$/.test(u))
+    return {ok: false, error: 'Usernames are 3-32 characters: letters, digits, dot, dash, underscore.'};
+  if (!aff) return {ok: false, error: 'Pick the club you are joining.'};
+  if (!p.dk || !p.clientSalt) return {ok: false, error: 'The browser did not send a derived key.'};
+
+  /* Wrong code and unknown club answer the same way, and both pause, so the
+     endpoint cannot be used to hunt for valid codes. */
+  if (String(aff.joinCode) !== given) {
+    Utilities.sleep(400);
+    return {ok: false, error: 'That join code does not match this club.'};
+  }
+  if (findUser(u)) return {ok: false, error: 'That username is taken.'};
+
+  var ssalt = Utilities.getUuid();
+  tab('users').appendRow([u, String(p.clientSalt), ssalt, hashDk(p.dk, ssalt),
+                          Number(p.iterations) || PBKDF2_ITERS, 'member', 0, '',
+                          'self sign-up', new Date(), aff.code]);
+  var exp = Date.now() + SESSION_MS;
+  return {ok: true, session: signSession(u, exp), role: 'member',
+          username: u, aff: aff.code, affName: aff.name, expires: exp};
+}
+
 /* ---------------- one identity, two doors ----------------
    A request proves who it is with either a Google ID token or a session from
    a password login. Everything downstream sees the same {who, role} shape and
@@ -319,7 +404,8 @@ function identify(body) {
     if (!u) return {ok: false, error: 'Your session expired. Sign in again.'};
     var rec = findUser(u);
     if (!rec) return {ok: false, error: 'That account no longer exists.'};
-    return {ok: true, who: rec.username, role: rec.role, via: 'password'};
+    return {ok: true, who: rec.username, role: rec.role, via: 'password',
+            aff: normAff(rec.affiliation || DEFAULT_AFF)};
   }
   var email;
   try { email = verifiedEmail(body.token); }
@@ -329,20 +415,23 @@ function identify(body) {
       ? 'Sign-in could not be verified. Sign out and back in.'
       : 'The backend has no CLIENT_ID set, so no sign-in can be verified yet.'};
   }
-  return {ok: true, who: email, role: roleFor(email), via: 'google'};
+  /* The global master belongs everywhere and may look at any club by asking
+     for one; everyone else is pinned to the affiliation they joined. A Google
+     address with no affiliation yet is signed in but unplaced, and the page
+     shows them the join screen rather than another club's data. */
+  if (email === String(MASTER_EMAIL).toLowerCase())
+    return {ok: true, who: email, role: 'master', via: 'google',
+            aff: normAff(body.aff || DEFAULT_AFF), isRoot: true};
+  var hit = affForEmail(email);
+  if (!hit) return {ok: true, who: email, role: 'member', via: 'google', aff: '', needsAff: true};
+  return {ok: true, who: email, role: RANK[hit.role] ? hit.role : 'member', via: 'google', aff: hit.aff};
 }
 
 function roleFor(email) {
   if (!email) return 'none';
   if (email === String(MASTER_EMAIL).toLowerCase()) return 'master';
-  var rows = readTab('roles');
-  for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i].Email).toLowerCase().trim() === email) {
-      var r = String(rows[i].Role).toLowerCase().trim();
-      return RANK[r] ? r : 'member';
-    }
-  }
-  return 'member';
+  var hit = affForEmail(email);
+  return hit && RANK[hit.role] ? hit.role : 'member';
 }
 
 /* ---------------- entry points ---------------- */
@@ -367,6 +456,24 @@ function doPost(e) {
     /* The browser needs this user's salt before it can derive anything, so it
        is answerable without an identity. It reveals nothing: unknown names get
        a stable salt derived from the server secret. */
+    /* Names only. The join code is never sent to the browser -- it is the
+       thing being proved, so returning it would defeat the point. */
+    if (action === 'listAffiliations') {
+      try {
+        return out({ok: true, affiliations: allAffiliations().map(function (a) {
+          return {code: a.code, name: a.name};
+        })});
+      } catch (err) { return out({ok: false, error: 'Could not list affiliations: ' + err}); }
+    }
+
+    if (action === 'signup') {
+      var lockS = LockService.getScriptLock();
+      try { lockS.waitLock(20000); } catch (e) { return out({ok: false, error: 'Busy, try again.'}); }
+      try { return out(doSignup(body.payload)); }
+      catch (err) { return out({ok: false, error: 'Sign-up failed: ' + err}); }
+      finally { try { lockS.releaseLock(); } catch (e2) {} }
+    }
+
     if (action === 'getSalt') {
       try { return out({ok: true, salt: saltFor((body.payload || {}).username).salt,
                         iterations: saltFor((body.payload || {}).username).iterations}); }
@@ -411,16 +518,19 @@ function doPost(e) {
 }
 
 function dispatch(action, payload, email, role, id) {
+  var aff = normAff((id && id.aff) || DEFAULT_AFF);
   switch (action) {
 
     case 'whoami':
-      return {ok: true, role: role, email: email};
+      return {ok: true, role: role, email: email, aff: aff,
+              affName: (findAff(aff) || {}).name || aff,
+              needsAff: !!id.needsAff, via: id.via};
 
     /* ---- password accounts ---- */
 
     case 'listUsers': {
       var rows = [];
-      readTab('users').forEach(function (r) {
+      readScoped('users', aff).forEach(function (r) {
         if (!r.Username) return;
         rows.push({username: normUser(r.Username),
                    role: String(r.Role || 'member').toLowerCase(),
@@ -444,8 +554,8 @@ function dispatch(action, payload, email, role, id) {
 
       var ssalt = Utilities.getUuid();
       tab('users').appendRow([nu, nsalt, ssalt, hashDk(ndk, ssalt), niters,
-                              nrole, 0, '', email, new Date()]);
-      return {ok: true, created: nu, role: nrole};
+                              nrole, 0, '', email, new Date(), aff]);
+      return {ok: true, created: nu, role: nrole, aff: aff};
     }
 
     /* A password account's role lives in its Users row, not the email-keyed
@@ -458,6 +568,57 @@ function dispatch(action, payload, email, role, id) {
       if (!recS) return {ok: false, error: 'No such account.'};
       setUserField(recS, 'Role', srole);
       return {ok: true, updated: su, role: srole};
+    }
+
+    /* Everything one person is allowed to know about themselves, in one
+       reply, so the profile page does not have to pull the whole club. */
+    case 'myProfile': {
+      /* A username like "jordan.lee" and a roster name like "Jordan Lee" are
+         the same person, so both sides are flattened to letters and digits
+         before comparing. An officer may pass a name to look up instead. */
+      var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var meName = flat((payload || {}).name || email);
+      var mine = null;
+      readScoped('teams', aff).forEach(function (r) {
+        if (flat(r.MemberName) === meName) mine = r;
+      });
+      var pts = 0, evts = 0, hist = [];
+      readScoped('pointsLog', aff).forEach(function (r) {
+        if (flat(r.MemberName) !== meName) return;
+        evts++; pts += Number(r.Points) || 0;
+        hist.push({label: r.ActionLabel, points: Number(r.Points) || 0, when: r.Timestamp});
+      });
+      return {ok: true, profile: mine, points: pts, entries: evts,
+              history: hist.slice(-25), aff: aff, role: role, who: email};
+    }
+
+    /* A signed-in Google address that has not joined a club yet. Same join
+       code rule as sign-up, and always as a member. */
+    case 'joinAffiliation': {
+      var ja = findAff((payload || {}).affiliation);
+      var jcode = String((payload || {}).joinCode || '').trim();
+      if (!ja) return {ok: false, error: 'Pick the club you are joining.'};
+      if (String(ja.joinCode) !== jcode) {
+        Utilities.sleep(400);
+        return {ok: false, error: 'That join code does not match this club.'};
+      }
+      if (id.via !== 'google') return {ok: false, error: 'Password accounts are placed when they are created.'};
+      var already = affForEmail(email);
+      if (already) return {ok: false, error: 'You are already in ' + already.aff + '.'};
+      tab('roles').appendRow([email, 'member', 'self join', new Date(), ja.code]);
+      return {ok: true, joined: ja.code, name: ja.name};
+    }
+
+    case 'createAffiliation': {
+      var ac = normAff((payload || {}).code);
+      var an = String((payload || {}).name || '').trim();
+      var aj = String((payload || {}).joinCode || '').trim();
+      if (!/^[a-z0-9-]{3,32}$/.test(ac)) return {ok: false, error: 'Codes are 3-32 characters: letters, digits, dashes.'};
+      if (!an) return {ok: false, error: 'Give the club a display name.'};
+      if (aj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
+      if (findAff(ac)) return {ok: false, error: 'That code is taken.'};
+      tab('affiliations').appendRow([ac, an, aj, email, new Date()]);
+      return {ok: true, created: ac, name: an};
     }
 
     case 'deleteUser': {
@@ -511,56 +672,64 @@ function dispatch(action, payload, email, role, id) {
       /* The club's vocabulary lives in the sheet too, so a second officer
          opening the page sees the same words as the officer who set them
          rather than falling back to the defaults. */
-      var cfg = null;
+      var key = 'club:' + aff, cfg = null;
       readTab('config').forEach(function (r) {
-        if (String(r.Key) === 'club') { try { cfg = JSON.parse(r.Value); } catch (e) {} }
+        if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
       });
       return {
         ok: true, role: role, email: email, config: cfg,
+        aff: aff, affName: (findAff(aff) || {}).name || aff,
+        needsAff: !!id.needsAff,
+        affiliations: id.isRoot ? allAffiliations().map(function (a) {
+          return {code: a.code, name: a.name}; }) : null,
         roster:     readTab('roster'),
-        teams:      readTab('teams'),
-        pointsLog:  readTab('pointsLog'),
-        attendance: readTab('attendance')
+        teams:      readScoped('teams', aff),
+        pointsLog:  readScoped('pointsLog', aff),
+        attendance: readScoped('attendance', aff)
       };
     }
 
     case 'setConfig': {
+      var ckey = 'club:' + aff;
       var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), json = JSON.stringify(payload || {});
       for (var q = 1; q < v0.length; q++) {
-        if (String(v0[q][0]) === 'club') { sh0.getRange(q + 1, 2).setValue(json); return {ok: true, saved: true}; }
+        if (String(v0[q][0]) === ckey) { sh0.getRange(q + 1, 2).setValue(json); return {ok: true, saved: true}; }
       }
-      sh0.appendRow(['club', json]);
+      sh0.appendRow([ckey, json]);
       return {ok: true, saved: true};
     }
 
     case 'setTeams': {
-      /* Write the header to row 1 explicitly. appendRow() after clear() places
-         it relative to whatever the sheet still considers its last row, which
-         is how a stray "Column 1..8" row ended up above the real header and
-         got parsed as a member called "undefined". */
+      /* Replaces only this club's rows. Clearing the whole sheet would delete
+         every other affiliation's roster, so the surviving rows are read
+         first and written back alongside the new ones. */
       var sh = tab('teams'), cols = TAB.teams.cols;
+      var others = readTab('teams').filter(function (r) {
+        return String(r.Affiliation || DEFAULT_AFF).toLowerCase() !== aff;
+      });
+      var mine = (payload || []).map(function (r) { r.Affiliation = aff; return r; });
       sh.clear();
       sh.getRange(1, 1, 1, cols.length).setValues([cols]);
       sh.setFrozenRows(1);
-      appendRows('teams', payload || []);
-      return {ok: true, wrote: (payload || []).length};
+      appendRows('teams', others.concat(mine));
+      return {ok: true, wrote: mine.length, kept: others.length};
     }
 
     case 'addPointsBulk': {
       var now = new Date();
-      (payload || []).forEach(function (r) { if (!r.Timestamp) r.Timestamp = now; });
+      (payload || []).forEach(function (r) { if (!r.Timestamp) r.Timestamp = now; r.Affiliation = aff; });
       return {ok: true, wrote: appendRows('pointsLog', payload || [])};
     }
 
     case 'addAttendanceBulk': {
       var t = new Date();
-      (payload || []).forEach(function (r) { if (!r.Timestamp) r.Timestamp = t; });
+      (payload || []).forEach(function (r) { if (!r.Timestamp) r.Timestamp = t; r.Affiliation = aff; });
       return {ok: true, wrote: appendRows('attendance', payload || [])};
     }
 
     case 'listRoles': {
       var out2 = [{email: String(MASTER_EMAIL).toLowerCase(), role: 'master', locked: true}];
-      readTab('roles').forEach(function (r) {
+      readScoped('roles', aff).forEach(function (r) {
         var em = String(r.Email).toLowerCase().trim();
         if (!em || em === String(MASTER_EMAIL).toLowerCase()) return;
         out2.push({email: em, role: String(r.Role).toLowerCase().trim() || 'member', locked: false});
@@ -585,8 +754,8 @@ function dispatch(action, payload, email, role, id) {
           return {ok: true, updated: em2, role: newRole};
         }
       }
-      sh2.appendRow([em2, newRole, email, new Date()]);
-      return {ok: true, added: em2, role: newRole};
+      sh2.appendRow([em2, newRole, email, new Date(), aff]);
+      return {ok: true, added: em2, role: newRole, aff: aff};
     }
 
     case 'removeRole': {
