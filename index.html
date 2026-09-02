@@ -1789,6 +1789,9 @@ function setView(id){
     if(isMaster()&&$('rs-club')&&!$('rs-club').options.length)renderAffs();
     renderClubRoster();renderRosterLinks();renderFormKit();renderPurgePanel();
   }
+  /* The target picker is built from the club list, so Intake has to have it
+     before it can offer anywhere to draft into. */
+  if(id==='v-intake'&&isMaster()&&!AFFROWS.length)renderAffs();
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
@@ -2162,11 +2165,25 @@ function draft(people,n,useMbti){
 /* Running the draft replaces a club's teams, so an officer starting a new
    semester needs somewhere else to put it. The alternative is drafting over
    the top of a term that is still running. */
+var AFFROWS=[];
 function renderDraftTarget(){
   var sel=$('dr-target'); if(!sel)return;
-  var here=A.affName||A.aff||'this club';
-  sel.innerHTML='<option value="">'+esc(here)+' \u2014 replaces its current teams</option>'+
-                '<option value="__new">A new club\u2026</option>';
+  var here=A.affName||A.aff||'this club', keep=sel.value||'';
+  var h='<option value="">'+esc(here)+' \u2014 replaces its current teams</option>';
+  /* Only master may name the club a write lands in; everyone else is pinned
+     server-side to the club they joined, so listing other clubs for an admin
+     would offer a choice the backend then ignores. */
+  if(isMaster()){
+    AFFROWS.forEach(function(a){
+      if(a.code===A.aff)return;
+      h+='<option value="c:'+esc(a.code)+'">'+esc(a.name)+' \u2014 replaces its current teams</option>';
+    });
+  }
+  h+='<option value="__new">A new club\u2026</option>';
+  sel.innerHTML=h;
+  if(keep){var ok=false;
+    Array.prototype.forEach.call(sel.options,function(o){if(o.value===keep)ok=true});
+    if(ok)sel.value=keep;}
   toggleNewClub();
 }
 function toggleNewClub(){
@@ -2202,6 +2219,21 @@ function run(){
       renderAffs();
       say('Drafted into '+res.name+'. You are now viewing that club; the one you came from was not touched.','good');
     });
+    return;
+  }
+  if(tgt.indexOf('c:')===0){
+    var code=tgt.slice(2), row=null;
+    AFFROWS.forEach(function(a){if(a.code===code)row=a});
+    var label=(row&&row.name)||code;
+    if(!confirm('Draft into "'+label+'"?\n\nThis replaces the teams that club has now. Its accounts, points and attendance are not touched.'))return;
+    A.aff=code; A.affName=label; storeAff(code);
+    /* Its own setup stays as that club saved it -- syncClub is deliberately
+       not called here, so drafting into a club does not overwrite its
+       vocabulary with whichever club the officer happened to be viewing. */
+    setRole(A.role,null); applyClubChrome();
+    finishDraft(r,n);
+    renderAffs();
+    say('Drafted into '+label+'. You are now viewing that club.','good');
     return;
   }
   finishDraft(r,n);
@@ -3929,6 +3961,7 @@ function renderAffs(){
       return '<option value="'+esc(a.code)+'"'+(a.code===A.aff?' selected':'')+'>'+esc(a.name)+'</option>';
     }).join('');
     ['dr-club','rs-club'].forEach(function(id){var el=$(id); if(el)el.innerHTML=dhtml});
+    AFFROWS=dopts; renderDraftTarget();
     var sel=$('af-switch');
     if(sel){
       var opts=rows.slice();
