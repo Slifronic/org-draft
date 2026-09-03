@@ -3594,6 +3594,17 @@ function wirePurgePanel(){
     });
   });
 }
+/* Access is the part most likely to fail quietly -- a form that exists but
+   that its own officer cannot open looks fine from here. So say who was let
+   in, and say so when Drive refused. */
+function shareNote(r){
+  if(r.shareFailed&&r.shareFailed.length)
+    return ' The form was made, but Drive would not give '+esc(r.sharedWith||'you')+
+           ' access to it ('+esc(r.shareFailed[0])+') — it will have to be shared by hand.';
+  if(r.sharedWith)
+    return ' '+esc(r.sharedWith)+' can now edit the questions and read the responses.';
+  return '';
+}
 function renderFormKit(){
   var box=$('formkit'); if(!box)return;
   if(A.offline){box.innerHTML='';return}
@@ -3610,12 +3621,13 @@ function renderFormKit(){
         b.disabled=false; b.textContent='Republish the form';
         if(r&&r.ok){
           S.club.formUrl=r.formUrl;
+          S.club.formEditUrl=r.editUrl||S.club.formEditUrl||'';
           var f=$('cf-form'); if(f)f.value=r.formUrl;
-          save(); syncClub(); renderRosterLinks();
+          save(); syncClub(); renderRosterLinks(); renderFormKit();
           formKitSay('Republished'+(r.did&&r.did.length?' \u2014 '+esc(r.did.join(', ')):'')+
-            '. Open the form link to check it.'+
+            '.'+shareNote(r)+' Open the form link to check it.'+
             (r.failed&&r.failed.length?' Some settings were refused: '+esc(r.failed.join('; ')):''),
-            (r.failed&&r.failed.length)?'':'good');
+            ((r.failed&&r.failed.length)||(r.shareFailed&&r.shareFailed.length))?'':'good');
         } else formKitSay((r&&r.error)||'That was refused.');
       });
     });
@@ -3630,11 +3642,13 @@ function renderFormKit(){
     backendPost('cloneForm',null).then(function(r){
       if(r&&r.ok){
         S.club.formUrl=r.formUrl; S.club.sheetUrl=r.sheetUrl;
+        S.club.formEditUrl=r.editUrl||'';
         var f=$('cf-form'); if(f)f.value=r.formUrl;
         var sh=$('cf-sheet'); if(sh)sh.value=r.sheetUrl;
         save(); syncClub();
         renderFormKit(); renderRosterLinks();
-        formKitSay('Created “'+r.title+'”. It is linked to this club now — share the form link with members.','good');
+        formKitSay('Created “'+r.title+'”.'+shareNote(r)+
+          ' Share the form link with members.',(r.shareFailed&&r.shareFailed.length)?'':'good');
       } else {
         b.disabled=false; b.textContent='Create this club’s sign-up form';
         formKitSay((r&&r.error)||'That was refused.');
@@ -3652,6 +3666,9 @@ function renderRosterLinks(){
   if(!f&&!sh){box.innerHTML='<p class="hint" style="margin:0">No links saved yet.</p>';return}
   var h='<div class="linkrow">';
   if(f)h+='<a class="linkbtn" href="'+esc(f)+'" target="_blank" rel="noopener"><b>Form</b> Open the sign-up form</a>';
+  /* Answering the form and editing its questions are different URLs. Without
+     this one an officer has the link members use and no way to change it. */
+  if(S.club.formEditUrl)h+='<a class="linkbtn" href="'+esc(S.club.formEditUrl)+'" target="_blank" rel="noopener"><b>Edit</b> Change the questions</a>';
   if(sh)h+='<a class="linkbtn" href="'+esc(sh)+'" target="_blank" rel="noopener"><b>Sheet</b> Open the responses</a>';
   h+='</div>';
   box.innerHTML=h;

@@ -34,6 +34,22 @@ var NEEDS = {
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
   forkClub: 'admin'
 };
+/* The script runs as its owner, so anything it creates is owned by the master
+   account and the officer who asked for it cannot open the form or read a
+   single response. Sharing is what closes that, and it is done as editor
+   rather than by transferring ownership on purpose: the club keeps its form
+   and its answers when an officer graduates or is removed. */
+function shareWithOfficers(fileIds, who) {
+  var ok = [], failed = [];
+  if (!who) return {shared: ok, failed: failed};
+  fileIds.forEach(function (id) {
+    if (!id) return;
+    try { DriveApp.getFileById(id).addEditor(who); ok.push(id); }
+    catch (e) { failed.push(String(e.message || e)); }
+  });
+  return {shared: ok, failed: failed};
+}
+
 /* A form copied through Drive arrives unpublished. Google's newer Forms
    publishing model then serves "This document is not published" on the very
    URL getPublishedUrl() hands back, which is exactly what a club sees when it
@@ -985,11 +1001,20 @@ function dispatch(action, payload, email, role, id) {
       var rres = publishForm(rForm);
       rCfg.formUrl = rForm.getPublishedUrl();
       rCfg.formId  = rForm.getId();
+      rCfg.formEditUrl = rForm.getEditUrl();
+      /* Forms made before officers were given access are fixed here too --
+         re-sharing is harmless when they already have it, and it is the only
+         route back in for the ones created before this existed. */
+      var rDest = rForm.getDestinationId ? rForm.getDestinationId() : null;
+      if (rDest) rCfg.sheetId = rDest;
+      var rShared = shareWithOfficers([rForm.getId(), rDest], email);
       var rJson = JSON.stringify(rCfg);
       if (rRow > 0) rSheet.getRange(rRow, 2).setValue(rJson);
       else rSheet.appendRow([rKey, rJson]);
 
-      return {ok: true, formUrl: rCfg.formUrl, did: rres.did, failed: rres.failed};
+      return {ok: true, formUrl: rCfg.formUrl, editUrl: rCfg.formEditUrl,
+              did: rres.did, failed: rres.failed,
+              sharedWith: email, shareFailed: rShared.failed};
     }
 
     /* Gives a club its own copy of the standard sign-up form, with a response
@@ -1031,12 +1056,19 @@ function dispatch(action, payload, email, role, id) {
          file id, so without this a form can only be found by guessing at its
          name in Drive. */
       cfg.formId   = copy.getId();
+      cfg.sheetId  = ss.getId();
+      /* The published link is for answering the form. Editing the questions
+         needs a different URL entirely, and without it an officer has no way
+         in even once they have been given access. */
+      cfg.formEditUrl = form.getEditUrl();
+      var shared = shareWithOfficers([copy.getId(), ss.getId()], email);
       var cfJson = JSON.stringify(cfg);
       if (cfRow > 0) cfSheet.getRange(cfRow, 2).setValue(cfJson);
       else cfSheet.appendRow([cfKey, cfJson]);
 
       return {ok: true, formUrl: cfg.formUrl, sheetUrl: cfg.sheetUrl,
-              editUrl: form.getEditUrl(), title: title};
+              editUrl: cfg.formEditUrl, title: title,
+              sharedWith: email, shareFailed: shared.failed};
     }
 
     /* Clears a club's roster, points and attendance but keeps the club, its
