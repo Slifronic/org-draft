@@ -391,6 +391,10 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
    over the join code beside them and could not reliably be hit. It is now wide
    enough for all three -- and a fixed width, because every row is its own grid,
    so an auto cell put the code column in a different place on each row. */
+/* The roles table carries a club column, so it needs four cells where the
+   club list needs three. */
+.acctrow.r4{grid-template-columns:1fr 150px 120px 44px}
+@media(max-width:560px){.acctrow.r4{grid-template-columns:1fr}}
 .rowacts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .rosterhd{margin:22px 0 4px;padding-top:18px;border-top:1px solid var(--rule);font-size:15px;font-weight:700;letter-spacing:-.01em}
 .rowacts button{width:auto;border:1px solid var(--rule);background:var(--card);color:var(--slate);
@@ -857,6 +861,7 @@ Marcus Lee"></textarea>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:230px"><label for="newadmin">Google address</label><input type="text" class="mono" id="newadmin" placeholder="officer@gmail.com"></div>
     <div class="field"><label for="newrole">Role</label><select id="newrole"><option value="admin">Admin</option><option value="member">Member</option><option value="master">Master</option></select></div>
+    <div class="field" data-req="master" style="min-width:180px"><label for="newclub">Club they run</label><select id="newclub"></select></div>
     <button id="addadmin">Grant role</button>
   </div>
   <div class="msg" id="accmsg"></div>
@@ -3766,21 +3771,35 @@ function wireClubSetup(){
 
 /* ================= ACCESS (master only) ================= */
 function accSay(t,kind){var m=$('accmsg');m.textContent=t;m.className='msg show'+(kind?' '+kind:'')}
+/* Which club an officer runs is chosen when the role is granted. It used to
+   be taken from whichever club the master happened to be viewing, so granting
+   admin over another club meant switching to it first and there was nothing on
+   screen saying so. */
+function normAffCode(v){return String(v||'').toLowerCase().trim()}
+function renderGrantClubs(){
+  var sel=$('newclub'); if(!sel)return;
+  var keep=sel.value||A.aff;
+  sel.innerHTML=AFFROWS.map(function(a){
+    return '<option value="'+esc(a.code)+'"'+(a.code===keep?' selected':'')+'>'+esc(a.name)+'</option>';
+  }).join('');
+}
 function renderAccess(){
   var sc=$('rolescope');
-  if(sc)sc.innerHTML='Officers are per club. You are editing <b>'+esc(A.affName||A.aff||'—')+
-    '</b>, so anyone granted here is an officer of that club only. Switch club below to manage another.';
+  if(sc)sc.innerHTML=isMaster()
+    ? 'Officers are per club. Pick the club an address runs and they become an officer of that one only \u2014 it is the only club they can see or change, and granting again moves them rather than adding a second. You are the only account that reaches every club.'
+    : 'Officers are per club. Anyone granted here is an officer of <b>'+esc(A.affName||A.aff||'\u2014')+'</b> only.';
   var box=$('acctable');
   if(A.offline){box.innerHTML='<p class="empty">Roles live in the club sheet, and this browser is not connected to it.</p>';return}
   box.innerHTML='<p class="empty">Loading…</p>';
   backendPost('listRoles',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the roles list. Check the Apps Script deployment.</p>';return}
     var rows=r.roles||[];
-    var h='<div class="acctrow head"><span>Google address</span><span>Role</span><span></span></div>';
+    var h='<div class="acctrow r4 head"><span>Google address</span><span>Club</span><span>Role</span><span></span></div>';
     if(!rows.length)h+='<p class="empty">Only you so far. Everyone else who signs in is a member.</p>';
     rows.forEach(function(x){
       var locked=(x.role==='master'&&x.locked);
-      h+='<div class="acctrow"><span class="em">'+esc(x.email)+'</span>'+
+      h+='<div class="acctrow r4"><span class="em">'+esc(x.email)+'</span>'+
+        '<span'+(locked?' class="lock"':'')+'>'+esc(x.affName||x.aff||'\u2014')+'</span>'+
         (locked
           ? '<span class="lock">master · you</span><span></span>'
           : '<select class="rolesel" data-email="'+esc(x.email)+'">'+
@@ -3978,7 +3997,7 @@ function renderAffs(){
       return '<option value="'+esc(a.code)+'"'+(a.code===A.aff?' selected':'')+'>'+esc(a.name)+'</option>';
     }).join('');
     ['dr-club','rs-club'].forEach(function(id){var el=$(id); if(el)el.innerHTML=dhtml});
-    AFFROWS=dopts; renderDraftTarget();
+    AFFROWS=dopts; renderDraftTarget(); renderGrantClubs();
     var sel=$('af-switch');
     if(sel){
       var opts=rows.slice();
@@ -4686,8 +4705,23 @@ $('mp-go').addEventListener('click',function(){
 $('addadmin').addEventListener('click',function(){
   var em=$('newadmin').value.trim().toLowerCase();
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){accSay('That does not look like an email address.');return}
-  backendPost('setRole',{email:em,role:$('newrole').value}).then(function(r){
-    if(r&&r.ok){$('newadmin').value='';accSay(em+' is now '+$('newrole').value+'.','good');renderAccess()}
+  var club=($('newclub')||{}).value||'';
+  backendPost('setRole',{email:em,role:$('newrole').value,club:club}).then(function(r){
+    if(r&&r.ok){
+      $('newadmin').value='';
+      /* Only claim the club if the backend says which one it wrote. An older
+         deployment ignores the club field and files them under whichever club
+         is being viewed, and saying otherwise would be a lie on screen. */
+      if(r.aff===undefined)
+        accSay(em+' is now '+$('newrole').value+', but this backend is too old to accept a club \u2014 they were filed under '+
+               esc(A.affName||A.aff)+'. Redeploy the Apps Script to choose the club here.');
+      else if(club&&normAffCode(r.aff)!==normAffCode(club))
+        accSay(em+' is now '+$('newrole').value+' of '+esc(r.aff)+', not the club selected. The backend refused that choice.');
+      else
+        accSay(em+' is now '+$('newrole').value+(r.aff?' of '+esc(r.aff):'')+
+               '. That is the only club they can see.','good');
+      renderAccess();
+    }
     else accSay((r&&r.error)||'That change was refused by the sheet.');
   });
 });
