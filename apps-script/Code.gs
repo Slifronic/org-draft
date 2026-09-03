@@ -1196,13 +1196,22 @@ function dispatch(action, payload, email, role, id) {
     }
 
     case 'listRoles': {
-      var out2 = [{email: String(MASTER_EMAIL).toLowerCase(), role: 'master', locked: true}];
-      readScoped('roles', aff).forEach(function (r) {
+      var affNm = {};
+      allAffiliations().forEach(function (a) { affNm[a.code] = a.name; });
+      var out2 = [{email: String(MASTER_EMAIL).toLowerCase(), role: 'master', locked: true,
+                   aff: '', affName: 'every club'}];
+      /* Master is answering "who runs what" across the whole system, so this
+         is not scoped to the club being viewed -- that scoping is why an
+         officer of another club was invisible from here. */
+      var src = RANK[role] >= RANK.master ? readTab('roles') : readScoped('roles', aff);
+      src.forEach(function (r) {
         var em = String(r.Email).toLowerCase().trim();
         if (!em || em === String(MASTER_EMAIL).toLowerCase()) return;
-        out2.push({email: em, role: String(r.Role).toLowerCase().trim() || 'member', locked: false});
+        var a = normAff(r.Affiliation || DEFAULT_AFF);
+        out2.push({email: em, role: String(r.Role).toLowerCase().trim() || 'member',
+                   locked: false, aff: a, affName: affNm[a] || a});
       });
-      return {ok: true, roles: out2};
+      return {ok: true, roles: out2, scoped: RANK[role] < RANK.master};
     }
 
     case 'setRole': {
@@ -1213,17 +1222,30 @@ function dispatch(action, payload, email, role, id) {
       if (em2 === String(MASTER_EMAIL).toLowerCase())
         return {ok: false, error: 'The master account is set in the script, not here.'};
 
+      /* Which club the officer runs is part of granting the role, not a
+         consequence of whichever club the master happened to be viewing.
+         Master may name any club; anyone else can only grant inside theirs. */
+      var wantAff = normAff((payload || {}).club || aff);
+      if (RANK[role] < RANK.master) wantAff = aff;
+      if (wantAff !== DEFAULT_AFF && !findAff(wantAff))
+        return {ok: false, error: 'No club with the code "' + wantAff + '".'};
+
       var sh2 = tab('roles'), vals = sh2.getDataRange().getValues();
       for (var i = 1; i < vals.length; i++) {
         if (String(vals[i][0]).toLowerCase().trim() === em2) {
           sh2.getRange(i + 1, 2).setValue(newRole);
           sh2.getRange(i + 1, 3).setValue(email);
           sh2.getRange(i + 1, 4).setValue(new Date());
-          return {ok: true, updated: em2, role: newRole};
+          /* Affiliation was never rewritten here, so an officer could not be
+             moved between clubs -- the grant looked like it worked and left
+             them where they were. One row per address is what pins a person
+             to one club, so it is updated rather than duplicated. */
+          sh2.getRange(i + 1, 5).setValue(wantAff);
+          return {ok: true, updated: em2, role: newRole, aff: wantAff};
         }
       }
-      sh2.appendRow([em2, newRole, email, new Date(), aff]);
-      return {ok: true, added: em2, role: newRole, aff: aff};
+      sh2.appendRow([em2, newRole, email, new Date(), wantAff]);
+      return {ok: true, added: em2, role: newRole, aff: wantAff};
     }
 
     case 'removeRole': {
