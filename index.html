@@ -697,11 +697,11 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   <div class="filterbar" id="draftfilters"></div>
   <div class="legend" id="legend"></div>
   <div class="grid" id="orggrid"></div>
-  <div class="row">
+  <div class="row" id="draftactions">
     <button id="redraw" class="ghost" data-req="admin">Reshuffle draft</button>
     <button id="export" class="ghost" data-req="admin">Export roster CSV</button>
   </div>
-  <footer>Reshuffling re-runs the draft from scratch and discards manual moves. Points and the attendance log survive it — they're keyed to people, not to Orgs.</footer>
+  <footer id="draftfoot">Reshuffling re-runs the draft from scratch and discards manual moves. Points and the attendance log survive it — they're keyed to people, not to Orgs.</footer>
 </div>
 
 <!-- ============ TEAMS ============ -->
@@ -2366,7 +2366,7 @@ function refreshScored(){
 
 function renderStandings(){
   var box=$('standings');
-  if(!S.log.length){
+  if(!S.orgs.length||!S.log.length){
     box.innerHTML='<p class="empty">Nothing logged yet. Standings appear as soon as you add points above \u2014 or load a sample semester to see it running.</p>';
     return;
   }
@@ -2984,8 +2984,23 @@ function orgFlags(g){
   if(S.club.useYear&&c.y1===0)flags.push('No '+S.club.newWord+'s');
   return flags;
 }
+var DRAFTBOXES=['draftstats','draftnotes','draftfilters','legend','orggrid'];
 function renderDraft(){
-  if(!S.orgs.length){waitingForDraft('draftstats');return}
+  if(!S.orgs.length){
+    /* Every one of these holds markup from whatever was drafted last. Clearing
+       only the stats box left the previous club's teams, filters and legend on
+       screen under a message saying there was no draft -- which is how
+       switching into an empty club still showed somebody else's Orgs. */
+    DRAFTBOXES.forEach(function(id){var el=$(id); if(el)el.innerHTML=''});
+    ['draftactions','draftfoot'].forEach(function(id){
+      var el=$(id); if(el)el.style.display='none';
+    });
+    waitingForDraft('draftstats');
+    return;
+  }
+  ['draftactions','draftfoot'].forEach(function(id){
+    var el=$(id); if(el)el.style.display='';
+  });
   var wd=$('draftwait'); if(wd)wd.remove();
   var tot=counts(S.people),sizes=S.orgs.map(function(g){return g.length});
   var noted=canSeeNotes()?S.people.filter(function(p){return p.note}):[];
@@ -3982,6 +3997,10 @@ function switchAff(code){
   S.people=[];S.orgs=[];S.orgNames=[];S.log=[];S.standings=[];
   S.club=cloneClub(DEFAULT_CLUB);S.actions=cloneActions();
   setRole(A.role,null);
+  /* Wipe the screen before the fetch, not after it. Otherwise the club being
+     left behind stays on display for the length of the round trip and, if the
+     new club turns out to be empty, looks like it belongs to it. */
+  scoreAll();renderDraft();renderCup();
   affSay('Switched. Loading that club…','info');
   backendGet().then(function(data){
     if(data&&data.aff){A.aff=data.aff;A.affName=data.affName||data.aff}
