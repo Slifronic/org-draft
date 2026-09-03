@@ -163,6 +163,21 @@ function accountsFor(only) {
          profs[String(r.Email).toLowerCase() + '|' + a] || {}, r,
          r.GrantedAt, r.GrantedBy, String(r.Email));
   });
+
+  /* The master holds no row in Roles -- the address is set in the script --
+     so they were absent from every club's roster while being the one person
+     who belongs to all of them. They show up as a member of the club being
+     listed, with whatever name and photo they saved there, and keep the
+     master role rather than being shown as an ordinary member. */
+  var mE = String(MASTER_EMAIL).toLowerCase();
+  if (mE) {
+    var mA = only ? normAff(only) : DEFAULT_AFF;
+    var mp = profs[mE + '|' + mA] || {};
+    out.push({who: mE, kind: 'google', first: mp.first || '', last: mp.last || '',
+              email: mE, role: 'master', aff: mA,
+              affName: only ? (affNames[mA] || mA) : 'every club',
+              joined: '', how: 'script', photo: mp.photo || '', isMaster: true});
+  }
   return out;
 }
 

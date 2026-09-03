@@ -395,6 +395,58 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
    club list needs three. */
 .acctrow.r4{grid-template-columns:1fr 150px 120px 44px}
 @media(max-width:560px){.acctrow.r4{grid-template-columns:1fr}}
+/* ---- in-page dialogs and dropdowns ----
+   confirm(), prompt() and a native <select> are all drawn by the operating
+   system: they float outside the page, ignore its type and colour, and on a
+   Mac land as a sheet at the top of the window nowhere near what was clicked.
+   These are the same interactions drawn inside the page. */
+.modalwrap{position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;
+  background:rgba(26,22,19,.38);padding:20px}
+.modalwrap[hidden]{display:none}
+.modalcard{background:var(--card);border:1px solid var(--rule);border-radius:4px;max-width:460px;width:100%;
+  padding:22px 22px 18px;box-shadow:0 12px 40px rgba(26,22,19,.18)}
+.modalcard h3{font-size:16px;font-weight:700;letter-spacing:-.01em;margin:0 0 8px}
+.modalcard p{font-size:13.5px;line-height:1.5;color:var(--slate);margin:0 0 14px;white-space:pre-line}
+.modalcard label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--slate);margin-bottom:5px}
+.modalacts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.modalacts button{width:auto;padding:9px 16px}
+.selwrap{position:relative;display:block}
+.selwrap select{position:absolute;opacity:0;pointer-events:none;width:100%;height:100%;left:0;top:0}
+.selbtn{width:100%;text-align:left;background:var(--paper);border:1px solid var(--rule);border-radius:3px;
+  padding:9px 30px 9px 11px;font:inherit;font-size:13.5px;color:var(--ink);cursor:pointer;position:relative}
+.selbtn:after{content:'';position:absolute;right:11px;top:50%;margin-top:-2px;border:4px solid transparent;
+  border-top-color:var(--slate)}
+.selbtn:focus{outline:2px solid var(--ink);outline-offset:1px}
+.selbtn:disabled{opacity:.5;cursor:default}
+.sellist{position:absolute;z-index:9997;left:0;right:0;top:calc(100% + 3px);background:var(--card);
+  border:1px solid var(--rule);border-radius:3px;box-shadow:0 8px 24px rgba(26,22,19,.16);
+  max-height:260px;overflow-y:auto;padding:4px}
+.sellist[hidden]{display:none}
+.sellist div{padding:8px 10px;font-size:13.5px;border-radius:2px;cursor:pointer}
+.sellist div[aria-selected=true]{background:var(--paper);font-weight:600}
+.sellist div.on{background:var(--ink);color:#fff}
+.pickbox{max-height:230px;overflow-y:auto;border:1px solid var(--rule);border-radius:3px;padding:2px;margin-top:4px}
+.pickrow{display:flex;align-items:center;gap:9px;padding:7px 9px;font-size:13.5px;border-bottom:1px solid #EFEDE6;cursor:pointer}
+.pickrow:last-child{border-bottom:none}
+.pickrow:hover{background:var(--paper)}
+.pickrow input{width:auto;margin:0}
+.pickrow .po{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--slate)}
+.stbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.stbar .stq{flex:1;min-width:150px}
+.stbar select{width:auto;min-width:130px}
+.segbtns{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.segbtns .seg{width:auto;background:var(--card);color:var(--slate);border:none;border-radius:0;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  font-weight:600;padding:9px 14px}
+.segbtns .seg+.seg{border-left:1px solid var(--rule)}
+.segbtns .seg.on{background:var(--ink);color:#fff}
+/* The log grows without limit, and scrolling the whole page past a semester
+   of entries to reach anything under it is the wrong trade. It scrolls in
+   place instead, a page at a time. */
+.logscroll{max-height:420px;overflow-y:auto;border:1px solid var(--rule);border-radius:3px}
+.logscroll table{margin:0}
+.logmore{display:flex;gap:10px;align-items:center;margin-top:10px}
 .rowacts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .rosterhd{margin:22px 0 4px;padding-top:18px;border-top:1px solid var(--rule);font-size:15px;font-weight:700;letter-spacing:-.01em}
 .rowacts button{width:auto;border:1px solid var(--rule);background:var(--card);color:var(--slate);
@@ -506,46 +558,25 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   </nav>
 </header>
 
+<div class="modalwrap" id="modalwrap" hidden>
+  <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modaltitle">
+    <h3 id="modaltitle"></h3>
+    <p id="modalbody"></p>
+    <div id="modalfield" hidden>
+      <label for="modalinput" id="modallabel"></label>
+      <input type="text" id="modalinput" autocomplete="off">
+    </div>
+    <div class="modalacts">
+      <button class="ghost" id="modalno">Cancel</button>
+      <button id="modalyes">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div class="offlinebar" id="offlinebar" style="display:none"><b>Local only</b><span id="offlinewhy"></span></div>
 
 <!-- ============ INTAKE ============ -->
 <div class="view on" id="v-intake">
-
-<details class="spec" open>
-  <summary>What the sign-up form has to ask</summary>
-  <div class="specbody">
-    <ol>
-      <li><b>Name</b> — full name, one per member. <b>Required.</b></li>
-      <li><b>Email</b> — for the Lead to reach them. Not used by the draft; leave it off any published tab.</li>
-      <li><b>Year in the club</b> — first year or second-and-up. Ask about <i>club tenure</i>, not academic standing: a junior who just joined drafts as a first-year. <b>Required.</b></li>
-      <li><b>Which division they lean toward</b> — one option per track your club runs, plus an <b>either / no preference</b> option. Keep that last option: undecided members are the flex pieces that let the sort even out lopsided groups. Set your own track names under Club setup above. <b>Required if your club uses tracks.</b></li>
-      <li><b>MBTI type</b> — four letters. <b>Only if you switched it on</b> under Club setup. If you do use it, make it a required question with a link to one specific free test and a deadline: a partial column produces a type read that describes only the people who bothered to answer. Plenty of clubs should leave this off entirely.</li>
-      <li><b>Leadership interest</b> — yes/no, for longer-standing members. The draft spreads volunteers so every team gets its share of leaders.</li>
-      <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged so you can hand-adjust.</li>
-    </ol>
-    <h4>On making MBTI required</h4>
-    <p style="margin-top:6px">Requiring it is a real tradeoff and worth naming out loud. You get a complete read and an Assistant that can actually recommend changes; you also make members hand over a personality result to a club, and some will find a test online, click through it in ninety seconds, and give you noise. Two things make it hold up: tell members plainly what it's used for (spreading types across Orgs, not judging anyone), and link one specific free test so everyone is answering the same instrument. If someone genuinely refuses, take the type they'd guess rather than leaving the field empty — a guess is closer to true than a blank.</p>
-    <p>The tool reads raw Google Form exports and matches the columns itself. You don't need to reformat anything.</p>
-  </div>
-</details>
-
-<details class="spec" open>
-  <summary>Connecting your Google Sheet</summary>
-  <div class="specbody">
-    <p style="margin-top:0">This runs entirely in your browser — there's no server. To read a sheet directly, it has to be readable without a login.</p>
-    <h4>Option A — Publish just the responses (recommended)</h4>
-    <ol>
-      <li>In the Form's response sheet, make a <b>new tab</b> with only the columns the draft needs: name, year, track, MBTI, lead interest, notes. Leave emails out.</li>
-      <li><b>File → Share → Publish to web</b>, choose that tab, format <b>Comma-separated values (.csv)</b>, Publish.</li>
-      <li>Paste the link it gives you below.</li>
-      <li><b>Unpublish after the draft</b> — File → Share → Publish to web → Stop publishing.</li>
-    </ol>
-    <h4>Option B — Link sharing</h4>
-    <p style="margin-top:6px">Set the sheet to <b>Anyone with the link → Viewer</b> and paste the normal URL. Same privacy tradeoff, less setup.</p>
-    <h4>The privacy call</h4>
-    <p style="margin-top:6px">Publishing a tab of ~100 classmates' names and personality types makes it readable by anyone with the link. Names and years are low-risk; MBTI results and emails are more personal than they look. Keep contact details off the published tab, unpublish when you're done, and if you'd rather publish nothing, use CSV upload — the file never leaves your computer.</p>
-  </div>
-</details>
 
 <div class="panel" data-req="admin" id="clubpanel">
   <h2>Club setup</h2>
@@ -623,7 +654,49 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
     <div class="row"><button id="readpaste">Read roster</button><button id="sample" class="ghost">Load sample roster</button></div>
   </div>
   <div class="msg" id="msg"></div>
+
+  <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--rule)">
+    <h3 class="rosterhd" style="margin-top:0;padding-top:0;border-top:none">The club’s sign-up form</h3>
+    <div id="formkit"></div>
+    <div class="msg" id="formkitmsg"></div>
+  </div>
 </div>
+
+<details class="spec" open>
+  <summary>What the sign-up form has to ask</summary>
+  <div class="specbody">
+    <ol>
+      <li><b>Name</b> — full name, one per member. <b>Required.</b></li>
+      <li><b>Email</b> — for the Lead to reach them. Not used by the draft; leave it off any published tab.</li>
+      <li><b>Year in the club</b> — first year or second-and-up. Ask about <i>club tenure</i>, not academic standing: a junior who just joined drafts as a first-year. <b>Required.</b></li>
+      <li><b>Which division they lean toward</b> — one option per track your club runs, plus an <b>either / no preference</b> option. Keep that last option: undecided members are the flex pieces that let the sort even out lopsided groups. Set your own track names under Club setup above. <b>Required if your club uses tracks.</b></li>
+      <li><b>MBTI type</b> — four letters. <b>Only if you switched it on</b> under Club setup. If you do use it, make it a required question with a link to one specific free test and a deadline: a partial column produces a type read that describes only the people who bothered to answer. Plenty of clubs should leave this off entirely.</li>
+      <li><b>Leadership interest</b> — yes/no, for longer-standing members. The draft spreads volunteers so every team gets its share of leaders.</li>
+      <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged so you can hand-adjust.</li>
+    </ol>
+    <h4>On making MBTI required</h4>
+    <p style="margin-top:6px">Requiring it is a real tradeoff and worth naming out loud. You get a complete read and an Assistant that can actually recommend changes; you also make members hand over a personality result to a club, and some will find a test online, click through it in ninety seconds, and give you noise. Two things make it hold up: tell members plainly what it's used for (spreading types across Orgs, not judging anyone), and link one specific free test so everyone is answering the same instrument. If someone genuinely refuses, take the type they'd guess rather than leaving the field empty — a guess is closer to true than a blank.</p>
+    <p>The tool reads raw Google Form exports and matches the columns itself. You don't need to reformat anything.</p>
+  </div>
+</details>
+
+<details class="spec" open>
+  <summary>Connecting your Google Sheet</summary>
+  <div class="specbody">
+    <p style="margin-top:0">This runs entirely in your browser — there's no server. To read a sheet directly, it has to be readable without a login.</p>
+    <h4>Option A — Publish just the responses (recommended)</h4>
+    <ol>
+      <li>In the Form's response sheet, make a <b>new tab</b> with only the columns the draft needs: name, year, track, MBTI, lead interest, notes. Leave emails out.</li>
+      <li><b>File → Share → Publish to web</b>, choose that tab, format <b>Comma-separated values (.csv)</b>, Publish.</li>
+      <li>Paste the link it gives you below.</li>
+      <li><b>Unpublish after the draft</b> — File → Share → Publish to web → Stop publishing.</li>
+    </ol>
+    <h4>Option B — Link sharing</h4>
+    <p style="margin-top:6px">Set the sheet to <b>Anyone with the link → Viewer</b> and paste the normal URL. Same privacy tradeoff, less setup.</p>
+    <h4>The privacy call</h4>
+    <p style="margin-top:6px">Publishing a tab of ~100 classmates' names and personality types makes it readable by anyone with the link. Names and years are low-risk; MBTI results and emails are more personal than they look. Keep contact details off the published tab, unpublish when you're done, and if you'd rather publish nothing, use CSV upload — the file never leaves your computer.</p>
+  </div>
+</details>
 
 <div class="panel" id="mapper" style="display:none">
   <h2>Column mapping</h2>
@@ -676,12 +749,12 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
   <div class="panel">
     <h2>The club’s form and sheet</h2>
     <p class="hint">The sign-up form members fill in, and the spreadsheet its answers land in. Set once and everyone running this club gets the same two links. Edit them here if either link changes.</p>
-    <div id="formkit" style="margin-bottom:14px"></div>
+
     <div class="row" style="margin-top:0">
       <div class="field" style="flex:1;min-width:220px"><label for="cf-form">Google Form link</label><input type="text" class="mono" id="cf-form" placeholder="https://docs.google.com/forms/..."></div>
       <div class="field" style="flex:1;min-width:220px"><label for="cf-sheet">Response spreadsheet link</label><input type="text" class="mono" id="cf-sheet" placeholder="https://docs.google.com/spreadsheets/..."></div>
     </div>
-    <div class="msg" id="formkitmsg"></div>
+    <div class="msg" id="rlmsg"></div>
     <div id="rosterlinks" style="margin-top:14px"></div>
   </div>
 
@@ -775,6 +848,11 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
       <div class="field" style="flex:1;min-width:150px"><label for="qevent">Event label (optional)</label><input type="text" id="qevent" placeholder="Week 3 workshop"></div>
       <div class="field"><label for="qdate">Date</label><input type="date" id="qdate"></div>
     </div>
+    <div class="row" style="margin-top:12px">
+      <div class="field" style="flex:1;min-width:190px"><label for="qsearch">Find members</label><input type="text" id="qsearch" placeholder="Search the roster…"></div>
+      <div class="field" style="width:auto"><label>&nbsp;</label><button class="tiny ghost" id="qclearsel" type="button">Clear picked</button></div>
+    </div>
+    <div id="qpick" class="pickbox"></div>
     <textarea id="qnames" spellcheck="false" style="height:112px;margin-top:12px" placeholder="Alex Nguyen
 Priya Shah
 Marcus Lee"></textarea>
@@ -1859,6 +1937,111 @@ function sheetToCsvUrl(url){
   var gid=(url.match(/[#&?]gid=([0-9]+)/)||[])[1]||'0';
   return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv&gid='+gid;
 }
+/* ================= IN-PAGE DIALOGS AND DROPDOWNS ================= */
+/* confirm() and prompt() block the page on a sheet the OS draws. These return
+   a promise instead, so each caller reads as "ask, then act". */
+var MODAL={resolve:null,input:false};
+function uiAsk(o){
+  return new Promise(function(res){
+    MODAL.resolve=res; MODAL.input=!!o.input;
+    $('modaltitle').textContent=o.title||'';
+    var b=$('modalbody'); b.textContent=o.body||''; b.style.display=o.body?'':'none';
+    var f=$('modalfield');
+    if(o.input){
+      f.hidden=false;
+      $('modallabel').textContent=o.label||'';
+      var inp=$('modalinput'); inp.value=o.value||'';
+    } else f.hidden=true;
+    var yes=$('modalyes');
+    yes.textContent=o.ok||'Confirm';
+    yes.className=o.danger?'danger':'';
+    $('modalno').textContent=o.cancel||'Cancel';
+    $('modalwrap').hidden=false;
+    setTimeout(function(){(o.input?$('modalinput'):yes).focus()},30);
+  });
+}
+function uiClose(val){
+  var r=MODAL.resolve; MODAL.resolve=null;
+  $('modalwrap').hidden=true;
+  if(r)r(val);
+}
+function uiConfirm(title,body,ok,danger){
+  return uiAsk({title:title,body:body,ok:ok||'Confirm',danger:danger}).then(function(v){return v===true});
+}
+function uiPrompt(title,body,label,value,ok){
+  return uiAsk({title:title,body:body,label:label,value:value,input:true,ok:ok||'Save'});
+}
+$('modalyes').addEventListener('click',function(){uiClose(MODAL.input?$('modalinput').value:true)});
+$('modalno').addEventListener('click',function(){uiClose(MODAL.input?null:false)});
+$('modalwrap').addEventListener('click',function(e){
+  if(e.target===$('modalwrap'))uiClose(MODAL.input?null:false);
+});
+$('modalinput').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){e.preventDefault();uiClose($('modalinput').value)}
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&!$('modalwrap').hidden)uiClose(MODAL.input?null:false);
+});
+
+/* The real <select> is kept -- it still holds the value and still answers to a
+   screen reader -- and an in-page listbox is drawn over it. */
+function enhanceSelects(root){
+  var list=(root||document).querySelectorAll('select:not([data-enh])');
+  Array.prototype.forEach.call(list,function(sel){
+    sel.setAttribute('data-enh','1');
+    var wrap=document.createElement('div'); wrap.className='selwrap';
+    sel.parentNode.insertBefore(wrap,sel); wrap.appendChild(sel);
+    var btn=document.createElement('button');
+    btn.type='button'; btn.className='selbtn'; btn.setAttribute('aria-haspopup','listbox');
+    var menu=document.createElement('div');
+    menu.className='sellist'; menu.hidden=true; menu.setAttribute('role','listbox');
+    wrap.appendChild(btn); wrap.appendChild(menu);
+    function paint(){
+      var o=sel.options[sel.selectedIndex];
+      btn.textContent=o?o.textContent:''; btn.disabled=sel.disabled;
+    }
+    function build(){
+      menu.innerHTML='';
+      Array.prototype.forEach.call(sel.options,function(o,i){
+        var d=document.createElement('div');
+        d.textContent=o.textContent; d.setAttribute('role','option');
+        d.setAttribute('aria-selected',i===sel.selectedIndex?'true':'false');
+        d.addEventListener('mouseenter',function(){
+          Array.prototype.forEach.call(menu.children,function(c){c.classList.remove('on')});
+          d.classList.add('on');
+        });
+        d.addEventListener('click',function(ev){
+          ev.stopPropagation();
+          if(sel.selectedIndex!==i){
+            sel.selectedIndex=i;
+            sel.dispatchEvent(new Event('change',{bubbles:true}));
+          }
+          paint(); menu.hidden=true;
+        });
+        menu.appendChild(d);
+      });
+    }
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      if(menu.hidden){closeAllSelects();build();menu.hidden=false} else menu.hidden=true;
+    });
+    /* Most of this page rewrites its options as it re-renders, so the button
+       has to follow or it keeps showing a label that is no longer there. */
+    sel.addEventListener('change',paint);
+    new MutationObserver(paint).observe(sel,{childList:true,attributes:true});
+    paint();
+  });
+}
+function closeAllSelects(){
+  Array.prototype.forEach.call(document.querySelectorAll('.sellist'),function(m){m.hidden=true});
+}
+document.addEventListener('click',closeAllSelects);
+/* Panels are re-rendered constantly, so new selects appear all the time.
+   Catching them in one place beats remembering at every call site. */
+new MutationObserver(function(){enhanceSelects(document)})
+  .observe(document.body,{childList:true,subtree:true});
+enhanceSelects(document);
+
 /* ================= INTAKE ================= */
 /* Column matching. Two things make this harder than a substring search: form
    questions are whole sentences ("Which side of the club are you drawn to?"),
@@ -2232,7 +2415,8 @@ function run(){
     var code=tgt.slice(2), row=null;
     AFFROWS.forEach(function(a){if(a.code===code)row=a});
     var label=(row&&row.name)||code;
-    if(!confirm('Draft into "'+label+'"?\n\nThis replaces the teams that club has now. Its accounts, points and attendance are not touched.'))return;
+    uiConfirm('Draft into '+label+'?','This replaces the teams that club has now. Its accounts, points and attendance are not touched.','Draft into it').then(function(__ok){ if(!__ok)return;
+
     A.aff=code; A.affName=label; storeAff(code);
     /* Its own setup stays as that club saved it -- syncClub is deliberately
        not called here, so drafting into a club does not overwrite its
@@ -2242,7 +2426,8 @@ function run(){
     renderAffs();
     say('Drafted into '+label+'. You are now viewing that club.','good');
     return;
-  }
+    });
+}
   finishDraft(r,n);
 }
 function finishDraft(r,n){
@@ -2304,11 +2489,13 @@ function renderActions(){
     });
     row.querySelector('.kill').addEventListener('click',function(){
       var used=S.log.filter(function(l){return l.actionId===a.id}).length;
-      if(used&&!confirm('"'+a.label+'" has '+used+' logged entr'+(used>1?'ies':'y')+'. Deleting the action deletes those entries too. Continue?'))return;
+      (used?uiConfirm('Delete "'+a.label+'"?','It has '+used+' logged entr'+(used>1?'ies':'y')+'. Deleting the action deletes those entries too.','Delete',true):Promise.resolve(true)).then(function(__ok){ if(!__ok)return;
+
       S.log=S.log.filter(function(l){return l.actionId!==a.id});
       S.actions=S.actions.filter(function(x){return x.id!==a.id});
       renderActions();fillActionSelect();scoreAll();refreshScored();
-    });
+      });
+});
   });
 }
 function fillActionSelect(){
@@ -2371,40 +2558,137 @@ function refreshScored(){
   if($('v-assist').classList.contains('on'))renderAssistant();
 }
 
+/* Typing names into a box is fine off a sign-in sheet and miserable for
+   picking six people out of a hundred. The list is the same roster, ticked;
+   it writes into the same box so everything downstream is unchanged. */
+function qNames(){
+  return $('qnames').value.split(/[\n,]/).map(function(x){return x.trim()}).filter(Boolean);
+}
+function qSetNames(list){
+  $('qnames').value=list.join('\n');
+}
+function renderQuickPick(){
+  var box=$('qpick'); if(!box)return;
+  if(!S.people.length){box.innerHTML='<p class="empty" style="padding:10px">No roster yet \u2014 run the draft first.</p>';return}
+  var q=(($('qsearch')||{}).value||'').toLowerCase();
+  var picked={}; qNames().forEach(function(n){picked[normName(n)]=1});
+  var rows=S.people.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>-1});
+  if(!rows.length){box.innerHTML='<p class="empty" style="padding:10px">Nobody matches.</p>';return}
+  box.innerHTML=rows.slice(0,300).map(function(p){
+    return '<label class="pickrow"><input type="checkbox" class="qp" data-name="'+esc(p.name)+'"'+
+      (picked[normName(p.name)]?' checked':'')+'><span>'+esc(p.name)+'</span>'+
+      '<span class="po">'+esc(orgLabel(p.org))+'</span></label>';
+  }).join('');
+  Array.prototype.forEach.call(box.querySelectorAll('.qp'),function(c){
+    c.addEventListener('change',function(){
+      var list=qNames(), nm=c.dataset.name;
+      if(c.checked){ if(list.map(normName).indexOf(normName(nm))<0)list.push(nm); }
+      else list=list.filter(function(x){return normName(x)!==normName(nm)});
+      qSetNames(list);
+    });
+  });
+}
+/* Standings answer two different questions -- which Org is winning, and how
+   any one person is doing -- and only the first was ever shown. The member
+   view is the same points from the other end, and both filter, because a
+   hundred rows is not a standing anybody reads. */
+var STV={mode:'orgs',q:'',org:'',track:''};
 function renderStandings(){
   var box=$('standings');
   if(!S.orgs.length||!S.log.length){
     box.innerHTML='<p class="empty">Nothing logged yet. Standings appear as soon as you add points above \u2014 or load a sample semester to see it running.</p>';
     return;
   }
-  var ranked=S.standings.slice().sort(function(a,b){return b.per-a.per}),n=ranked.length;
-  var h='<div class="tablewrap"><table><thead><tr><th class="l">#</th><th class="l">'+esc(unitWord())+'</th>'+
-    '<th>Pts / member</th><th>Total</th><th>Full-'+esc(unitWord())+'</th><th>Entries</th><th>Turnout</th>'+
-    (tracksOf().length?'<th>Cross-track</th>':'')+'</tr></thead><tbody>';
-  ranked.forEach(function(s){
-    var cls=s.rank===1?'top':(s.rank>n-Math.max(1,Math.floor(n/3))?'bottom':'');
-    h+='<tr class="'+cls+'"><td class="l rank">'+s.rank+'</td>'+
-      '<td class="l name">'+esc(orgLabel(s.i))+'</td>'+
-      '<td>'+s.per.toFixed(1)+'</td><td>'+s.pts+'</td>'+
-      '<td>'+(s.bonusHits?s.bonusHits+'\u00D7':'\u2013')+'</td>'+
-      '<td>'+s.evts+'</td><td>'+Math.round(s.rate)+'%</td>'+
-      (tracksOf().length?'<td>'+Math.round(s.crossRate)+'%</td>':'')+'</tr>';
-  });
-  h+='</tbody></table></div>';
+  var h='<div class="stbar">'+
+    '<div class="segbtns">'+
+      '<button class="seg'+(STV.mode==='orgs'?' on':'')+'" data-mode="orgs">'+esc(unitsWord())+'</button>'+
+      '<button class="seg'+(STV.mode==='members'?' on':'')+'" data-mode="members">Members</button>'+
+    '</div>'+
+    '<input type="text" id="st-q" class="stq" placeholder="Search '+(STV.mode==='orgs'?esc(unitsWord()).toLowerCase():'names')+'\u2026" value="'+esc(STV.q)+'">';
+  if(STV.mode==='members'){
+    h+='<select id="st-org"><option value="">All '+esc(unitsWord()).toLowerCase()+'</option>'+
+      S.orgs.map(function(_,i){return '<option value="'+i+'"'+(STV.org===String(i)?' selected':'')+'>'+esc(orgLabel(i))+'</option>'}).join('')+'</select>';
+    if(tracksOf().length)
+      h+='<select id="st-track"><option value="">All '+esc(S.club.trackWord.toLowerCase())+'s</option>'+
+        allBuckets().map(function(b){return '<option value="'+esc(b.id)+'"'+(STV.track===b.id?' selected':'')+'>'+esc(b.label)+'</option>'}).join('')+'</select>';
+  }
+  h+='</div>';
+
+  var q=STV.q.toLowerCase();
+  if(STV.mode==='orgs'){
+    var ranked=S.standings.slice().sort(function(a,b){return b.per-a.per});
+    ranked.forEach(function(r,i){r.rank=i+1});
+    var n=ranked.length;
+    var shown=ranked.filter(function(r){return !q||orgLabel(r.i).toLowerCase().indexOf(q)>-1});
+    h+='<div class="tablewrap"><table><thead><tr><th class="l">#</th><th class="l">'+esc(unitWord())+'</th>'+
+      '<th>Pts / member</th><th>Total</th><th>Entries</th><th>Turnout</th>'+
+      (tracksOf().length?'<th>Cross-'+esc(S.club.trackWord.toLowerCase())+'</th>':'')+'</tr></thead><tbody>';
+    shown.forEach(function(r){
+      var cls=r.rank===1?'top':(r.rank>n-Math.max(1,Math.floor(n/3))?'bottom':'');
+      h+='<tr class="'+cls+'"><td class="l rank">'+r.rank+'</td>'+
+        '<td class="l name">'+esc(orgLabel(r.i))+'</td>'+
+        '<td>'+r.per.toFixed(1)+'</td><td>'+r.pts+'</td>'+
+        '<td>'+r.evts+'</td><td>'+Math.round(r.rate)+'%</td>'+
+        (tracksOf().length?'<td>'+Math.round(r.crossRate)+'%</td>':'')+'</tr>';
+    });
+    h+='</tbody></table></div>';
+    if(!shown.length)h+='<p class="empty">Nothing matches.</p>';
+    else if(shown.length<ranked.length)h+='<p class="hint" style="margin-top:10px">'+shown.length+' of '+ranked.length+' shown.</p>';
+  } else {
+    /* Ranked across the whole club, not within an Org, so filtering to one
+       Org still shows where its people stand against everybody else. */
+    var all=S.people.slice().sort(function(a,b){return (b.pts||0)-(a.pts||0)});
+    all.forEach(function(p,i){p.mrank=i+1});
+    var mm=all.filter(function(p){
+      if(q&&p.name.toLowerCase().indexOf(q)<0)return false;
+      if(STV.org!==''&&String(p.org)!==STV.org)return false;
+      if(STV.track&&p.track!==STV.track)return false;
+      return true;
+    });
+    h+='<div class="tablewrap"><table><thead><tr><th class="l">#</th><th class="l">Member</th>'+
+      '<th class="l">'+esc(unitWord())+'</th>'+(tracksOf().length?'<th class="l">'+esc(S.club.trackWord)+'</th>':'')+
+      '<th>Points</th><th>Entries</th></tr></thead><tbody>';
+    mm.forEach(function(p){
+      h+='<tr><td class="l rank">'+p.mrank+'</td>'+
+        '<td class="l name"><span class="nm linked" data-person="'+esc(p.name)+'">'+esc(p.name)+'</span></td>'+
+        '<td class="l">'+esc(orgLabel(p.org))+'</td>'+
+        (tracksOf().length?'<td class="l">'+esc(trackLabel(p.track)||'')+'</td>':'')+
+        '<td>'+(p.pts||0)+'</td><td>'+(p.evts||0)+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    if(!mm.length)h+='<p class="empty">Nobody matches.</p>';
+    else if(mm.length<all.length)h+='<p class="hint" style="margin-top:10px">'+mm.length+' of '+all.length+' shown.</p>';
+  }
+
   var un=Object.keys(S.unmatched);
   if(un.length){
     h+='<div class="unmatched"><b>'+un.length+' name'+(un.length>1?'s':'')+' in the log match nobody on the roster</b>'+
-      esc(un.slice(0,14).join(' \u00B7 '))+(un.length>14?' \u00B7 and '+(un.length-14)+' more':'')+
-      '<br><br>These score nothing. Usually a nickname or a typo \u2014 fix the spelling in the log below, or add the member and re-run the draft.</div>';
+      '<div>'+un.slice(0,12).map(esc).join(', ')+(un.length>12?', and '+(un.length-12)+' more':'')+'</div>'+
+      'Check the spelling in the log, or add them to the roster and run the draft again.</div>';
   }
   box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll('.seg'),function(b){
+    b.addEventListener('click',function(){STV.mode=b.dataset.mode;STV.q='';STV.org='';STV.track='';renderStandings()});
+  });
+  var qi=$('st-q');
+  if(qi)qi.addEventListener('input',function(){
+    STV.q=qi.value;
+    var at=qi.selectionStart;
+    renderStandings();
+    var again=$('st-q'); if(again){again.focus();again.setSelectionRange(at,at)}
+  });
+  var so=$('st-org'); if(so)so.addEventListener('change',function(){STV.org=so.value;renderStandings()});
+  var st=$('st-track'); if(st)st.addEventListener('change',function(){STV.track=st.value;renderStandings()});
+  wireMemberLinks(box);
 }
+var LOGSHOW=50;
 function renderLog(){
   $('logcount').textContent=S.log.length?S.log.length+' entries':'';
   var box=$('logtable');
-  if(!S.log.length){box.innerHTML='<p class="empty">The log is empty.</p>';return}
-  var rows=S.log.slice().reverse().slice(0,250);
-  var h='<div class="tablewrap"><table><thead><tr><th class="l">Member</th><th class="l">Action</th>'+
+  if(!S.log.length){box.innerHTML='<p class="empty">The log is empty.</p>';LOGSHOW=50;return}
+  var all=S.log.slice().reverse();
+  var rows=all.slice(0,LOGSHOW);
+  var h='<div class="logscroll"><div class="tablewrap"><table><thead><tr><th class="l">Member</th><th class="l">Action</th>'+
     '<th class="l">Label</th><th class="l">Date</th><th>Pts</th><th></th></tr></thead><tbody>';
   var idx={};S.people.forEach(function(p){idx[normName(p.name)]=p});
   rows.forEach(function(l){
@@ -2423,9 +2707,16 @@ function renderLog(){
       '<td class="l">'+esc(l.label||'')+'</td><td class="l">'+esc(l.date||'')+'</td><td>'+pts+'</td>'+
       '<td><button class="kill logkill" data-id="'+l.id+'" title="Remove entry">\u00D7</button></td></tr>';
   });
-  h+='</tbody></table></div>';
-  if(S.log.length>250)h+='<p class="hint" style="margin-top:10px">Showing the 250 most recent of '+S.log.length+' entries.</p>';
+  h+='</tbody></table></div></div>';
+  h+='<div class="logmore"><span class="hint" style="margin:0">Showing '+rows.length+' of '+all.length+'.</span>';
+  if(all.length>rows.length)h+='<button class="tiny ghost" id="logmore">Load '+Math.min(50,all.length-rows.length)+' more</button>';
+  if(LOGSHOW>50)h+='<button class="tiny ghost" id="logless">Show fewer</button>';
+  h+='</div>';
   box.innerHTML=h;
+  var mo=$('logmore');
+  if(mo)mo.addEventListener('click',function(){LOGSHOW+=50;renderLog()});
+  var ml=$('logless');
+  if(ml)ml.addEventListener('click',function(){LOGSHOW=50;renderLog()});
   Array.prototype.forEach.call(box.querySelectorAll('.logkill'),function(b){
     b.addEventListener('click',function(){
       S.log=S.log.filter(function(l){return String(l.id)!==b.dataset.id});
@@ -2433,7 +2724,7 @@ function renderLog(){
     });
   });
 }
-function renderCup(){renderActions();fillActionSelect();renderStandings();renderLog()}
+function renderCup(){renderActions();fillActionSelect();renderStandings();renderLog();renderQuickPick()}
 
 /* ---- Attendance tab: roster checklist for one event ---- */
 function atSay(text,kind){var m=$('atmsg');m.textContent=text;m.className='msg show'+(kind?' '+kind:'')}
@@ -3093,12 +3384,12 @@ function renderDraft(){
     el.addEventListener('click',function(){
       if(!canEdit())return;
       var i=parseInt(el.dataset.org,10);
-      var v=prompt('Name for Org '+pad(i),orgLabel(i));
-      if(v===null)return;
+      uiPrompt('Rename '+unitWord()+' '+pad(i),'','Name',orgLabel(i),'Rename').then(function(v){ if(v===null)return;
       S.orgNames[i]=v.trim()||('Org '+pad(i));
       renderDraft();renderStandings();save();
       syncTeams();
-    });
+      });
+});
   });
 }
 
@@ -3551,13 +3842,14 @@ function renderTrackList(){
     });
     row.querySelector('.tr-kill').addEventListener('click',function(){
       var used=S.people.filter(function(pp){return pp.track===id}).length;
-      if(used&&!confirm(used+' member'+(used>1?'s are':' is')+' on that track. Removing it moves them to "'+
-        S.club.flexLabel+'". Continue?'))return;
+      (used?uiConfirm('Remove this '+S.club.trackWord.toLowerCase()+'?',used+' member'+(used>1?'s are':' is')+' on it. Removing it moves them to "'+S.club.flexLabel+'".','Remove'):Promise.resolve(true)).then(function(__ok){ if(!__ok)return;
+
       S.people.forEach(function(pp){if(pp.track===id)pp.track=FLEX_ID});
       S.actions.forEach(function(a){if(a.track===id)a.track=NEUTRAL_ID});
       S.club.tracks=S.club.tracks.filter(function(t){return t.id!==id});
       renderTrackList(); clubChanged();
-    });
+      });
+});
   });
 }
 /* One button that gives a club its own copy of the standard form, attaches a
@@ -3577,8 +3869,7 @@ function wirePurgePanel(){
   var b=$('cr-purge'); if(!b)return;
   b.addEventListener('click',function(){
     var code=A.aff||'default', name=A.affName||code;
-    var t=prompt('Clear data for "'+name+'" \u2014 removes its roster, points and attendance. The club, its accounts and its setup stay. This cannot be undone.\n\nType the club code to confirm:\n'+code);
-    if(t===null)return;
+    uiPrompt('Clear data for '+name+'?','This removes its roster, points and attendance. The club, its accounts and its setup stay. It cannot be undone.','Type the club code to confirm','','Clear data').then(function(t){ if(t===null)return;
     var m=$('crpurgemsg');
     b.disabled=true; b.textContent='Clearing\u2026';
     backendPost('purgeClub',{code:code,confirm:t.trim()}).then(function(r){
@@ -3592,7 +3883,8 @@ function wirePurgePanel(){
         m.textContent=(r&&r.error)||'That was refused.'; m.className='msg show';
       }
     });
-  });
+    });
+});
 }
 /* Access is the part most likely to fail quietly -- a form that exists but
    that its own officer cannot open looks fine from here. So say who was let
@@ -3609,35 +3901,15 @@ function renderFormKit(){
   var box=$('formkit'); if(!box)return;
   if(A.offline){box.innerHTML='';return}
   if(S.club.formUrl){
-    /* A form copied before the publish step existed opens as "This document is
-       not published". Repairing it is one button rather than a walk through
-       the Forms editor. */
-    box.innerHTML='<p class="hint" style="margin:0 0 10px">This club has its own sign-up form. The links below point at it; edit them only if you have moved the form or the sheet.</p>'+
-      '<div class="linkrow" style="margin:0"><button id="repubform" class="ghost">Republish the form</button></div>'+
-      '<p class="hint">Use this if opening the form says <b>“This document is not published.”</b> It turns publishing back on and makes sure the form is accepting answers. Nothing about the questions or the responses already collected changes.</p>';
-    $('repubform').addEventListener('click',function(){
-      var b=$('repubform'); b.disabled=true; b.textContent='Republishing…';
-      backendPost('republishForm',null).then(function(r){
-        b.disabled=false; b.textContent='Republish the form';
-        if(r&&r.ok){
-          S.club.formUrl=r.formUrl;
-          S.club.formEditUrl=r.editUrl||S.club.formEditUrl||'';
-          var f=$('cf-form'); if(f)f.value=r.formUrl;
-          save(); syncClub(); renderRosterLinks(); renderFormKit();
-          formKitSay('Republished'+(r.did&&r.did.length?' \u2014 '+esc(r.did.join(', ')):'')+
-            '.'+shareNote(r)+' Open the form link to check it.'+
-            (r.failed&&r.failed.length?' Some settings were refused: '+esc(r.failed.join('; ')):''),
-            ((r.failed&&r.failed.length)||(r.shareFailed&&r.shareFailed.length))?'':'good');
-        } else formKitSay((r&&r.error)||'That was refused.');
-      });
-    });
+    box.innerHTML='<p class="hint" style="margin:0">This club has its own sign-up form. Its links, and the button to republish it, are on the <b>Roster</b> tab.</p>';
     return;
   }
-  box.innerHTML='<div class="linkrow" style="margin:0"><button id="mkform">Create this club’s sign-up form</button></div>'+
-    '<p class="hint">Makes a copy of the standard form for '+esc(A.affName||A.aff||'this club')+
-    ', attaches a fresh response spreadsheet, and fills both links in below. The copy is this club’s own — editing its questions does not touch any other club.</p>';
+  box.innerHTML='<p class="hint" style="margin:0 0 10px">No form yet. This makes a copy of the standard one for '+
+    esc(A.affName||A.aff||'this club')+', attaches a fresh response spreadsheet, and gives you access to both. '+
+    'The copy is this club\u2019s own \u2014 editing its questions does not touch any other club.</p>'+
+    '<div class="linkrow" style="margin:0"><button id="mkform">Create this club\u2019s sign-up form</button></div>';
   $('mkform').addEventListener('click',function(){
-    var b=$('mkform'); b.disabled=true; b.textContent='Creating…';
+    var b=$('mkform'); b.disabled=true; b.textContent='Creating\u2026';
     formKitSay('Copying the form and attaching a spreadsheet. This takes a few seconds.','info');
     backendPost('cloneForm',null).then(function(r){
       if(r&&r.ok){
@@ -3647,14 +3919,18 @@ function renderFormKit(){
         var sh=$('cf-sheet'); if(sh)sh.value=r.sheetUrl;
         save(); syncClub();
         renderFormKit(); renderRosterLinks();
-        formKitSay('Created “'+r.title+'”.'+shareNote(r)+
-          ' Share the form link with members.',(r.shareFailed&&r.shareFailed.length)?'':'good');
+        formKitSay('Created \u201c'+r.title+'\u201d.'+shareNote(r)+
+          ' The links are on the Roster tab.',(r.shareFailed&&r.shareFailed.length)?'':'good');
       } else {
-        b.disabled=false; b.textContent='Create this club’s sign-up form';
+        b.disabled=false; b.textContent='Create this club\u2019s sign-up form';
         formKitSay((r&&r.error)||'That was refused.');
       }
     });
   });
+}
+function rlSay(t,kind){
+  var m=$('rlmsg'); if(!m)return;
+  m.textContent=t; m.className='msg show'+(kind?' '+kind:'');
 }
 function formKitSay(t,kind){
   var m=$('formkitmsg'); if(!m)return;
@@ -3663,7 +3939,10 @@ function formKitSay(t,kind){
 function renderRosterLinks(){
   var box=$('rosterlinks'); if(!box)return;
   var f=S.club.formUrl, sh=S.club.sheetUrl;
-  if(!f&&!sh){box.innerHTML='<p class="hint" style="margin:0">No links saved yet.</p>';return}
+  if(!f&&!sh){
+    box.innerHTML='<p class="hint" style="margin:0">No form yet. Create one under <b>Intake \u2192 Roster source</b>, or paste existing links above.</p>';
+    return;
+  }
   var h='<div class="linkrow">';
   if(f)h+='<a class="linkbtn" href="'+esc(f)+'" target="_blank" rel="noopener"><b>Form</b> Open the sign-up form</a>';
   /* Answering the form and editing its questions are different URLs. Without
@@ -3671,7 +3950,25 @@ function renderRosterLinks(){
   if(S.club.formEditUrl)h+='<a class="linkbtn" href="'+esc(S.club.formEditUrl)+'" target="_blank" rel="noopener"><b>Edit</b> Change the questions</a>';
   if(sh)h+='<a class="linkbtn" href="'+esc(sh)+'" target="_blank" rel="noopener"><b>Sheet</b> Open the responses</a>';
   h+='</div>';
+  h+='<div class="linkrow" style="margin-top:10px"><button id="repubform" class="ghost">Republish the form</button></div>'+
+     '<p class="hint">Use this if opening the form says \u201cThis document is not published.\u201d It turns publishing back on, makes sure the form is accepting answers, and gives you access to it. The questions and the answers already collected are untouched.</p>';
   box.innerHTML=h;
+  $('repubform').addEventListener('click',function(){
+    var b=$('repubform'); b.disabled=true; b.textContent='Republishing\u2026';
+    backendPost('republishForm',null).then(function(r){
+      b.disabled=false; b.textContent='Republish the form';
+      if(r&&r.ok){
+        S.club.formUrl=r.formUrl;
+        S.club.formEditUrl=r.editUrl||S.club.formEditUrl||'';
+        var f2=$('cf-form'); if(f2)f2.value=r.formUrl;
+        save(); syncClub(); renderRosterLinks();
+        rlSay('Republished'+(r.did&&r.did.length?' \u2014 '+r.did.join(', '):'')+'.'+shareNote(r)+
+          ' Open the form link to check it.'+
+          (r.failed&&r.failed.length?' Some settings were refused: '+r.failed.join('; '):''),
+          ((r.failed&&r.failed.length)||(r.shareFailed&&r.shareFailed.length))?'':'good');
+      } else rlSay((r&&r.error)||'That was refused.');
+    });
+  });
 }
 var CROSTER=[];
 /* A club's roster is its accounts, not an imported sheet. It is kept separate
@@ -3777,13 +4074,14 @@ function wireClubSetup(){
     var warn=[];
     if(S.log.length)warn.push('all '+S.log.length+' logged points');
     if(S.people.length)warn.push('the track each member picked');
-    if(warn.length&&!confirm('Loading the "'+PRESETS[k].label+'" kit replaces the points catalog and the track names, which discards '+
-      warn.join(' and ')+'. The roster itself is kept. Continue?'))return;
+    (warn.length?uiConfirm('Load the '+PRESETS[k].label+' kit?','It replaces the points catalog and the '+S.club.trackWord.toLowerCase()+' names, which discards '+warn.join(' and ')+'.','Load the kit',true):Promise.resolve(true)).then(function(__ok){ if(!__ok)return;
+
     applyPreset(k);
     S.people.forEach(function(pp){if(!bucketById(pp.track))pp.track=FLEX_ID});
     renderClubSetup(); clubChanged();
     var m=$('clubmsg');m.textContent='Loaded the '+PRESETS[k].label+' kit.';m.className='msg show good';
-  });
+    });
+});
 }
 
 /* ================= ACCESS (master only) ================= */
@@ -3850,23 +4148,25 @@ function renderAccess(){
       sel.addEventListener('change',function(){
         var was=sel.dataset.was, em=sel.dataset.email;
         var label=sel.options[sel.selectedIndex].textContent;
-        if(!confirm('Move '+em+' to "'+label+'"?\n\nThat becomes the only club they can see or change, and they stop being an officer of the one they are in now.')){
-          sel.value=was; return;
-        }
+        uiConfirm('Move '+em+'?','They become an officer of "'+label+'" and nothing else. That is the only club they can see or change, and they stop being an officer of the one they are in now.','Move them').then(function(__ok){ if(!__ok){sel.value=was;return}
+
         backendPost('setRole',{email:em,role:sel.dataset.role,club:sel.value}).then(function(rr){
           if(rr&&rr.ok){accSay(em+' now runs '+esc(label)+', and only that club.','good');renderAccess()}
           else{sel.value=was;accSay((rr&&rr.error)||'That change was refused.')}
         });
-      });
+        });
+});
     });
     Array.prototype.forEach.call(box.querySelectorAll('.rolekill'),function(b){
       b.addEventListener('click',function(){
-        if(!confirm('Remove '+b.dataset.email+'? They drop back to member the next time they sign in.'))return;
+        uiConfirm('Remove '+b.dataset.email+'?','They drop back to member the next time they sign in.','Remove',true).then(function(__ok){ if(!__ok)return;
+
         backendPost('removeRole',{email:b.dataset.email}).then(function(rr){
           if(rr&&rr.ok){accSay('Removed '+b.dataset.email+'.','info');renderAccess()}
           else accSay((rr&&rr.error)||'That change was refused.');
         });
-      });
+        });
+});
     });
   });
 }
@@ -3989,8 +4289,7 @@ function renderAffs(){
        roster and points -- it stays fixed for the life of the club. */
     Array.prototype.forEach.call(box.querySelectorAll('.affpurge'),function(b){
       b.addEventListener('click',function(){
-        var t=prompt('Clear data for "'+b.dataset.name+'" — removes its roster, points and attendance. The club, its accounts and its setup stay.\n\nType the club code to confirm:\n'+b.dataset.code);
-        if(t===null)return;
+        uiPrompt('Clear data for '+b.dataset.name+'?','This removes its roster, points and attendance. The club, its accounts and its setup stay.','Type the club code to confirm: '+b.dataset.code,'','Clear data').then(function(t){ if(t===null)return;
         backendPost('purgeClub',{code:b.dataset.code,confirm:t.trim()}).then(function(r){
           if(r&&r.ok){
             affSay('Cleared the data in '+b.dataset.name+'.','info');
@@ -4005,12 +4304,12 @@ function renderAffs(){
             }
           } else affSay((r&&r.error)||'That was refused.');
         });
-      });
+        });
+});
     });
     Array.prototype.forEach.call(box.querySelectorAll('.affdel'),function(b){
       b.addEventListener('click',function(){
-        var typed=prompt('Deleting "'+b.dataset.name+'" removes its roster, points, attendance, accounts, officer list and setup. This cannot be undone.\n\nType the club code to confirm:\n'+b.dataset.code);
-        if(typed===null)return;
+        uiPrompt('Delete '+b.dataset.name+'?','This removes its roster, points, attendance, accounts, officer list and setup. It cannot be undone.','Type the club code to confirm: '+b.dataset.code,'','Delete the club').then(function(typed){ if(typed===null)return;
         backendPost('deleteAffiliation',{code:b.dataset.code,confirm:typed.trim()}).then(function(r){
           if(r&&r.ok){
             affSay('Deleted '+b.dataset.name+'.','info');
@@ -4018,17 +4317,26 @@ function renderAffs(){
             renderAffs();
           } else affSay((r&&r.error)||'That was refused.');
         });
-      });
+        });
+});
     });
     Array.prototype.forEach.call(box.querySelectorAll('.affedit'),function(b){
       b.addEventListener('click',function(){
-        var nm=prompt('Display name for this club (the short code "'+b.dataset.code+'" cannot change — every row of its data is stamped with it):',b.dataset.name);
-        if(nm===null)return;
-        var jc=prompt('New join code? Leave blank to keep the current one.\nChanging it stops any code already going around from working.','');
-        if(jc===null)jc='';
-        backendPost('updateAffiliation',{code:b.dataset.code,name:nm.trim(),joinCode:jc.trim()}).then(function(r){
-          if(r&&r.ok){affSay('Updated.','good');if(A.aff===b.dataset.code&&nm.trim()){A.affName=nm.trim();setRole(A.role,null)}renderAffs()}
-          else affSay((r&&r.error)||'That change was refused.');
+        /* Two questions, asked one after the other, because the short code is
+           fixed and the join code is optional -- crowding both into one box
+           made it read as though either could be left blank. */
+        uiPrompt('Rename '+b.dataset.name,
+          'The short code "'+b.dataset.code+'" cannot change \u2014 every row of this club\u2019s data is stamped with it.',
+          'Display name',b.dataset.name,'Next').then(function(nm){
+          if(nm===null)return;
+          uiPrompt('New join code?','Leave it blank to keep the current one. Changing it stops any code already going around from working.',
+            'Join code','','Save').then(function(jc){
+            if(jc===null)jc='';
+            backendPost('updateAffiliation',{code:b.dataset.code,name:nm.trim(),joinCode:jc.trim()}).then(function(r){
+              if(r&&r.ok){affSay('Updated.','good');if(A.aff===b.dataset.code&&nm.trim()){A.affName=nm.trim();setRole(A.role,null)}renderAffs()}
+              else affSay((r&&r.error)||'That change was refused.');
+            });
+          });
         });
       });
     });
@@ -4154,8 +4462,7 @@ function renderUsers(){
     });
     Array.prototype.forEach.call(box.querySelectorAll('.ukey'),function(b){
       b.addEventListener('click',function(){
-        var np=prompt('New password for '+b.dataset.u+' (at least 10 characters).\nTell them in person, and have them change it once they are in.');
-        if(np===null)return;
+        uiPrompt('New password for '+b.dataset.u,'Tell them in person, and have them change it once they are in.','At least 10 characters','','Set password').then(function(np){ if(np===null)return;
         if(np.length<10){userSay('Passwords must be at least 10 characters.');return}
         userSay('Deriving key…','info');
         deriveForNew(np).then(function(d){
@@ -4166,17 +4473,20 @@ function renderUsers(){
           else userSay((rr&&rr.error)||'That change was refused.');
           renderUsers();
         });
-      });
+        });
+});
     });
     Array.prototype.forEach.call(box.querySelectorAll('.ukill'),function(b){
       b.addEventListener('click',function(){
-        if(!confirm('Delete the account "'+b.dataset.u+'"? They will be signed out everywhere as soon as their session is next checked.'))return;
+        uiConfirm('Delete "'+b.dataset.u+'"?','They will be signed out everywhere as soon as their session is next checked.','Delete the account',true).then(function(__ok){ if(!__ok)return;
+
         backendPost('deleteUser',{username:b.dataset.u}).then(function(rr){
           if(rr&&rr.ok)userSay('Deleted '+b.dataset.u+'.','info');
           else userSay((rr&&rr.error)||'That change was refused.');
           renderUsers();
         });
-      });
+        });
+});
     });
   });
 }
@@ -4612,6 +4922,9 @@ $('refresh').addEventListener('click',function(){loadSheet(S.lastSheetUrl||$('sh
 $('readpaste').addEventListener('click',function(){ingest($('input').value,'your pasted rows')});
 $('sample').addEventListener('click',sampleRoster);
 $('run').addEventListener('click',run);
+if($('qsearch'))$('qsearch').addEventListener('input',renderQuickPick);
+if($('qclearsel'))$('qclearsel').addEventListener('click',function(){qSetNames([]);renderQuickPick()});
+if($('qnames'))$('qnames').addEventListener('input',renderQuickPick);
 if($('dr-target'))$('dr-target').addEventListener('change',toggleNewClub);
 $('redraw').addEventListener('click',function(){
   if(!S.people.length)return;
@@ -4632,9 +4945,11 @@ $('addact').addEventListener('click',function(){
   renderActions();fillActionSelect();save();
 });
 $('resetacts').addEventListener('click',function(){
-  if(S.log.length&&!confirm('Resetting the catalog deletes every logged entry, because entries point at actions. Continue?'))return;
+  (S.log.length?uiConfirm('Reset the catalog?','Every logged entry is deleted with it, because entries point at actions.','Reset',true):Promise.resolve(true)).then(function(__ok){ if(!__ok)return;
+
   S.actions=cloneActions();S.log=[];
   renderActions();fillActionSelect();scoreAll();refreshScored();
+  });
 });
 $('qadd').addEventListener('click',quickAdd);
 $('qsample').addEventListener('click',sampleSemester);
@@ -4663,9 +4978,11 @@ $('cuprefresh').addEventListener('click',function(){loadCupSheet(lastCupUrl||$('
 $('cupexport').addEventListener('click',exportStandings);
 $('logexport').addEventListener('click',exportLog);
 $('cupclear').addEventListener('click',function(){
-  if(S.log.length&&!confirm('Clear all '+S.log.length+' logged entries? The draft and the action catalog are untouched.'))return;
+  (S.log.length?uiConfirm('Clear the log?','All '+S.log.length+' logged entries go. The draft and the action catalog are untouched.','Clear the log',true):Promise.resolve(true)).then(function(__ok){ if(!__ok)return;
+
   S.log=[];scoreAll();refreshScored();
   cupSay('Log cleared.','info');
+  });
 });
 ['cross','explore','full','thresh'].forEach(function(k){
   $('r-'+k).addEventListener('input',function(e){
@@ -4786,9 +5103,11 @@ $('loadjson').addEventListener('change',function(e){
   fr.readAsText(f);
 });
 $('wipe').addEventListener('click',function(){
-  if(!confirm('Delete the saved draft, log, and action catalog from this browser? Export a save file first if you want to keep it.'))return;
+  uiConfirm('Wipe this browser?','The saved draft, log and action catalog are deleted from this browser. Export a save file first if you want to keep it.','Wipe',true).then(function(__ok){ if(!__ok)return;
+
   try{localStorage.removeItem(saveKey());localStorage.removeItem(SAVE_KEY)}catch(e){}
   location.reload();
+  });
 });
 
 /* Runs once the sheet has confirmed a role. The sheet is the shared
