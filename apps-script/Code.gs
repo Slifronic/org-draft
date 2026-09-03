@@ -1225,9 +1225,10 @@ function dispatch(action, payload, email, role, id) {
       /* Which club the officer runs is part of granting the role, not a
          consequence of whichever club the master happened to be viewing.
          Master may name any club; anyone else can only grant inside theirs. */
-      var wantAff = normAff((payload || {}).club || aff);
-      if (RANK[role] < RANK.master) wantAff = aff;
-      if (wantAff !== DEFAULT_AFF && !findAff(wantAff))
+      var askedClub = String((payload || {}).club || '').trim();
+      if (askedClub && RANK[role] < RANK.master) askedClub = '';
+      var wantAff = askedClub ? normAff(askedClub) : aff;
+      if (askedClub && wantAff !== DEFAULT_AFF && !findAff(wantAff))
         return {ok: false, error: 'No club with the code "' + wantAff + '".'};
 
       var sh2 = tab('roles'), vals = sh2.getDataRange().getValues();
@@ -1239,9 +1240,15 @@ function dispatch(action, payload, email, role, id) {
           /* Affiliation was never rewritten here, so an officer could not be
              moved between clubs -- the grant looked like it worked and left
              them where they were. One row per address is what pins a person
-             to one club, so it is updated rather than duplicated. */
-          sh2.getRange(i + 1, 5).setValue(wantAff);
-          return {ok: true, updated: em2, role: newRole, aff: wantAff};
+             to one club, so it is updated rather than duplicated.
+
+             Only when a club was actually named, though. Falling back to the
+             club being viewed would mean changing somebody's role from the
+             roles table -- which sends no club -- silently moved them into
+             whichever club happened to be on screen. */
+          var keptAff = normAff(vals[i][4] || DEFAULT_AFF);
+          if (askedClub) { sh2.getRange(i + 1, 5).setValue(wantAff); keptAff = wantAff; }
+          return {ok: true, updated: em2, role: newRole, aff: keptAff};
         }
       }
       sh2.appendRow([em2, newRole, email, new Date(), wantAff]);

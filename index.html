@@ -3790,16 +3790,23 @@ function renderAccess(){
     : 'Officers are per club. Anyone granted here is an officer of <b>'+esc(A.affName||A.aff||'\u2014')+'</b> only.';
   var box=$('acctable');
   if(A.offline){box.innerHTML='<p class="empty">Roles live in the club sheet, and this browser is not connected to it.</p>';return}
+  /* The club column is a picker, so the club list has to be in hand first. */
+  if(isMaster()&&!AFFROWS.length){renderAffs();}
   box.innerHTML='<p class="empty">Loading…</p>';
   backendPost('listRoles',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the roles list. Check the Apps Script deployment.</p>';return}
     var rows=r.roles||[];
-    var h='<div class="acctrow r4 head"><span>Google address</span><span>Club</span><span>Role</span><span></span></div>';
+    var h='<div class="acctrow r4 head"><span>Google address</span><span>Club they run</span><span>Role</span><span></span></div>';
     if(!rows.length)h+='<p class="empty">Only you so far. Everyone else who signs in is a member.</p>';
     rows.forEach(function(x){
       var locked=(x.role==='master'&&x.locked);
       h+='<div class="acctrow r4"><span class="em">'+esc(x.email)+'</span>'+
-        '<span'+(locked?' class="lock"':'')+'>'+esc(x.affName||x.aff||'\u2014')+'</span>'+
+        (locked||!isMaster()
+          ? '<span'+(locked?' class="lock"':'')+'>'+esc(x.affName||x.aff||'\u2014')+'</span>'
+          : '<select class="clubsel" data-email="'+esc(x.email)+'" data-role="'+esc(x.role)+'" data-was="'+esc(x.aff||'')+'">'+
+            AFFROWS.map(function(a){
+              return '<option value="'+esc(a.code)+'"'+(a.code===x.aff?' selected':'')+'>'+esc(a.name)+'</option>';
+            }).join('')+'</select>')+
         (locked
           ? '<span class="lock">master · you</span><span></span>'
           : '<select class="rolesel" data-email="'+esc(x.email)+'">'+
@@ -3813,8 +3820,25 @@ function renderAccess(){
     Array.prototype.forEach.call(box.querySelectorAll('.rolesel'),function(sel){
       sel.addEventListener('change',function(){
         backendPost('setRole',{email:sel.dataset.email,role:sel.value}).then(function(rr){
-          if(rr&&rr.ok){accSay(sel.dataset.email+' is now '+sel.value+'.','good');renderAccess()}
+          if(rr&&rr.ok){accSay(sel.dataset.email+' is now '+sel.value+
+            (rr.aff?' of '+esc(rr.aff):'')+'.','good');renderAccess()}
           else accSay((rr&&rr.error)||'That change was refused.');
+        });
+      });
+    });
+    /* Moving an officer is a different act from changing their rank, so it
+       asks: the club they run is the only one they can see, and the club they
+       leave loses an officer. */
+    Array.prototype.forEach.call(box.querySelectorAll('.clubsel'),function(sel){
+      sel.addEventListener('change',function(){
+        var was=sel.dataset.was, em=sel.dataset.email;
+        var label=sel.options[sel.selectedIndex].textContent;
+        if(!confirm('Move '+em+' to "'+label+'"?\n\nThat becomes the only club they can see or change, and they stop being an officer of the one they are in now.')){
+          sel.value=was; return;
+        }
+        backendPost('setRole',{email:em,role:sel.dataset.role,club:sel.value}).then(function(rr){
+          if(rr&&rr.ok){accSay(em+' now runs '+esc(label)+', and only that club.','good');renderAccess()}
+          else{sel.value=was;accSay((rr&&rr.error)||'That change was refused.')}
         });
       });
     });
