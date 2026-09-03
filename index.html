@@ -385,22 +385,24 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 
 /* ---- access control table ---- */
 .acctrow{display:grid;grid-template-columns:1fr 130px 232px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #EFEDE6}
-/* The actions cell used to be a fixed 60px holding three buttons, so they spilled
+/* Named rowacts, not acts: .acts is already the Org Cup's action list, and
+   reusing it turned that list into a right-justified wrapping flexbox.
+   The actions cell used to be a fixed 60px holding three buttons, so they spilled
    over the join code beside them and could not reliably be hit. It is now wide
    enough for all three -- and a fixed width, because every row is its own grid,
    so an auto cell put the code column in a different place on each row. */
-.acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.rowacts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .rosterhd{margin:22px 0 4px;padding-top:18px;border-top:1px solid var(--rule);font-size:15px;font-weight:700;letter-spacing:-.01em}
-.acts button{width:auto;border:1px solid var(--rule);background:var(--card);color:var(--slate);
+.rowacts button{width:auto;border:1px solid var(--rule);background:var(--card);color:var(--slate);
   font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;padding:6px 10px;border-radius:3px;cursor:pointer}
-.acts button:hover{border-color:var(--ink);color:var(--ink)}
-.acts button.danger{color:var(--flag)}
-.acts button.danger:hover{border-color:var(--flag);background:var(--flag);color:#fff}
+.rowacts button:hover{border-color:var(--ink);color:var(--ink)}
+.rowacts button.danger{color:var(--flag)}
+.rowacts button.danger:hover{border-color:var(--flag);background:var(--flag);color:#fff}
 .acctrow.head span{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
 .acctrow .em{font-family:'IBM Plex Mono',monospace;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .acctrow .lock{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--compete);letter-spacing:.08em}
-@media(max-width:560px){.acctrow{grid-template-columns:1fr;gap:6px}.acts{justify-content:flex-start}.acctrow.head{display:none}}
+@media(max-width:560px){.acctrow{grid-template-columns:1fr;gap:6px}.rowacts{justify-content:flex-start}.acctrow.head{display:none}}
 </style>
 </head>
 <body data-role="none">
@@ -3920,7 +3922,7 @@ function renderAffs(){
         return '<div class="acctrow"><span>'+esc(a.name)+
                (a.code===A.aff?' <span class="lock">viewing</span>':'')+'</span>'+
                '<span class="em">'+esc(a.code)+'</span>'+
-               '<span class="acts">'+acts+'</span></div>';
+               '<span class="rowacts">'+acts+'</span></div>';
       }).join('');
     /* Renaming changes the display name only. The short code is what every
        row of data is stamped with, so changing that would orphan the club's
