@@ -1096,8 +1096,13 @@ function dispatch(action, payload, email, role, id) {
          it is a suggestion. Master runs the whole system and may clear any. */
       if (RANK[role] < RANK.master && pc !== aff)
         return {ok: false, error: 'You can only clear your own club.'};
-      if (String((payload || {}).confirm) !== pc)
-        return {ok: false, error: 'Type the club code to confirm.'};
+      /* The code is normalised on the way in but the typed confirmation was
+         compared raw, so a single capital letter -- "Deanza-pbl" -- was
+         refused with a message telling you to type the code you had just
+         typed. Both sides are normalised now: it still has to be the code,
+         but case and stray spacing no longer decide it. */
+      if (normAff((payload || {}).confirm) !== pc)
+        return {ok: false, error: 'That is not the code for this club. Type ' + pc + ' to confirm.'};
       var wiped = {};
       ['teams', 'pointsLog', 'attendance'].forEach(function (k) {
         var sh = tab(k); if (!sh) return;
@@ -1114,8 +1119,8 @@ function dispatch(action, payload, email, role, id) {
     case 'deleteAffiliation': {
       var dcode = normAff((payload || {}).code);
       if (!dcode || dcode === DEFAULT_AFF) return {ok: false, error: 'That club cannot be deleted.'};
-      if (String((payload || {}).confirm) !== dcode)
-        return {ok: false, error: 'Type the club code to confirm.'};
+      if (normAff((payload || {}).confirm) !== dcode)
+        return {ok: false, error: 'That is not the code for this club. Type ' + dcode + ' to confirm.'};
       /* Rows are removed bottom-up so earlier deletions do not shift the
          indexes of rows not yet examined. */
       ['teams', 'pointsLog', 'attendance', 'users', 'roles', 'profiles'].forEach(function (k) {

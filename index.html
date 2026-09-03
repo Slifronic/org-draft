@@ -3869,7 +3869,11 @@ function wirePurgePanel(){
   var b=$('cr-purge'); if(!b)return;
   b.addEventListener('click',function(){
     var code=A.aff||'default', name=A.affName||code;
-    uiPrompt('Clear data for '+name+'?','This removes its roster, points and attendance. The club, its accounts and its setup stay. It cannot be undone.','Type the club code to confirm','','Clear data').then(function(t){ if(t===null)return;
+    /* The code has to be on screen. This dialog asked for it without ever
+       showing it, so the only way through was to already know it. */
+    uiPrompt('Clear data for '+name+'?',
+      'This removes its roster, points and attendance. The club, its accounts and its setup stay. It cannot be undone.',
+      'Type the club code to confirm: '+code,'','Clear data').then(function(t){ if(t===null)return;
     var m=$('crpurgemsg');
     b.disabled=true; b.textContent='Clearing\u2026';
     backendPost('purgeClub',{code:code,confirm:t.trim()}).then(function(r){
