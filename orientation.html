@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orientation — The Org System</title>
+<script>
+/* Ahead of the stylesheet, and sharing the app's key, so arriving here from a
+   light-mode session does not flash dark first. */
+(function(){try{
+  var t=localStorage.getItem('orgsystem.theme')||'';
+  var light=(t==='light')||(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
+  if(light)document.documentElement.setAttribute('data-theme','light');
+}catch(e){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --ink:#e9ebdf; --slate:#cbccc4; --mute:#94958e; --rule:#3f403d; --paper:#151515; --card:#242424;
+  --void:#0e0e0e; --forest:#185849; --moss:#0e352c; --flag:#e8765e; --ok:#4fae8c;
+  --hair:#2b2b2b; --gridline:rgba(233,235,223,.045);
+  --consult:#7aa9dd; --compete:#e8765e; --either:#b6b8af;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --ink:#1b1c19; --slate:#4a4c46; --mute:#6d6f68; --rule:#d3d2ca; --paper:#f2f1ea; --card:#fbfaf5;
+  --void:#ffffff; --forest:#2c6f56; --moss:#dfeae2; --flag:#b4442c; --ok:#2c6f56;
+  --hair:#e6e5dd; --gridline:rgba(27,28,25,.05);
+  --consult:#2f6193; --compete:#b4442c; --either:#6f7268;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;
+  font-size:16px;line-height:1.6;padding:0 0 90px}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px}
+.mono{font-family:'Space Grotesk',ui-monospace,monospace}
+
+/* masthead — the app's grid texture and teal edge */
+header{border-bottom:1px solid var(--rule);padding:34px 0 26px;margin-bottom:30px;
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--gridline) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--gridline) 1px,transparent 1px);
+  background-size:34px 34px;background-position:-1px -1px;
+  box-shadow:inset 0 -1px 0 var(--forest)}
+.eyebrow{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--mute);margin-bottom:10px}
+h1{font-size:clamp(30px,4.8vw,46px);font-weight:300;letter-spacing:-.022em;line-height:1.02}
+h1 span{color:var(--mute)}
+.lede{margin-top:14px;color:var(--slate);max-width:66ch;font-size:17px}
+.topbar{display:flex;align-items:center;gap:12px;margin-top:20px;flex-wrap:wrap}
+.themebtn,.applink{background:transparent;border:1px solid var(--rule);color:var(--slate);
+  font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;padding:7px 12px;cursor:pointer;text-decoration:none;display:inline-block}
+.themebtn:hover,.applink:hover{color:var(--ink);border-color:var(--ink)}
+
+/* contents */
+.toc{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:18px 20px;margin-bottom:34px}
+.toc .t{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--mute);margin-bottom:12px}
+.toc ol{margin:0;padding-left:20px;columns:2;column-gap:32px}
+.toc li{margin-bottom:6px;break-inside:avoid}
+.toc a{color:var(--ink);text-decoration:none;border-bottom:1px solid transparent}
+.toc a:hover{border-bottom-color:var(--rule)}
+@media(max-width:640px){.toc ol{columns:1}}
+
+section{padding-top:26px;margin-top:26px;border-top:1px solid var(--rule)}
+section:first-of-type{border-top:0;margin-top:0}
+h2{font-family:'Space Grotesk',ui-monospace,monospace;font-size:13.5px;letter-spacing:.12em;
+  text-transform:uppercase;font-weight:400;color:var(--mute);margin-bottom:14px}
+h3{font-size:20px;font-weight:300;letter-spacing:-.02em;margin:22px 0 8px}
+p{margin-bottom:13px;max-width:70ch}
+ul,ol.steps{margin:0 0 14px 20px}
+li{margin-bottom:8px;max-width:68ch}
+strong{font-weight:500}
+a{color:var(--ink)}
+.note{color:var(--slate)}
+
+/* cards used for the tab walkthrough */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:14px;margin-top:6px}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:16px}
+.card h4{font-size:17px;font-weight:400;letter-spacing:-.01em;margin-bottom:4px;
+  display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.card p{font-size:14.5px;color:var(--slate);margin:8px 0 0;max-width:none}
+.who{font-family:'Space Grotesk',ui-monospace,monospace;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;border:1px solid var(--rule);border-radius:4px;padding:2px 6px;
+  color:var(--mute);white-space:nowrap}
+.who.all{border-color:var(--forest);background:var(--moss);color:var(--ink)}
+
+/* the role matrix */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;margin:8px 0 14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--hair);white-space:nowrap}
+th{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--mute);font-weight:400;background:var(--card)}
+tr:last-child td{border-bottom:0}
+td.y{color:var(--ok)}
+td.n{color:var(--mute)}
+td:first-child{white-space:normal;min-width:190px}
+
+/* the semester timeline */
+.phase{display:grid;grid-template-columns:104px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--hair)}
+.phase:last-child{border-bottom:0}
+.phase .when{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--forest);padding-top:3px}
+:root[data-theme="light"] .phase .when{color:var(--forest)}
+.phase p{margin:0;font-size:15px}
+.phase b{display:block;font-weight:500;margin-bottom:3px}
+@media(max-width:560px){.phase{grid-template-columns:1fr;gap:4px}}
+
+.callout{border-left:3px solid var(--forest);background:var(--card);border-radius:0 8px 8px 0;
+  padding:14px 16px;margin:16px 0}
+.callout p:last-child{margin-bottom:0}
+.callout .k{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--mute);display:block;margin-bottom:6px}
+.warn{border-left-color:var(--flag)}
+
+kbd{font-family:'Space Grotesk',ui-monospace,monospace;font-size:12.5px;background:var(--void);
+  border:1px solid var(--rule);border-radius:4px;padding:1px 6px;color:var(--ink)}
+
+footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--rule);
+  font-size:13px;color:var(--mute);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+footer a{color:var(--slate)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Phi Beta Lambda · The Org System</div>
+    <h1>Orientation <span>/ what this thing is and how to use it</span></h1>
+    <p class="lede">This chapter runs its teams, its attendance and its Cup out of one page. This is the tour — what each tab does, who can see it, and what you are expected to do with it.</p>
+    <div class="topbar">
+      <a class="applink" href="/">Open the app</a>
+      <button class="themebtn" id="themebtn" type="button">Light</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <nav class="toc">
+    <div class="t">On this page</div>
+    <ol>
+      <li><a href="#what">What the system is for</a></li>
+      <li><a href="#in">Getting in</a></li>
+      <li><a href="#roles">The four roles</a></li>
+      <li><a href="#tabs">Every tab, in order</a></li>
+      <li><a href="#draft">How the draft works</a></li>
+      <li><a href="#cup">How the Org Cup works</a></li>
+      <li><a href="#you">Your own page</a></li>
+      <li><a href="#semester">A semester, start to finish</a></li>
+      <li><a href="#privacy">What is stored, and where</a></li>
+    </ol>
+  </nav>
+
+  <section id="what">
+    <h2>What the system is for</h2>
+    <p>A chapter with a hundred members has a problem that a chapter with fifteen does not: nobody can hold the whole roster in their head. Who is new, who competes, who has turned up to nothing since September. This page exists to answer that without a spreadsheet nobody wants to maintain.</p>
+    <p>It does three things. It <strong>drafts</strong> the chapter into balanced teams — Orgs — instead of letting them form by friend group. It <strong>tracks participation</strong>, so showing up is visible and counts for something. And it runs the <strong>Org Cup</strong>, which is the season-long competition between those Orgs that makes the first two matter.</p>
+    <p>Everything else on the page is in service of one of those three.</p>
+  </section>
+
+  <section id="in">
+    <h2>Getting in</h2>
+    <p>Sign in with the Google account your chapter knows you by, or with a username and password if an officer made you one. What you can see depends entirely on the role your officers gave you — not on anything you can set yourself.</p>
+    <ol class="steps">
+      <li><strong>Sign in.</strong> Google is the normal door. Your name, email and profile picture are all the page receives; it never sees your password.</li>
+      <li><strong>Join your chapter.</strong> The first time, you pick your chapter from a list and enter its <strong>join code</strong>. Officers hand that out the way you would a door code. The chapter's name being public does not let anyone in.</li>
+      <li><strong>Fill in the sign-up form.</strong> This is the part people skip, and it is the part that matters. The draft cannot place you sensibly without it.</li>
+    </ol>
+    <div class="callout">
+      <span class="k">Why the form is not optional</span>
+      <p>The draft balances four things: team size, which division you lean toward, how long you have been in the chapter, and — if your chapter uses them — personality types. Every one of those comes from the form. A blank answer does not make you neutral; it makes you a coin flip.</p>
+    </div>
+  </section>
+
+  <section id="roles">
+    <h2>The four roles</h2>
+    <p>Roles are set by officers and checked on the server every time anything is saved. Hiding a button is not what keeps things safe — the sheet refuses writes it should not accept, whatever the page happens to be showing.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Can they…</th><th>Member</th><th>Org&nbsp;Lead</th><th>Admin</th><th>Master</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>See standings and their own Org</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>See their own points and type</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>See another member's points or type</td><td class="n">No</td><td class="n">No</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Rename their own Org</td><td class="n">No</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Run the draft, log attendance, set points</td><td class="n">No</td><td class="n">No</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Read private notes on members</td><td class="n">No</td><td class="n">No</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Remove accounts, edit the sign-up form</td><td class="n">No</td><td class="n">No</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Create chapters, grant roles</td><td class="n">No</td><td class="n">No</td><td class="n">No</td><td class="y">Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><strong>Org Lead</strong> is not a separate account type — it is a member the draft marked as a leader. It carries one power: naming the Org you lead. Everything else about running it still goes through an officer.</p>
+  </section>
+
+  <section id="tabs">
+    <h2>Every tab, in order</h2>
+    <p>The tabs across the top run roughly left to right in the order a semester uses them. Several are officer-only and simply will not appear for members.</p>
+    <div class="cards">
+
+      <div class="card">
+        <h4>Intake <span class="who">Officers</span></h4>
+        <p>Where the chapter is configured and where the roster comes in. Set what a team is called, how the chapter divides, what the ranks are — the whole page adopts your words. Then load the roster from the response sheet, a CSV, or a paste.</p>
+      </div>
+
+      <div class="card">
+        <h4>Roster <span class="who">Officers</span></h4>
+        <p>Everyone holding an account in this chapter, however they signed in. It fills itself as people join. Click anyone to see their card. This is also where the sign-up form's links live and where its questions are edited.</p>
+      </div>
+
+      <div class="card">
+        <h4>Draft <span class="who all">Everyone</span></h4>
+        <p>The Orgs themselves, as cards. Officers run and re-run the draft here and can move people by hand. Members see the teams and who is on them — ordinary chapter knowledge — but not each other's types or points.</p>
+      </div>
+
+      <div class="card">
+        <h4>Teams <span class="who all">Everyone</span></h4>
+        <p>One Org at a time, in depth: its roster, its division split, its type composition, its standing in the Cup. This is the page an Org Lead lives on.</p>
+      </div>
+
+      <div class="card">
+        <h4>Attendance <span class="who">Officers</span></h4>
+        <p>Pick the event, check off who showed up, log it. It writes to the same points log as the Cup, so standings move the moment you save.</p>
+      </div>
+
+      <div class="card">
+        <h4>Org Cup <span class="who all">Everyone</span></h4>
+        <p>Two pages behind one dropdown. <strong>Standings</strong> is what everyone opens it for. <strong>What earns points</strong> is the scoring catalog — every action, what it is worth, and what kind of thing it is.</p>
+      </div>
+
+      <div class="card">
+        <h4>Assistant <span class="who">Officers</span></h4>
+        <p>Suggested swaps that improve type balance without disturbing anything else, plus per-Org advice. Every proposal trades two people of the same year, division and leader status, so applying one cannot unbalance the draft.</p>
+      </div>
+
+      <div class="card">
+        <h4>Profile <span class="who all">Everyone</span></h4>
+        <p>Your page. Your points and where they came from, your sign-up answers, your recognitions, and your own name and picture.</p>
+      </div>
+
+      <div class="card">
+        <h4>Sign-up form <span class="who all">Everyone</span></h4>
+        <p>The chapter's own form, filled in without leaving the page. Appears until you have completed it. Your answers are saved to your account as soon as you send it.</p>
+      </div>
+
+      <div class="card">
+        <h4>Access <span class="who">Master</span></h4>
+        <p>Who can do what, which chapters exist on the system, join codes, and every account that has ever signed up.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="draft">
+    <h2>How the draft works</h2>
+    <p>The draft is not random and it is not a popularity contest. It sorts the chapter into Orgs that are as alike as possible along four axes at once:</p>
+    <ul>
+      <li><strong>Size.</strong> Orgs come out within one member of each other.</li>
+      <li><strong>Division.</strong> Whichever tracks your chapter runs — consulting and case competitions, say — get spread evenly rather than clustering.</li>
+      <li><strong>Tenure.</strong> First-years and returning members are mixed, so no Org is all new.</li>
+      <li><strong>Leadership.</strong> Members who said they are interested in leading are distributed, so every Org has some.</li>
+    </ul>
+    <p>If your chapter uses personality types, a fifth axis is added: the sorter tries to avoid an Org that is nine of one type and nothing else. That is what the <em>balance score</em> on the Draft tab measures — lower is better.</p>
+    <div class="callout">
+      <span class="k">Members who picked "either / no preference"</span>
+      <p>These are the flexible pieces, and they are the reason a lopsided chapter can still come out even. If you genuinely do not mind which division you end up in, saying so is more useful than guessing.</p>
+    </div>
+    <p>Officers can move anyone by hand afterwards. The draft is a starting point, not a verdict.</p>
+  </section>
+
+  <section id="cup">
+    <h2>How the Org Cup works</h2>
+    <p>Every Org accumulates points across the semester. The catalog of what earns them is set by your officers and is meant to be edited — it should describe what your chapter actually does.</p>
+    <p>Points are grouped by <strong>kind</strong>, each with its own colour: meetings, competition, service, social, leadership and recruiting. That grouping is what lets you see at a glance that an Org is winning on attendance but has done no service.</p>
+    <h3>Three things sit on top of the base points</h3>
+    <ul>
+      <li><strong>Cross-division bonus.</strong> Turn up to an event on the other side of the chapter and you earn extra. This exists specifically to stop the two divisions becoming two clubs.</li>
+      <li><strong>No-preference bonus.</strong> Members with no division preference earn a little extra for exploring.</li>
+      <li><strong>Full-team bonus.</strong> If most of an Org shows up to the same thing, the whole Org gets a bonus. Dragging your friends along is the point.</li>
+    </ul>
+    <div class="callout">
+      <span class="k">Why standings are ranked per member</span>
+      <p>An Org with eleven people would beat an Org with nine on raw totals every time, regardless of effort. Ranking on points per member means the Cup measures participation rather than headcount.</p>
+    </div>
+  </section>
+
+  <section id="you">
+    <h2>Your own page</h2>
+    <p>The Profile tab is the only page written for you rather than for an officer. It shows:</p>
+    <ul>
+      <li><strong>Your points and entries</strong>, and a breakdown of which kinds of things earned them.</li>
+      <li><strong>Your sign-up answers</strong> — year, division, type, leadership interest — read back from the chapter's response sheet. If they are missing, there is a button to go and fetch them.</li>
+      <li><strong>Your recognitions.</strong> Officers award these for things the points system does not capture. They do not affect the Cup.</li>
+      <li><strong>Your name and picture</strong>, which you can change, and a password you can set if you would rather not use Google.</li>
+    </ul>
+    <p class="note">Another member's type and points are theirs. Officers see them because running the draft and the Cup requires it; other members do not.</p>
+  </section>
+
+  <section id="semester">
+    <h2>A semester, start to finish</h2>
+    <p>What officers actually do, in order.</p>
+
+    <div class="phase">
+      <div class="when">Week 0</div>
+      <div>
+        <p><b>Set the chapter up</b>Name the divisions and ranks under Intake, decide whether you are using personality types, and create the sign-up form. Hand out the join code.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="when">Weeks 1–2</div>
+      <div>
+        <p><b>Collect sign-ups</b>Members join, fill in the form, and appear on the Roster on their own. Chase the people who have not — a partial roster produces a lopsided draft.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="when">Week 2</div>
+      <div>
+        <p><b>Run the draft</b>Load the roster, pick how many Orgs, run it. Look at the flags, take the Assistant's swaps if they help, hand-adjust anyone with a note. Then tell everyone.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="when">All term</div>
+      <div>
+        <p><b>Log attendance</b>After every meeting, workshop and competition. This is the whole job — five minutes an event, and the Cup runs itself. Skip it for three weeks and the standings stop meaning anything.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="when">End of term</div>
+      <div>
+        <p><b>Hand it over</b>Export a save file and give it to whoever runs the Cup next. Then clear the chapter's data for a new semester — accounts and setup stay, roster and points go.</p>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <span class="k">The one thing that goes wrong</span>
+      <p>The browser copy is a convenience, not a backup. It disappears if the cache is cleared or the officer changes laptops. Export a save file at the end of each semester, and do not rely on one person's browser holding the only copy of anything.</p>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <h2>What is stored, and where</h2>
+    <p>Everything lives in your chapter's own Google Sheet, owned by your chapter. There is no separate database and no third party holding your roster.</p>
+    <ul>
+      <li><strong>Names, divisions, tenure, leadership interest</strong> — from the sign-up form, in the sheet.</li>
+      <li><strong>Personality types</strong>, if your chapter uses them. More personal than they look. Only you and your officers see yours.</li>
+      <li><strong>Attendance and points</strong>, one row per entry.</li>
+      <li><strong>Your name and picture</strong>, if you set them.</li>
+    </ul>
+    <p>Chapters are separate from one another: separate roster, separate teams, separate points, separate officers. Nothing crosses between them.</p>
+    <p class="note">Full detail is in the <a href="/privacy">privacy policy</a> and the <a href="/terms">terms</a>.</p>
+  </section>
+
+  <footer>
+    <span>The Org System · orientation for Phi Beta Lambda</span>
+    <span><a href="/">Open the app</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var b=document.getElementById('themebtn');
+  function paint(){
+    var light=document.documentElement.getAttribute('data-theme')==='light';
+    b.textContent=light?'Dark':'Light';
+  }
+  b.addEventListener('click',function(){
+    var next=(document.documentElement.getAttribute('data-theme')==='light')?'dark':'light';
+    try{localStorage.setItem('orgsystem.theme',next)}catch(e){}
+    if(next==='light')document.documentElement.setAttribute('data-theme','light');
+    else document.documentElement.removeAttribute('data-theme');
+    paint();
+  });
+  paint();
+})();
+</script>
+</body>
+</html>

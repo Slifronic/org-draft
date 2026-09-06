@@ -79,6 +79,10 @@
     {
       "source": "/access",
       "destination": "/"
+    },
+    {
+      "source": "/orientation",
+      "destination": "/orientation.html"
     }
   ]
 }
