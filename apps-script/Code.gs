@@ -30,7 +30,9 @@ var NEEDS = {
   createAffiliation: 'master', updateAffiliation: 'master', deleteAffiliation: 'master',
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
-  listSignups: 'master', purgeClub: 'admin',
+  listSignups: 'admin', deleteSignup: 'admin',
+  formItems: 'admin', saveFormItems: 'admin',
+  purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
   forkClub: 'admin'
 };
@@ -932,7 +934,75 @@ function dispatch(action, payload, email, role, id) {
 
     /* Every account on the system, with the club it belongs to. Master only,
        and deliberately does not return anything credential-shaped. */
-    case 'listSignups': return {ok: true, signups: accountsFor(null)};
+    case 'listSignups': {
+      /* A master runs the system and sees every club; an admin runs one club
+         and sees only the accounts in it. The scope is decided here rather
+         than in the browser so a filter cannot be edited around. */
+      var sgScope = (role === 'master') ? null : aff;
+      return {ok: true, signups: accountsFor(sgScope)};
+    }
+
+    /* Removing an account is two different writes depending on how the person
+       gets in, so the browser says who and this decides where the row lives.
+       An admin can only reach into their own club, and nobody can delete the
+       master or themselves. */
+    case 'deleteSignup': {
+      var dsWho  = String((payload || {}).who || '').trim();
+      var dsAff  = normAff((payload || {}).aff || aff);
+      if (!dsWho) return {ok: false, error: 'No account was named.'};
+      /* An admin runs one club, so the club being written to is confined here
+         rather than in the browser -- a UI that only offers your own club is
+         a suggestion, not a control. */
+      if (RANK[role] < RANK.master && dsAff !== aff)
+        return {ok: false, error: 'You can only remove accounts in your own club.'};
+      if (dsWho.toLowerCase() === String(MASTER_EMAIL).toLowerCase())
+        return {ok: false, error: 'The master account cannot be removed here.'};
+      if (dsWho.toLowerCase() === String(email || '').toLowerCase())
+        return {ok: false, error: 'You cannot remove the account you are signed in with.'};
+      /* Confirm the account really is in that club before deleting anything,
+         so a mistyped name cannot take out a row from somewhere else. */
+      var dsFound = accountsFor(dsAff).filter(function (u) {
+        return String(u.who).toLowerCase() === dsWho.toLowerCase();
+      })[0];
+      if (!dsFound) return {ok: false, error: 'No such account in this club.'};
+      if (String(dsFound.role).toLowerCase() === 'master' && RANK[role] < RANK.master)
+        return {ok: false, error: 'Only the master can remove a master account.'};
+
+      var removed = 0;
+      /* The kind comes from the record, never from the browser: the same person
+         can hold a Google row in one club and a password row in another, and a
+         payload claiming the wrong kind would otherwise reach across clubs. */
+      if (String(dsFound.kind) === 'password') {
+        var recS = findUser(normUser(dsWho));
+        if (!recS) return {ok: false, error: 'No such account.'};
+        if (normAff(recS.affiliation) !== dsAff)
+          return {ok: false, error: 'No such account in this club.'};
+        recS.sheet.deleteRow(recS.row);
+        removed++;
+      } else {
+        var shS = tab('roles'), vS = shS.getDataRange().getValues();
+        var hdrS = vS[0].map(function (x) { return String(x).trim(); });
+        var cEm = hdrS.indexOf('Email'), cAf = hdrS.indexOf('Affiliation');
+        for (var k = vS.length - 1; k >= 1; k--) {
+          if (String(vS[k][cEm]).toLowerCase().trim() !== dsWho.toLowerCase()) continue;
+          if (cAf > -1 && normAff(vS[k][cAf]) !== dsAff) continue;
+          shS.deleteRow(k + 1);
+          removed++;
+        }
+        if (!removed) return {ok: false, error: 'No such account in this club.'};
+      }
+      /* Their saved profile goes with them, so a re-signup starts clean. */
+      try {
+        var shP = tab('profiles'), vP = shP.getDataRange().getValues();
+        var hP = vP[0].map(function (x) { return String(x).trim(); });
+        var pEm = hP.indexOf('Email'), pAf = hP.indexOf('Affiliation');
+        for (var q = vP.length - 1; q >= 1; q--) {
+          if (String(vP[q][pEm]).toLowerCase().trim() === dsWho.toLowerCase() &&
+              (pAf < 0 || normAff(vP[q][pAf]) === dsAff)) shP.deleteRow(q + 1);
+        }
+      } catch (e) {}
+      return {ok: true, removed: dsWho, rows: removed};
+    }
 
     /* The club's roster is the people who actually signed up for it -- not a
        spreadsheet someone imported. Officers of a club get their own club's
@@ -989,6 +1059,79 @@ function dispatch(action, payload, email, role, id) {
        step above exist but serve "This document is not published", and there
        is otherwise no way to fix one from here: the saved link is a published
        URL, not a file id, so an older club's form is found by name in Drive. */
+    /* ---- editing the club's own sign-up form ----
+       The script owns every form it created, so it can read and rewrite the
+       questions directly. Officers get a plain list rather than a link to
+       Google Forms, because the form is the club's front door and sending an
+       officer into another product to change one word is where clubs stop
+       maintaining it. Only forms this script made are editable; a form
+       somebody pasted a link to is opened in Google Forms as before. */
+    case 'formItems': {
+      var fiForm = clubForm_(aff);
+      if (fiForm.error) return {ok: false, error: fiForm.error};
+      return {ok: true, title: fiForm.form.getTitle(),
+              description: fiForm.form.getDescription(),
+              editUrl: fiForm.form.getEditUrl(),
+              items: readFormItems_(fiForm.form)};
+    }
+
+    case 'saveFormItems': {
+      var sfForm = clubForm_(aff);
+      if (sfForm.error) return {ok: false, error: sfForm.error};
+      var form = sfForm.form;
+      var wanted = (payload || {}).items || [];
+      if (!wanted.length) return {ok: false, error: 'A form needs at least one question.'};
+
+      if ((payload || {}).title !== undefined)
+        form.setTitle(String((payload || {}).title || '').slice(0, 200));
+      if ((payload || {}).description !== undefined)
+        form.setDescription(String((payload || {}).description || '').slice(0, 2000));
+
+      var existing = form.getItems(), byId = {};
+      existing.forEach(function (it) { byId[String(it.getId())] = it; });
+      var keep = {}, order = [];
+
+      /* Section headers, page breaks, images, grids and the rest are shown in
+         the editor as read-only and are never sent back, so without this they
+         would fall through to the delete sweep below and the first save would
+         strip the form of everything it cannot edit. */
+      existing.forEach(function (it) {
+        if (FORM_TYPES.indexOf(String(it.getType())) < 0) keep[String(it.getId())] = true;
+      });
+
+      wanted.forEach(function (w) {
+        var title = String(w.title || '').slice(0, 300);
+        if (!title) return;
+        var type = String(w.type || 'TEXT').toUpperCase();
+        var opts = (w.options || []).map(function (o) { return String(o).slice(0, 200); })
+                                    .filter(String);
+        var item = w.id ? byId[String(w.id)] : null;
+
+        /* Changing a question's type is a different Forms item, so the old one
+           goes and a new one takes its place at the same position. */
+        if (item && String(item.getType()) !== type) { form.deleteItem(item); item = null; }
+        if (!item) item = addFormItem_(form, type);
+        if (!item) return;
+        keep[String(item.getId())] = true;
+        order.push(item);
+        applyFormItem_(item, type, title, String(w.help || '').slice(0, 500), !!w.required, opts);
+      });
+
+      /* Anything the officer removed from the list is removed from the form,
+         deleted back to front so indexes stay valid mid-loop. */
+      var live = form.getItems();
+      for (var di = live.length - 1; di >= 0; di--) {
+        if (!keep[String(live[di].getId())]) form.deleteItem(live[di]);
+      }
+
+      /* Order by the items themselves. Keying this by title looked tidier and
+         was wrong: two questions called "Name" resolved to the same item, so
+         one was moved twice and the other never at all. */
+      order.forEach(function (it, k) { form.moveItem(it, k); });
+
+      return {ok: true, items: readFormItems_(form), title: form.getTitle()};
+    }
+
     case 'republishForm': {
       var rKey = 'club:' + aff, rSheet = tab('config'), rVals = rSheet.getDataRange().getValues();
       var rRow = -1, rCfg = {};
@@ -1319,4 +1462,80 @@ function dispatch(action, payload, email, role, id) {
     }
   }
   return {ok: false, error: 'Unhandled action.'};
+}
+
+
+/* ================= FORM EDITING HELPERS =================
+   Kept out of dispatch so both the read and the write use exactly the same
+   idea of what a question is. */
+
+var FORM_TYPES = ['TEXT', 'PARAGRAPH_TEXT', 'MULTIPLE_CHOICE', 'CHECKBOX', 'LIST'];
+
+/* The club's own form, or a reason it cannot be edited here. */
+function clubForm_(aff) {
+  var key = 'club:' + aff, vals = tab('config').getDataRange().getValues(), cfg = {};
+  for (var i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]) === key) {
+      try { cfg = JSON.parse(vals[i][1]) || {}; } catch (e) { cfg = {}; }
+      break;
+    }
+  }
+  if (!cfg.formUrl) return {error: 'This club has no sign-up form yet.'};
+  if (!cfg.formId)
+    return {error: 'This form was linked by URL rather than created here, so its questions ' +
+                   'are edited in Google Forms.'};
+  try {
+    return {form: FormApp.openById(cfg.formId)};
+  } catch (e) {
+    return {error: 'Could not open the form: ' + e.message};
+  }
+}
+
+function readFormItems_(form) {
+  return form.getItems().map(function (it) {
+    var type = String(it.getType()), out = {
+      id: String(it.getId()), title: it.getTitle(), help: it.getHelpText(),
+      type: type, required: false, options: [], editable: FORM_TYPES.indexOf(type) > -1
+    };
+    try {
+      if (type === 'TEXT')                { var a = it.asTextItem();           out.required = a.isRequired(); }
+      else if (type === 'PARAGRAPH_TEXT') { var b = it.asParagraphTextItem();  out.required = b.isRequired(); }
+      else if (type === 'MULTIPLE_CHOICE'){ var c = it.asMultipleChoiceItem(); out.required = c.isRequired();
+                                            out.options = c.getChoices().map(function (x) { return x.getValue(); }); }
+      else if (type === 'CHECKBOX')       { var d = it.asCheckboxItem();       out.required = d.isRequired();
+                                            out.options = d.getChoices().map(function (x) { return x.getValue(); }); }
+      else if (type === 'LIST')           { var e2 = it.asListItem();          out.required = e2.isRequired();
+                                            out.options = e2.getChoices().map(function (x) { return x.getValue(); }); }
+    } catch (e) {}
+    return out;
+  });
+}
+
+function addFormItem_(form, type) {
+  if (type === 'TEXT')            return form.addTextItem();
+  if (type === 'PARAGRAPH_TEXT')  return form.addParagraphTextItem();
+  if (type === 'MULTIPLE_CHOICE') return form.addMultipleChoiceItem();
+  if (type === 'CHECKBOX')        return form.addCheckboxItem();
+  if (type === 'LIST')            return form.addListItem();
+  return null;
+}
+
+function applyFormItem_(item, type, title, help, required, options) {
+  /* A choice question with no choices throws, so it falls back to one blank
+     option rather than failing the whole save. */
+  var choices = options && options.length ? options : ['Option 1'];
+  if (type === 'TEXT') {
+    item.asTextItem().setTitle(title).setHelpText(help).setRequired(required);
+  } else if (type === 'PARAGRAPH_TEXT') {
+    item.asParagraphTextItem().setTitle(title).setHelpText(help).setRequired(required);
+  } else if (type === 'MULTIPLE_CHOICE') {
+    item.asMultipleChoiceItem().setTitle(title).setHelpText(help)
+        .setRequired(required).setChoiceValues(choices);
+  } else if (type === 'CHECKBOX') {
+    item.asCheckboxItem().setTitle(title).setHelpText(help)
+        .setRequired(required).setChoiceValues(choices);
+  } else if (type === 'LIST') {
+    item.asListItem().setTitle(title).setHelpText(help)
+        .setRequired(required).setChoiceValues(choices);
+  }
 }

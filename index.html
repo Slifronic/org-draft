@@ -532,6 +532,143 @@ ul.roster li.hasnote{background:var(--warmwash)}
 code{background:var(--void);border-color:var(--rule);color:var(--slate);border-radius:4px}
 footer{color:var(--mute)}
 
+/* ============ FORM QUESTION EDITOR ============ */
+.feq{border:1px solid var(--rule);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--void)}
+.feq.locked{opacity:.65}
+.feqhead{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.fenum{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;color:var(--mute);
+  width:20px;flex:0 0 20px}
+.feq .fe-title{flex:1 1 220px;min-width:0}
+.feq .fetitle{flex:1 1 220px;font-size:13.5px}
+.feq .fe-type{flex:0 0 158px}
+.fe-req{flex:0 0 auto;font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+.feq .rowacts{flex:0 0 auto}
+.feq .rowacts button{width:32px;padding:6px 0}
+.feq .fe-help{margin-top:9px}
+.feq .fe-opts{height:74px;margin-top:9px}
+@media(max-width:640px){.feq .fe-type{flex:1 1 140px}}
+
+/* ============ RECOGNITIONS & CATEGORY BREAKDOWN ============ */
+.recblock{margin-top:20px;border-top:1px solid var(--rule);padding-top:14px}
+.recblock h3{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--slate);font-weight:400;margin-bottom:10px}
+.recrow{display:flex;flex-wrap:wrap;gap:8px}
+.recbadge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--forest);
+  background:var(--moss);color:var(--ink);border-radius:4px;padding:5px 9px;font-size:12.5px;
+  max-width:100%;overflow-wrap:anywhere}
+.recbadge em{font-family:'Space Grotesk',ui-monospace,monospace;font-style:normal;font-size:9.5px;
+  letter-spacing:.08em;color:var(--fog,var(--slate));opacity:.8;white-space:nowrap}
+.recbadge .reckill{border:0;background:transparent;color:var(--flag);padding:0 0 0 2px;
+  font-size:13px;line-height:1;border-radius:0}
+.recbadge .reckill:hover{opacity:.7}
+
+.catbars{display:flex;flex-direction:column;gap:10px}
+.catbar{display:grid;grid-template-columns:minmax(96px,150px) 48px 1fr;gap:12px;align-items:center}
+.catnum{font-family:'Space Grotesk',ui-monospace,monospace;font-size:13px;text-align:right;color:var(--ink)}
+.cattrack{display:block;height:6px;background:var(--void);border-radius:2px;overflow:hidden}
+.cattrack i{display:block;height:100%}
+@media(max-width:560px){.catbar{grid-template-columns:1fr 48px;grid-template-areas:'a b' 'c c'}
+  .catbar .cattrack{grid-area:c}}
+
+/* ============ BULLETIN BOARD & HIDDEN SECTIONS ============ */
+.board{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--forest);
+  border-radius:8px;padding:14px 16px;margin-bottom:20px}
+.board[hidden]{display:none}
+.boardhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.boardtag{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--lime,#b6b8af)}
+.boardhead button{margin-left:0}
+.boardhead button:first-of-type{margin-left:auto}
+.board.collapsed #boardlist{display:none}
+.notice{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--rule)}
+.notice:first-child{border-top:0;padding-top:0}
+.notice .ntext{flex:1;min-width:0;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.notice .nmeta{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.06em;
+  color:var(--mute);margin-top:4px;display:block}
+.notice .nkill{flex:0 0 auto;border:1px solid var(--rule);background:transparent;color:var(--flag);
+  border-radius:0;padding:3px 8px;font-size:12px;line-height:1}
+.board .empty{padding:4px 0;font-size:13px}
+
+.hiddenbar{position:relative;margin-bottom:18px}
+.hiddenbar[hidden]{display:none}
+.hiddenbar>button{background:transparent;color:var(--slate);border:1px solid var(--rule);border-radius:0;
+  font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;padding:7px 12px;font-weight:400}
+.hiddenbar>button:hover{color:var(--ink);border-color:var(--ink);opacity:1}
+.hcount{color:var(--ink);margin-left:6px}
+.hiddenmenu{position:absolute;z-index:940;left:0;top:calc(100% + 4px);background:var(--card);
+  border:1px solid var(--rule);border-radius:8px;padding:6px;min-width:240px;width:max-content;
+  max-width:min(420px,88vw);box-shadow:none}
+.hiddenmenu[hidden]{display:none}
+.hiddenmenu button{display:block;width:100%;text-align:left;background:transparent;color:var(--ink);
+  border:0;border-radius:4px;padding:8px 10px;font-size:13px;font-weight:400;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.hiddenmenu button:hover{background:var(--void);opacity:1}
+.hiddenmenu .hmlbl{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--mute);padding:4px 10px 6px}
+
+/* the hide control that appears on every panel heading */
+.panel h2,details.spec summary{position:relative}
+.hidebtn{border:1px solid var(--rule);background:transparent;color:var(--mute);border-radius:0;
+  font-family:'Space Grotesk',ui-monospace,monospace;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;padding:3px 7px;font-weight:400;margin-left:10px;vertical-align:middle}
+.hidebtn:hover{color:var(--ink);border-color:var(--ink);opacity:1}
+.panel.ishidden{display:none}
+
+/* ============ POINT CATEGORIES, CUP PAGES, SCROLL CARDS ============ */
+.act{grid-template-columns:1fr 84px 132px 128px 66px 34px}
+.act[data-id]{border-left:3px solid var(--catcolor,transparent);padding-left:10px}
+.act.head{padding-left:13px}
+.act.off{opacity:.5}
+@media(max-width:760px){
+  .act{grid-template-columns:1fr 1fr;gap:8px 10px;grid-template-areas:none}
+  .act.head{display:none}
+}
+.catchip{display:inline-flex;align-items:center;gap:6px;font-family:'Space Grotesk',ui-monospace,monospace;
+  font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);white-space:nowrap}
+.catchip i{width:8px;height:8px;border-radius:2px;flex:0 0 8px;background:var(--catcolor,var(--rule))}
+.catlegend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 14px}
+
+.cupnav{margin-bottom:20px}
+.cuppage{display:none}
+.cuppage.on{display:block}
+.cuppage[hidden]{display:none}
+
+/* a long member list scrolls inside its card instead of stretching the page */
+.scrollcard{max-height:420px;overflow-y:auto;border:1px solid var(--rule);border-radius:8px}
+.scrollcard table{margin:0}
+.scrollcard thead th{position:sticky;top:0;background:var(--card);z-index:1}
+
+/* ============ LAYOUT & SCALING FIXES ============ */
+/* dropdown lists size to their longest option instead of squeezing into the
+   button's width, which was wrapping "Case competitions" onto four lines */
+.sellist{right:auto;min-width:100%;width:max-content;max-width:min(360px,86vw)}
+.sellist div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selbtn{padding-right:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* stat strips scroll rather than crushing eight columns to unreadable widths */
+.stats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+.stat{min-width:132px;flex:1 0 132px}
+.profgrid{grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
+
+/* org cards: nothing clips, headers wrap instead of running off the edge */
+.org{min-width:0}
+.orgno{flex-wrap:wrap;row-gap:2px}
+.orgname{overflow-wrap:anywhere}
+.barkey{flex-wrap:wrap;row-gap:2px}
+ul.roster li{min-width:0}
+.grid{grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr))}
+
+/* filter bars keep usable field widths and wrap as a unit */
+.filterbar>div{display:flex;flex-direction:column;gap:5px;min-width:150px;flex:1 1 150px}
+.filterbar>div:last-child{flex:0 0 auto;min-width:0;justify-content:flex-end}
+.filterbar input,.filterbar select,.filterbar .selwrap{width:100%}
+
+/* pill rows wrap cleanly at any width */
+.teamtabs,.linkrow,.savebar,.row{min-width:0}
+.row>.field{min-width:0}
+
 /* tabs and inline selects keep their own grammar */
 nav button,.tab,.gateswitch button,.selbtn,details.spec summary{
   background:transparent;border:none;border-radius:0;color:var(--mute);font-weight:400}
@@ -601,12 +738,12 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 <header>
   <div style="display:flex;align-items:center;gap:11px;margin-bottom:2px">
     <svg width="28" height="28" viewBox="0 0 100 100" style="flex-shrink:0" aria-hidden="true">
-      <g stroke="#1A1613" stroke-opacity="0.3" stroke-width="2.2">
+      <g stroke="#e9ebdf" stroke-opacity="0.28" stroke-width="2.2">
         <line x1="50" y1="18" x2="77.7" y2="34"/><line x1="77.7" y1="34" x2="77.7" y2="66"/>
         <line x1="77.7" y1="66" x2="50" y2="82"/><line x1="50" y1="82" x2="22.3" y2="66"/>
         <line x1="22.3" y1="66" x2="22.3" y2="34"/><line x1="22.3" y1="34" x2="50" y2="18"/>
       </g>
-      <g stroke="#1A1613" stroke-width="2.6">
+      <g stroke="#e9ebdf" stroke-width="2.6">
         <line x1="50" y1="50" x2="50" y2="18"/><line x1="50" y1="50" x2="77.7" y2="34"/>
         <line x1="50" y1="50" x2="77.7" y2="66"/><line x1="50" y1="50" x2="50" y2="82"/>
         <line x1="50" y1="50" x2="22.3" y2="66"/><line x1="50" y1="50" x2="22.3" y2="34"/>
@@ -639,6 +776,22 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   </nav>
 </header>
 
+<!-- ============ BULLETIN BOARD ============ -->
+<section class="board" id="board" hidden>
+  <div class="boardhead">
+    <span class="boardtag">Bulletin</span>
+    <button class="tiny ghost" id="boardadd" data-req="admin" type="button">Post a notice</button>
+    <button class="tiny ghost" id="boardtoggle" type="button" aria-expanded="true">Hide</button>
+  </div>
+  <div id="boardlist"></div>
+</section>
+
+<div class="hiddenbar" id="hiddenbar" hidden>
+  <button type="button" id="hiddenbtn" aria-expanded="false">Hidden <span class="hcount" id="hiddencount">0</span></button>
+  <div class="hiddenmenu" id="hiddenmenu" hidden></div>
+</div>
+
+
 <div class="modalwrap" id="modalwrap" hidden>
   <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modaltitle">
     <h3 id="modaltitle"></h3>
@@ -663,7 +816,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
 <div class="panel" data-req="admin" id="clubpanel">
   <h2>Club setup</h2>
-  <p class="hint">This tool drafts balanced teams and scores participation. Nothing about that is specific to one kind of club, so the vocabulary is yours to set: what a team is called, how the club divides itself, what the ranks are. Change it here once and it changes everywhere — the draft, the team pages, the Cup, the exports.</p>
+  <p class="hint">Set your club’s vocabulary once — what a team is called, how the club divides, what the ranks are. It changes everywhere.</p>
 
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:230px"><label for="presetsel">Start from a kit</label><select id="presetsel"></select></div>
@@ -745,39 +898,48 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   </div>
 </div>
 
-<details class="spec" open>
+<div class="panel" data-req="admin" id="formedit-panel">
+  <h2>The sign-up form's questions</h2>
+  <p class="hint">Edit the club's own form here. Changes go straight to the live form — anyone who opens the link next sees them.</p>
+  <div id="formedit"></div>
+  <div class="row" id="formedit-acts" style="display:none">
+    <button id="fe-add" class="ghost" type="button">+ Add a question</button>
+    <button id="fe-save" type="button">Save to the form</button>
+    <button id="fe-reload" class="ghost" type="button">Discard changes</button>
+  </div>
+  <div class="msg" id="femsg"></div>
+</div>
+
+<details class="spec">
   <summary>What the sign-up form has to ask</summary>
   <div class="specbody">
     <ol>
-      <li><b>Name</b> — full name, one per member. <b>Required.</b></li>
-      <li><b>Email</b> — for the Lead to reach them. Not used by the draft; leave it off any published tab.</li>
-      <li><b>Year in the club</b> — first year or second-and-up. Ask about <i>club tenure</i>, not academic standing: a junior who just joined drafts as a first-year. <b>Required.</b></li>
-      <li><b>Which division they lean toward</b> — one option per track your club runs, plus an <b>either / no preference</b> option. Keep that last option: undecided members are the flex pieces that let the sort even out lopsided groups. Set your own track names under Club setup above. <b>Required if your club uses tracks.</b></li>
-      <li><b>MBTI type</b> — four letters. <b>Only if you switched it on</b> under Club setup. If you do use it, make it a required question with a link to one specific free test and a deadline: a partial column produces a type read that describes only the people who bothered to answer. Plenty of clubs should leave this off entirely.</li>
-      <li><b>Leadership interest</b> — yes/no, for longer-standing members. The draft spreads volunteers so every team gets its share of leaders.</li>
-      <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged so you can hand-adjust.</li>
+      <li><b>Name</b> — full name, one per member. Required.</li>
+      <li><b>Email</b> — leave it off any published tab.</li>
+      <li><b>Year in the club</b> — first year, or second and up. Club tenure, not academic standing. Required.</li>
+      <li><b>Which division they lean toward</b> — one option per track, plus <b>either / no preference</b>. Keep that last option: undecided members are what let the sort even out lopsided groups.</li>
+      <li><b>MBTI type</b> — four letters. Only if you switched it on under Club setup. Make it required and link one specific free test, or leave it off entirely.</li>
+      <li><b>Leadership interest</b> — yes/no. The draft spreads volunteers across teams.</li>
+      <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged.</li>
     </ol>
-    <h4>On making MBTI required</h4>
-    <p style="margin-top:6px">Requiring it is a real tradeoff and worth naming out loud. You get a complete read and an Assistant that can actually recommend changes; you also make members hand over a personality result to a club, and some will find a test online, click through it in ninety seconds, and give you noise. Two things make it hold up: tell members plainly what it's used for (spreading types across Orgs, not judging anyone), and link one specific free test so everyone is answering the same instrument. If someone genuinely refuses, take the type they'd guess rather than leaving the field empty — a guess is closer to true than a blank.</p>
-    <p>The tool reads raw Google Form exports and matches the columns itself. You don't need to reformat anything.</p>
+    <p>Raw Google Form exports work as they are. Nothing needs reformatting.</p>
   </div>
 </details>
 
-<details class="spec" open>
+<details class="spec">
   <summary>Connecting your Google Sheet</summary>
   <div class="specbody">
-    <p style="margin-top:0">This runs entirely in your browser — there's no server. To read a sheet directly, it has to be readable without a login.</p>
-    <h4>Option A — Publish just the responses (recommended)</h4>
+    <p style="margin-top:0">This runs in your browser. To read a sheet directly, it has to be readable without a login.</p>
+    <h4>Option A — publish just the responses</h4>
     <ol>
-      <li>In the Form's response sheet, make a <b>new tab</b> with only the columns the draft needs: name, year, track, MBTI, lead interest, notes. Leave emails out.</li>
-      <li><b>File → Share → Publish to web</b>, choose that tab, format <b>Comma-separated values (.csv)</b>, Publish.</li>
-      <li>Paste the link it gives you below.</li>
-      <li><b>Unpublish after the draft</b> — File → Share → Publish to web → Stop publishing.</li>
+      <li>In the response sheet, make a tab with only what the draft needs: name, year, track, MBTI, lead interest, notes. Leave emails out.</li>
+      <li>File → Share → Publish to web, choose that tab, format <b>CSV</b>, Publish.</li>
+      <li>Paste the link below.</li>
+      <li>Unpublish when the draft is done.</li>
     </ol>
-    <h4>Option B — Link sharing</h4>
-    <p style="margin-top:6px">Set the sheet to <b>Anyone with the link → Viewer</b> and paste the normal URL. Same privacy tradeoff, less setup.</p>
-    <h4>The privacy call</h4>
-    <p style="margin-top:6px">Publishing a tab of ~100 classmates' names and personality types makes it readable by anyone with the link. Names and years are low-risk; MBTI results and emails are more personal than they look. Keep contact details off the published tab, unpublish when you're done, and if you'd rather publish nothing, use CSV upload — the file never leaves your computer.</p>
+    <h4>Option B — link sharing</h4>
+    <p style="margin-top:6px">Set the sheet to <b>Anyone with the link → Viewer</b> and paste the normal URL.</p>
+    <p>Publishing a tab makes it readable by anyone with the link. Keep contact details off it, and unpublish when you are done — or use CSV upload, where the file never leaves your computer.</p>
   </div>
 </details>
 
@@ -798,7 +960,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
       <div class="field" style="flex:1;min-width:170px"><label for="nc-name">Display name</label><input type="text" id="nc-name" placeholder="De Anza PBL — Spring 26"></div>
       <div class="field" style="flex:1;min-width:150px"><label for="nc-join">Join code</label><input type="text" class="mono" id="nc-join" placeholder="at least 6 characters"></div>
     </div>
-    <p class="hint">The new club starts empty and takes this club's setup — track names, ranks, whether MBTI is used. It does not take its form, its sheet or its accounts. The club you are viewing now is left exactly as it is.</p>
+    <p class="hint">The new club starts empty and copies this club’s setup — track names, ranks, whether MBTI is used. It does not take its form, its sheet or its accounts. The club you are viewing now is left exactly as it is.</p>
   </div>
   <div class="row">
     <div class="field">
@@ -820,7 +982,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   </div>
   <div class="panel">
     <h2>Who has signed up</h2>
-    <p class="hint">Everyone holding an account in this club, however they signed in. This is the club’s roster — it fills itself as people join, so nothing here has to be imported or kept in step by hand. It is not the draft: people appear here the moment they make an account, whether or not the draft has been run.</p>
+    <p class="hint">Everyone with an account in this club. It fills itself as people join — this is not the draft.</p>
     <div class="row" style="margin-top:0">
       <div class="field" style="flex:1;min-width:180px"><label for="cr-q">Search</label><input type="text" id="cr-q" placeholder="Name or email"></div>
       <div class="field" style="width:150px"><label for="cr-role">Role</label><select id="cr-role"><option value="">All roles</option><option value="member">Member</option><option value="admin">Admin</option><option value="master">Master</option></select></div>
@@ -831,7 +993,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
   <div class="panel">
     <h2>The club’s form and sheet</h2>
-    <p class="hint">The sign-up form members fill in, and the spreadsheet its answers land in. Set once and everyone running this club gets the same two links. Edit them here if either link changes.</p>
+    <p class="hint">The form members fill in and the spreadsheet its answers land in.</p>
 
     <div class="row" style="margin-top:0">
       <div class="field" style="flex:1;min-width:220px"><label for="cf-form">Google Form link</label><input type="text" class="mono" id="cf-form" placeholder="https://docs.google.com/forms/..."></div>
@@ -843,7 +1005,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
   <div class="panel">
     <h2>Clear this club’s data</h2>
-    <p class="hint">Removes the roster, the points and the attendance log for <b id="cr-clubname">this club</b>, and nothing else. The club stays, everyone’s account stays, and your setup stays — so a club can be handed over at the start of a semester without anyone signing up again. It cannot be undone.</p>
+    <p class="hint">Removes the roster, points and attendance for <b id="cr-clubname">this club</b>. Accounts and setup stay. It cannot be undone.</p>
     <div class="msg" id="crpurgemsg"></div>
     <div class="row" style="margin-top:0"><button id="cr-purge" class="danger">Clear data</button></div>
   </div>
@@ -876,7 +1038,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 <div class="view" id="v-attend">
 <div class="panel">
   <h2>Take attendance</h2>
-  <p class="hint">Pick what this is for, check off who showed up, log it. This writes to the same points log as the Org Cup — attendance-labeled actions also land in the Sheet's Attendance tab.</p>
+  <p class="hint">Pick the event, check who showed up, log it. Standings update immediately.</p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:210px"><label for="atact">Action</label><select id="atact"></select></div>
     <div class="field" style="flex:1;min-width:150px"><label for="atevent">Event label (optional)</label><input type="text" id="atevent" placeholder="Week 3 workshop"></div>
@@ -897,10 +1059,20 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 <!-- ============ ORG CUP ============ -->
 <div class="view" id="v-cup">
 
+<div class="cupnav">
+  <div class="field" style="max-width:260px"><label for="cuppage">Org Cup</label>
+    <select id="cuppage">
+      <option value="stand">Standings</option>
+      <option value="earn">What earns points</option>
+    </select></div>
+</div>
+
+<div class="cuppage" id="cup-page-earn" hidden>
+
 <div class="panel">
   <h2>What earns points</h2>
-  <p class="hint" data-officer-copy>What each action is worth. Officers set these; your points update automatically as attendance gets logged.</p>
-  <p class="hint" data-req="admin">This is the whole scoring system, and it's meant to be edited. Change a label, change a value, add an action, switch one off mid-semester — standings recalculate the moment you do. The <b>track</b> setting is what makes cross-track attendance detectable, so set it honestly on every action.</p>
+  <p class="hint" data-officer-copy>What each action is worth. Your points update automatically as attendance is logged.</p>
+  <p class="hint" data-req="admin">Edit anything here and standings recalculate immediately. The <b>track</b> setting is what makes cross-track attendance detectable, so set it honestly.</p>
   <div class="acts" id="actlist"></div>
   <div class="row">
     <button id="addact" class="ghost" data-req="admin">+ Add an action</button>
@@ -908,7 +1080,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   </div>
 
   <h3 data-req="admin">Bonuses that sit on top</h3>
-  <p class="hint" data-req="admin" id="bonushint">These apply automatically to any action tagged with one of your tracks.</p>
+  <p class="hint" data-req="admin" id="bonushint">Applied automatically to any action tagged with a track.</p>
   <div class="row" style="margin-top:0" data-req="admin">
     <div class="field" id="cross-lbl"><label for="r-cross">Cross-track bonus</label><input type="number" id="r-cross" value="2" min="0" max="99"></div>
     <div class="field"><label for="r-explore">No-preference bonus</label><input type="number" id="r-explore" value="1" min="0" max="99"></div>
@@ -916,6 +1088,10 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <div class="field"><label for="r-thresh" id="r-thresh-lbl">Full-team at %</label><input type="number" id="r-thresh" value="80" min="1" max="100"></div>
   </div>
 </div>
+
+</div>
+
+<div class="cuppage on" id="cup-page-stand">
 
 <div class="panel" data-req="admin">
   <h2>Log points</h2>
@@ -925,7 +1101,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <button class="tab" role="tab" aria-selected="false" data-pane="cup-sheet">Google Sheet</button>
   </div>
   <div class="tabpane on" id="cup-quick">
-    <p class="hint">For logging straight off a sign-in sheet. Pick the action, paste the names, add.</p>
+    <p class="hint">Pick the action, paste the names, add.</p>
     <div class="row" style="margin-top:0">
       <div class="field" style="flex:2;min-width:210px"><label for="qact">Action</label><select id="qact"></select></div>
       <div class="field" style="flex:1;min-width:150px"><label for="qevent">Event label (optional)</label><input type="text" id="qevent" placeholder="Week 3 workshop"></div>
@@ -942,17 +1118,17 @@ Marcus Lee"></textarea>
     <div class="row"><button id="qadd">Add to log</button><button id="qsample" class="ghost">Load sample semester</button></div>
   </div>
   <div class="tabpane" id="cup-file">
-    <p class="hint">A CSV with a name column and an event column. Each event name gets matched to an action below — anything it can't match, you assign by hand.</p>
+    <p class="hint">A CSV with a name column and an event column. Unmatched events are assigned by hand.</p>
     <div class="drop" id="cupdrop" tabindex="0" role="button"><b>Drop your attendance CSV here</b><span>or click to choose a file</span></div>
     <input type="file" id="cupfile" accept=".csv,.tsv,text/csv">
   </div>
   <div class="tabpane" id="cup-sheet">
-    <p class="hint">Same as the roster — a published-CSV link or shared sheet URL. Hit refresh after each event.</p>
+    <p class="hint">A published-CSV link or shared sheet URL. Refresh after each event.</p>
     <input type="text" class="mono" id="cupurl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
     <div class="row"><button id="cupconnect">Connect log</button><button id="cuprefresh" class="ghost" disabled>Refresh log</button></div>
   </div>
   <div id="cupmap" style="display:none;margin-top:16px;border-top:1px solid var(--rule);padding-top:16px">
-    <p class="hint" style="margin-bottom:12px">Attendance columns — matched automatically, change anything it got wrong.</p>
+    <p class="hint" style="margin-bottom:12px">Matched automatically. Change anything it got wrong.</p>
     <div id="cupmaprows"></div>
     <div id="evtmap"></div>
   </div>
@@ -961,7 +1137,7 @@ Marcus Lee"></textarea>
 
 <div class="panel">
   <h2>Standings</h2>
-  <p class="hint">Ranked on points per member, because raw totals would just hand the Cup to whichever Org drafted one extra person.</p>
+  <p class="hint">Ranked on points per member, so team size does not decide the Cup.</p>
   <div id="standings"></div>
   <div class="row">
     <button id="cupexport" class="ghost">Export standings CSV</button>
@@ -974,13 +1150,15 @@ Marcus Lee"></textarea>
   <h2>Log <span class="savenote" id="logcount"></span></h2>
   <div id="logtable"></div>
 </div>
+
+</div>
 </div>
 
 <!-- ============ ASSISTANT ============ -->
 <div class="view" id="v-assist">
 <div class="panel">
   <h2>Recommended changes</h2>
-  <p class="hint">Swaps that improve type balance without touching anything else. Every proposal trades two people of the <b>same year, same track, and same Lead status</b>, so applying one can't break the draft's size, track, or seniority balance — only the type spread moves.</p>
+  <p class="hint">Swaps that improve type balance only. Every trade is between two people of the same year, track and Lead status, so nothing else moves.</p>
   <div class="row" style="margin-top:0">
     <div class="field"><label for="swapmax">Max swaps to show</label><input type="number" id="swapmax" value="6" min="1" max="20"></div>
     <button id="swaprefresh" class="ghost">Recompute</button>
@@ -1016,8 +1194,8 @@ Marcus Lee"></textarea>
 <div class="view" id="v-access">
 <div class="panel">
   <h2>Who can do what</h2>
-  <p class="hint">Three roles. <b>Member</b> sees standings, their own Org page, and their own points — nothing else, and no private notes. <b>Admin</b> runs the club: draft, attendance, points, actions, manual moves. <b>Master</b> is you: everything an admin can do, plus this page.</p>
-  <p class="hint">Anyone who signs in with a Google account that is not on this list is a member. Add an officer by their exact Google address — the one they actually sign in with.</p>
+  <p class="hint"><b>Member</b> sees standings, their own team and their own points. <b>Admin</b> runs the club. <b>Master</b> is you — everything an admin can do, plus this page.</p>
+  <p class="hint">Anyone not on this list is a member. Add an officer by the exact Google address they sign in with.</p>
   <p class="hint" id="rolescope"></p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:230px"><label for="newadmin">Google address</label><input type="text" class="mono" id="newadmin" placeholder="officer@gmail.com"></div>
@@ -1034,8 +1212,8 @@ Marcus Lee"></textarea>
 </div>
 <div class="panel">
   <h2>Clubs on this system</h2>
-  <p class="hint">Each club is its own world: separate roster, separate teams, separate points, separate officers. Nothing crosses between them. Somebody signing up picks their club from a list and has to produce its join code, so the club's name being public does not let anyone in.</p>
-  <p class="hint">Give the join code out the way you would a door code — to the people who belong there. If it gets around, <b>Edit</b> the club below to issue a new one. <b>Clear data</b> empties a club’s roster, points and attendance for a new semester while keeping its accounts and setup; <b>Delete</b> removes the club and everything in it.</p>
+  <p class="hint">Each club is separate — roster, teams, points and officers. Signing up needs the club’s join code.</p>
+  <p class="hint">Treat the join code like a door code. <b>Edit</b> issues a new one. <b>Clear data</b> empties a club for a new semester; <b>Delete</b> removes it entirely.</p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:1;min-width:150px"><label for="af-code">Short code</label><input type="text" class="mono" id="af-code" placeholder="riverside-pbl" autocapitalize="none" spellcheck="false"></div>
     <div class="field" style="flex:1;min-width:160px"><label for="af-name">Display name</label><input type="text" id="af-name" placeholder="Riverside PBL"></div>
@@ -1045,7 +1223,7 @@ Marcus Lee"></textarea>
   <div class="msg" id="affmsg"></div>
   <div id="afftable" style="margin-top:16px"></div>
   <h3>Which club am I looking at?</h3>
-  <p class="hint">You run this system, so you can look inside any club on it. Everyone else only ever sees their own. Switching here reloads the roster, the points and the setup for that club.</p>
+  <p class="hint">Switching reloads the roster, points and setup for that club.</p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:220px"><label for="af-switch">Currently viewing</label><select id="af-switch"></select></div>
     <button id="af-go" class="ghost">Switch to this club</button>
@@ -1055,7 +1233,7 @@ Marcus Lee"></textarea>
 
 <div class="panel">
   <h2>Everyone who has signed up</h2>
-  <p class="hint">Every account on this system and the club it belongs to — the ones created here, the ones people made themselves, and the Google addresses granted a role. Credentials are never shown.</p>
+  <p class="hint">Every account on the system and the club it belongs to. Credentials are never shown.</p>
   <div class="filterbar" style="margin-bottom:12px">
     <div><span class="lbl">Search</span><input type="text" id="sg-q" placeholder="name, email…"></div>
     <div><span class="lbl">Club</span><select id="sg-aff"><option value="">All</option></select></div>
@@ -1068,8 +1246,8 @@ Marcus Lee"></textarea>
 
 <div class="panel">
   <h2>Password accounts</h2>
-  <p class="hint">For members who cannot use a Google account. These are weaker than Google sign-in — a password can be shared, guessed, or reused from somewhere else — so hand them out only where they are needed, and give each person their own rather than one shared login.</p>
-  <p class="hint">There is no self-signup: an account exists only because you created it here. Set a starting password, tell the person, and have them change it under their own name once they are in.</p>
+  <p class="hint">For members who cannot use a Google account. Weaker than Google sign-in — give each person their own, never a shared login.</p>
+  <p class="hint">Set a starting password and have them change it once they are in.</p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:1;min-width:170px"><label for="nu-name">Username</label><input type="text" class="mono" id="nu-name" placeholder="jordan.lee" autocapitalize="none" spellcheck="false"></div>
     <div class="field" style="flex:1;min-width:170px"><label for="nu-pass">Starting password</label><input type="text" class="mono" id="nu-pass" placeholder="at least 10 characters"></div>
@@ -1182,6 +1360,10 @@ function cloneClub(c){
     useMbti:c.useMbti, mbtiRequired:c.mbtiRequired,
     roleLead:c.roleLead, roleSenior:c.roleSenior, roleJunior:c.roleJunior,
     leadsPer:c.leadsPer, formUrl:c.formUrl||'', sheetUrl:c.sheetUrl||'',
+    formEditUrl:c.formEditUrl||'',
+    /* Notices and recognitions are club history, not part of a starter kit, so
+       they ride through cloneClub rather than being reset by "Load the kit". */
+    board:(c.board||[]).slice(), recognitions:c.recognitions||{},
     formEmbed:c.formEmbed!==false};
 }
 
@@ -1376,6 +1558,8 @@ function applyRole(){
   }
 
   if(S.orgs.length){renderDraft(); if($('v-teams').classList.contains('on'))renderTeam()}
+  renderBoard();
+  wireHideControls();
 }
 
 function onCredential(resp){
@@ -1956,13 +2140,18 @@ function setView(id){
   if(id==='v-roster'){
     if(isMaster()&&$('rs-club')&&!$('rs-club').options.length)renderAffs();
     renderClubRoster();renderRosterLinks();renderFormKit();renderPurgePanel();
+    renderFormEditor();
   }
   /* The target picker is built from the club list, so Intake has to have it
      before it can offer anywhere to draft into. */
-  if(id==='v-intake'&&isMaster()&&!AFFROWS.length)renderAffs();
+  if(id==='v-intake'){
+    if(isMaster()&&!AFFROWS.length)renderAffs();
+    renderFormEditor();
+  }
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
+  wireHideControls();
   window.scrollTo(0,0);
 }
 Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
@@ -2545,13 +2734,460 @@ function trackOpts(){
 function actById(id){for(var i=0;i<S.actions.length;i++)if(S.actions[i].id===id)return S.actions[i];return null}
 function newActionId(){return 'a'+(Date.now()%1e7)+Math.floor(Math.random()*99)}
 
+/* ================= EDITING THE SIGN-UP FORM =================
+   The form is the club's front door, and sending an officer off to Google
+   Forms to change one word is where clubs stop maintaining it. The script owns
+   any form it created, so the questions are edited here and written straight
+   back. A form somebody merely pasted a link to is not ours to rewrite, and
+   says so. */
+var FE={items:[],loaded:false,busy:false};
+var FE_TYPES=[['TEXT','Short answer'],['PARAGRAPH_TEXT','Paragraph'],
+              ['MULTIPLE_CHOICE','Multiple choice'],['CHECKBOX','Checkboxes'],
+              ['LIST','Dropdown']];
+function feSay(t,kind){var m=$('femsg'); if(!m)return; m.textContent=t; m.className='msg show'+(kind?' '+kind:'')}
+function feHide(){var m=$('femsg'); if(m)m.className='msg'}
+
+function renderFormEditor(){
+  var box=$('formedit'), acts=$('formedit-acts');
+  if(!box)return;
+  if(!canEdit()){box.innerHTML='';if(acts)acts.style.display='none';return}
+  if(A.offline){box.innerHTML='<p class="empty">Not connected to a club sheet.</p>';acts.style.display='none';return}
+  if(!S.club.formUrl){
+    box.innerHTML='<p class="empty">This club has no sign-up form yet. Create one above, then its questions appear here.</p>';
+    acts.style.display='none'; return;
+  }
+  if(!FE.loaded){
+    box.innerHTML='<p class="empty">Loading the form…</p>';
+    acts.style.display='none';
+    if(FE.reading)return;
+    FE.reading=true;
+    backendPost('formItems',null).then(function(r){
+      FE.reading=false;
+      if(!r||!r.ok){
+        box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not open that form.')+
+          (S.club.formEditUrl?' <a href="'+esc(S.club.formEditUrl)+'" target="_blank" rel="noopener">Open it in Google Forms</a>.':'')+'</p>';
+        return;
+      }
+      FE.items=(r.items||[]).map(function(it){
+        return {id:it.id,title:it.title||'',help:it.help||'',type:it.type,
+                required:!!it.required,options:(it.options||[]).slice(),editable:it.editable!==false};
+      });
+      FE.loaded=true;
+      renderFormEditor();
+    });
+    return;
+  }
+  if(!FE.items.length){
+    box.innerHTML='<p class="empty">This form has no questions yet.</p>';
+  } else {
+    box.innerHTML=FE.items.map(function(it,i){
+      var choice=(it.type==='MULTIPLE_CHOICE'||it.type==='CHECKBOX'||it.type==='LIST');
+      if(!it.editable){
+        return '<div class="feq locked"><div class="feqhead"><span class="fenum">'+(i+1)+'</span>'+
+          '<span class="fetitle">'+esc(it.title||'Untitled')+'</span></div>'+
+          '<p class="hint" style="margin:6px 0 0">This kind of question is edited in Google Forms.</p></div>';
+      }
+      return '<div class="feq" data-i="'+i+'">'+
+        '<div class="feqhead"><span class="fenum">'+(i+1)+'</span>'+
+          '<input type="text" class="fe-title" value="'+esc(it.title)+'" placeholder="Question" aria-label="Question">'+
+          '<select class="fe-type tagsel" aria-label="Answer type">'+
+            FE_TYPES.map(function(t){return '<option value="'+t[0]+'"'+(it.type===t[0]?' selected':'')+'>'+esc(t[1])+'</option>'}).join('')+
+          '</select>'+
+          '<label class="check fe-req"><input type="checkbox" class="fe-required"'+(it.required?' checked':'')+'> Required</label>'+
+          '<div class="rowacts">'+
+            '<button type="button" class="fe-up" title="Move up" aria-label="Move up">↑</button>'+
+            '<button type="button" class="fe-down" title="Move down" aria-label="Move down">↓</button>'+
+            '<button type="button" class="danger fe-kill" title="Delete question" aria-label="Delete question">×</button>'+
+          '</div>'+
+        '</div>'+
+        '<input type="text" class="fe-help" value="'+esc(it.help)+'" placeholder="Helper text (optional)" aria-label="Helper text">'+
+        (choice?'<textarea class="fe-opts" spellcheck="false" placeholder="One choice per line" aria-label="Choices">'+
+                esc(it.options.join('\n'))+'</textarea>':'')+
+      '</div>';
+    }).join('');
+  }
+  acts.style.display='';
+  wireFormEditor();
+}
+
+function wireFormEditor(){
+  var box=$('formedit');
+  Array.prototype.forEach.call(box.querySelectorAll('.feq[data-i]'),function(row){
+    var i=row.dataset.i|0, it=FE.items[i];
+    row.querySelector('.fe-title').addEventListener('input',function(e){it.title=e.target.value});
+    row.querySelector('.fe-help').addEventListener('input',function(e){it.help=e.target.value});
+    row.querySelector('.fe-required').addEventListener('change',function(e){it.required=e.target.checked});
+    row.querySelector('.fe-type').addEventListener('change',function(e){
+      it.type=e.target.value; renderFormEditor();
+    });
+    var opts=row.querySelector('.fe-opts');
+    if(opts)opts.addEventListener('input',function(e){
+      it.options=e.target.value.split('\n').map(function(x){return x.trim()}).filter(String);
+    });
+    row.querySelector('.fe-up').addEventListener('click',function(){
+      if(i<=0)return; var t=FE.items[i-1]; FE.items[i-1]=FE.items[i]; FE.items[i]=t; renderFormEditor();
+    });
+    row.querySelector('.fe-down').addEventListener('click',function(){
+      if(i>=FE.items.length-1)return; var t=FE.items[i+1]; FE.items[i+1]=FE.items[i]; FE.items[i]=t; renderFormEditor();
+    });
+    row.querySelector('.fe-kill').addEventListener('click',function(){
+      uiConfirm('Delete "'+(it.title||'this question')+'"?',
+                'Answers already collected stay in the spreadsheet. New responses will not have this column.',
+                'Delete the question',true).then(function(ok){
+        if(!ok)return;
+        FE.items.splice(i,1); renderFormEditor();
+      });
+    });
+  });
+}
+
+function initFormEditor(){
+  var add=$('fe-add'), sv=$('fe-save'), rl=$('fe-reload');
+  if(add)add.addEventListener('click',function(){
+    FE.items.push({id:null,title:'',help:'',type:'TEXT',required:false,options:[],editable:true});
+    renderFormEditor(); feHide();
+    var last=$('formedit').querySelector('.feq:last-of-type .fe-title'); if(last)last.focus();
+  });
+  if(rl)rl.addEventListener('click',function(){FE.loaded=false;feHide();renderFormEditor()});
+  if(sv)sv.addEventListener('click',function(){
+    if(FE.busy)return;
+    var bad=FE.items.filter(function(it){return it.editable!==false&&!String(it.title||'').trim()});
+    if(bad.length){feSay('Every question needs a title. '+bad.length+' '+(bad.length>1?'are':'is')+' still blank.');return}
+    var payload=FE.items.filter(function(it){return it.editable!==false}).map(function(it){
+      return {id:it.id,title:it.title.trim(),help:it.help||'',type:it.type,
+              required:!!it.required,options:it.options||[]};
+    });
+    if(!payload.length){feSay('A form needs at least one question.');return}
+    FE.busy=true; sv.disabled=true; sv.textContent='Saving…';
+    feSay('Writing the questions to the form.','info');
+    backendPost('saveFormItems',{items:payload}).then(function(r){
+      FE.busy=false; sv.disabled=false; sv.textContent='Save to the form';
+      if(r&&r.ok){
+        FE.items=(r.items||[]).map(function(it){
+          return {id:it.id,title:it.title||'',help:it.help||'',type:it.type,
+                  required:!!it.required,options:(it.options||[]).slice(),editable:it.editable!==false};
+        });
+        FE.loaded=true; renderFormEditor();
+        feSay('Saved. The live form now asks these questions.','good');
+      } else {
+        feSay((r&&r.error)||'That was refused.');
+      }
+    });
+  });
+}
+
+/* ================= REMOVING AN ACCOUNT =================
+   Officers need this the week after a draft, when three people have signed up
+   twice under slightly different names. The confirm names the person and says
+   plainly what survives, because the roster row and the points log do not go
+   with the account. */
+/* The backend refuses these two outright, so offering the button at all only
+   produces an error somebody has to read. */
+function canDeleteAccount(u){
+  var me=String(A.email||A.name||'').toLowerCase();
+  var who=String(u.who||'').toLowerCase();
+  if(!who)return false;
+  if(who===me)return false;
+  if(String(u.role||'').toLowerCase()==='master'&&!isMaster())return false;
+  return true;
+}
+function deleteAccount(u,after){
+  var nm=((u.first||'')+' '+(u.last||'')).trim()||u.email||u.who;
+  uiConfirm('Remove '+nm+'?',
+            'Their account and saved profile are deleted, and they are signed out the next time '+
+            'their session is checked. Anything already logged against their name in the Cup stays. '+
+            'They can sign up again with the join code.',
+            'Remove the account',true).then(function(ok){
+    if(!ok)return;
+    backendPost('deleteSignup',{who:u.who,kind:u.kind,aff:u.aff}).then(function(r){
+      if(r&&r.ok){ if(typeof after==='function')after(nm,true) }
+      else if(typeof after==='function')after((r&&r.error)||'That was refused.',false);
+    });
+  });
+}
+
+/* ================= RECOGNITIONS =================
+   An officer marking somebody as Member of the Month is club knowledge, not a
+   score, so it sits on the club record beside the roster rather than in the
+   points log — nothing here feeds the Cup. */
+function recKey(name){return normName(String(name||''))}
+function recsFor(name){
+  var all=(S.club&&S.club.recognitions)||{};
+  return (all[recKey(name)]||[]).slice().sort(function(a,b){return (b.at||0)-(a.at||0)});
+}
+function addRecognition(name,label){
+  label=String(label||'').trim(); if(!label)return;
+  S.club.recognitions=S.club.recognitions||{};
+  var k=recKey(name);
+  S.club.recognitions[k]=S.club.recognitions[k]||[];
+  S.club.recognitions[k].unshift({id:'r'+Date.now().toString(36),label:label.slice(0,80),
+                                  at:Date.now(),by:A.name||A.email||'An officer'});
+  S.club.recognitions[k]=S.club.recognitions[k].slice(0,20);
+  save(); syncClub();
+}
+function removeRecognition(name,id){
+  var k=recKey(name), all=(S.club&&S.club.recognitions)||{};
+  if(!all[k])return;
+  all[k]=all[k].filter(function(r){return r.id!==id});
+  if(!all[k].length)delete all[k];
+  save(); syncClub();
+}
+function recBadges(name,editable){
+  var rs=recsFor(name);
+  if(!rs.length)return editable?'<p class="empty">No recognitions yet.</p>':'';
+  return '<div class="recrow">'+rs.map(function(r){
+    return '<span class="recbadge" data-rid="'+esc(r.id)+'">'+esc(r.label)+
+      '<em>'+esc(boardDate(r.at))+'</em>'+
+      (editable?'<button type="button" class="reckill" title="Remove">\u00d7</button>':'')+
+    '</span>';
+  }).join('')+'</div>';
+}
+function wireRecKills(scope,name){
+  if(!scope)return;
+  Array.prototype.forEach.call(scope.querySelectorAll('.reckill'),function(b){
+    b.addEventListener('click',function(){
+      removeRecognition(name,b.parentNode.dataset.rid);
+      if(typeof scope.__rerender==='function')scope.__rerender();
+    });
+  });
+}
+
+/* ================= BULLETIN BOARD =================
+   Notices live on the club record rather than in this browser, because the
+   point of a board is that everybody sees the same thing. Officers post;
+   everyone reads. */
+function boardList(){
+  if(!S.club.board||!S.club.board.length)return [];
+  return S.club.board.slice().sort(function(a,b){return (b.at||0)-(a.at||0)});
+}
+function renderBoard(){
+  var sec=$('board'), list=$('boardlist');
+  if(!sec||!list)return;
+  var items=boardList();
+  /* A member with nothing pinned should not see an empty box; an officer
+     should, because that is where the post button lives. */
+  sec.hidden=(!items.length&&!canEdit());
+  if(!items.length){
+    list.innerHTML='<p class="empty">No notices yet.</p>';
+    return;
+  }
+  list.innerHTML=items.map(function(n){
+    return '<div class="notice" data-id="'+esc(n.id)+'">'+
+      '<div class="ntext">'+esc(n.text)+
+        '<span class="nmeta">'+esc(n.by||'An officer')+' \u00b7 '+esc(boardDate(n.at))+'</span></div>'+
+      (canEdit()?'<button class="nkill" type="button" title="Remove this notice">\u00d7</button>':'')+
+    '</div>';
+  }).join('');
+  Array.prototype.forEach.call(list.querySelectorAll('.nkill'),function(b){
+    b.addEventListener('click',function(){
+      var id=b.parentNode.dataset.id;
+      S.club.board=(S.club.board||[]).filter(function(n){return n.id!==id});
+      save(); syncClub(); renderBoard();
+    });
+  });
+}
+function boardDate(ms){
+  if(!ms)return '';
+  var d=new Date(ms);
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+function initBoard(){
+  var add=$('boardadd'), tog=$('boardtoggle'), sec=$('board');
+  if(add)add.addEventListener('click',function(){
+    uiPrompt('Post a notice','Everyone in the club sees this at the top of every page.',
+             'Chapter meeting moved to Thursday 7pm','','Post').then(function(t){
+      if(t===null)return;
+      t=String(t).trim(); if(!t)return;
+      S.club.board=S.club.board||[];
+      S.club.board.unshift({id:'n'+Date.now().toString(36),text:t.slice(0,400),
+                            by:A.name||A.email||'An officer',at:Date.now()});
+      S.club.board=S.club.board.slice(0,12);
+      save(); syncClub(); renderBoard();
+    });
+  });
+  if(tog)tog.addEventListener('click',function(){
+    var col=sec.classList.toggle('collapsed');
+    tog.textContent=col?'Show':'Hide';
+    tog.setAttribute('aria-expanded',String(!col));
+  });
+  renderBoard();
+}
+
+/* ================= HIDE / SHOW SECTIONS =================
+   Which panels a person wants on screen is a personal preference, not club
+   data, so it stays in this browser and never syncs. Hidden panels are not
+   lost: they collect behind the Hidden button under the masthead. */
+var HIDE_KEY='orgsystem.hidden';
+var HIDDEN={};
+function loadHidden(){
+  try{HIDDEN=JSON.parse(localStorage.getItem(HIDE_KEY)||'{}')||{}}catch(e){HIDDEN={}}
+}
+function saveHidden(){
+  try{localStorage.setItem(HIDE_KEY,JSON.stringify(HIDDEN))}catch(e){}
+}
+/* The heading's own text, without the Hide button this function added to it and
+   without any live counter inside it. Reading textContent directly meant the
+   key changed every time the panel was re-keyed or the count ticked, so a
+   hidden panel un-hid itself and left an orphan in the Hidden menu. */
+function headingText(panel){
+  var h=panel.querySelector('h2');
+  if(!h)return 'Section';
+  var out='';
+  Array.prototype.forEach.call(h.childNodes,function(n){
+    if(n.nodeType===1&&(n.classList.contains('hidebtn')||n.classList.contains('savenote')))return;
+    out+=n.textContent||'';
+  });
+  return out.replace(/\s+/g,' ').trim()||'Section';
+}
+function panelKey(panel){
+  var view=panel.parentNode;
+  while(view&&!(view.classList&&view.classList.contains('view')))view=view.parentNode;
+  /* A panel that carries its own id keeps a key nothing in the heading can
+     move. Everything else falls back to the heading text. */
+  return (view&&view.id||'app')+'::'+(panel.id||headingText(panel).slice(0,60));
+}
+function panelTitle(panel){return headingText(panel)}
+/* Called after every render that can add panels. Idempotent: a panel that
+   already carries a hide button is left alone. */
+function wireHideControls(){
+  Array.prototype.forEach.call(document.querySelectorAll('.view .panel'),function(panel){
+    var h=panel.querySelector('h2');
+    if(!h)return;
+    var key=panelKey(panel);
+    panel.dataset.pkey=key;
+    if(!h.querySelector('.hidebtn')){
+      var b=document.createElement('button');
+      b.type='button'; b.className='hidebtn'; b.textContent='Hide';
+      b.title='Move this section behind the Hidden button';
+      b.addEventListener('click',function(ev){
+        ev.stopPropagation();
+        HIDDEN[panel.dataset.pkey]=panelTitle(panel);
+        saveHidden(); applyHidden();
+      });
+      h.appendChild(b);
+    }
+  });
+  applyHidden();
+}
+function applyHidden(){
+  Array.prototype.forEach.call(document.querySelectorAll('.view .panel[data-pkey]'),function(panel){
+    panel.classList.toggle('ishidden',!!HIDDEN[panel.dataset.pkey]);
+  });
+  renderHiddenBar();
+}
+function renderHiddenBar(){
+  var bar=$('hiddenbar'), menu=$('hiddenmenu'), count=$('hiddencount');
+  if(!bar||!menu)return;
+  var keys=Object.keys(HIDDEN);
+  bar.hidden=!keys.length;
+  if(count)count.textContent=String(keys.length);
+  if(!keys.length){menu.hidden=true;return}
+  menu.innerHTML='<div class="hmlbl">Bring a section back</div>'+
+    keys.map(function(k){
+      return '<button type="button" data-k="'+esc(k)+'">'+esc(HIDDEN[k])+'</button>';
+    }).join('')+
+    '<button type="button" data-k="__all">Show all sections</button>';
+  Array.prototype.forEach.call(menu.querySelectorAll('button'),function(b){
+    b.addEventListener('click',function(){
+      if(b.dataset.k==='__all')HIDDEN={};
+      else delete HIDDEN[b.dataset.k];
+      saveHidden(); applyHidden();
+      menu.hidden=true;
+      var t=$('hiddenbtn'); if(t)t.setAttribute('aria-expanded','false');
+    });
+  });
+}
+function initHidden(){
+  loadHidden();
+  var btn=$('hiddenbtn'), menu=$('hiddenmenu');
+  if(btn)btn.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    menu.hidden=!menu.hidden;
+    btn.setAttribute('aria-expanded',String(!menu.hidden));
+  });
+  document.addEventListener('click',function(ev){
+    if(!menu||menu.hidden)return;
+    if(!menu.contains(ev.target)&&ev.target!==btn)menu.hidden=true;
+  });
+  wireHideControls();
+}
+
+/* ---- point categories ----
+   A point's kind is what a member actually wants to know at a glance: was that
+   a meeting, a competition, service hours. The track says which side of the
+   club it belongs to and is a separate question, so the two live side by side
+   rather than one standing in for the other. */
+var POINT_CATS=[
+  {id:'meet',  label:'Meetings',    color:'#7aa9dd'},
+  {id:'comp',  label:'Competition', color:'#e8765e'},
+  {id:'svc',   label:'Service',     color:'#4fae8c'},
+  {id:'soc',   label:'Social',      color:'#c9a24a'},
+  {id:'lead',  label:'Leadership',  color:'#a98bd0'},
+  {id:'grow',  label:'Recruiting',  color:'#4fa3a3'}
+];
+function catById(id){
+  for(var i=0;i<POINT_CATS.length;i++)if(POINT_CATS[i].id===id)return POINT_CATS[i];
+  return POINT_CATS[0];
+}
+/* Catalogs written before kinds existed get one inferred from the label, so an
+   officer opening an old club sees sensible colours instead of everything
+   filed under Meetings. */
+function guessCat(label){
+  var L=String(label||'').toLowerCase();
+  if(/compet|case|battle|conference|qualif|state|national|placed|won/.test(L))return 'comp';
+  if(/service|volunteer|philanthrop|community|fundrais|donat/.test(L))return 'svc';
+  if(/social|mixer|banquet|retreat|game night/.test(L))return 'soc';
+  if(/led|lead|ran a|hosted|officer|represent|workshop lead|taught/.test(L))return 'lead';
+  if(/guest|recruit|brought|tabling|rush|interest/.test(L))return 'grow';
+  return 'meet';
+}
+function catOf(a){ if(!a)return 'meet'; if(!a.cat)a.cat=guessCat(a.label); return a.cat; }
+function catColor(a){ return catById(catOf(a)).color; }
+function catLabel(a){ return catById(catOf(a)).label; }
+function catChip(a){
+  var c=catById(catOf(a));
+  return '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>';
+}
+/* The backend's history rows carry a label and a number, not an action id, so
+   the kind is recovered from the catalog by label and inferred only when the
+   action has since been renamed or deleted. */
+function catTotalsFromHistory(history){
+  var out={}, byLabel={};
+  POINT_CATS.forEach(function(c){out[c.id]=0});
+  S.actions.forEach(function(a){byLabel[String(a.label).toLowerCase()]=catOf(a)});
+  (history||[]).forEach(function(e){
+    var L=String(e.label||'').toLowerCase();
+    var id=byLabel[L]||guessCat(L);
+    if(!(id in out))id='meet';
+    out[id]+=(Number(e.points)||0);
+  });
+  return out;
+}
+/* Points a person earned, split by kind — used on profiles and member cards. */
+function catTotalsFor(person){
+  var out={};
+  POINT_CATS.forEach(function(c){out[c.id]=0});
+  (person&&person.hist||[]).forEach(function(hRow){
+    var id=hRow.cat||guessCat(hRow.action||hRow.label);
+    if(!(id in out))id='meet';
+    out[id]+=(hRow.pts||0);
+  });
+  return out;
+}
+
 function renderActions(){
   var box=$('actlist');
-  var h='<div class="act head"><span>Action</span><span>Points</span><span>Track</span><span>Live</span><span></span></div>';
+  var h='<div class="catlegend">'+POINT_CATS.map(function(c){
+      return '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>';
+    }).join('')+'</div>'+
+    '<div class="act head"><span>Action</span><span>Points</span><span>Kind</span><span>Track</span><span>Live</span><span></span></div>';
   S.actions.forEach(function(a){
-    h+='<div class="act'+(a.on?'':' off')+'" data-id="'+a.id+'">'+
+    h+='<div class="act'+(a.on?'':' off')+'" data-id="'+a.id+'" style="--catcolor:'+catColor(a)+'">'+
       '<input type="text" class="a-label" value="'+esc(a.label)+'" aria-label="Action name">'+
       '<input type="number" class="a-pts" value="'+a.pts+'" min="0" max="999" aria-label="Points">'+
+      '<select class="a-cat tagsel" aria-label="Kind of points">'+
+        POINT_CATS.map(function(c){return '<option value="'+c.id+'"'+(catOf(a)===c.id?' selected':'')+'>'+esc(c.label)+'</option>'}).join('')+
+      '</select>'+
       '<select class="a-track tagsel" aria-label="Track">'+
         trackOpts().map(function(o){return '<option value="'+esc(o[0])+'"'+(a.track===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+
       '</select>'+
@@ -2565,6 +3201,12 @@ function renderActions(){
     var a=actById(row.dataset.id);
     row.querySelector('.a-label').addEventListener('input',function(e){a.label=e.target.value;fillActionSelect();save()});
     row.querySelector('.a-pts').addEventListener('input',function(e){a.pts=parseInt(e.target.value,10)||0;scoreAll();refreshScored()});
+    row.querySelector('.a-cat').addEventListener('change',function(e){
+      /* p.hist[].cat is written by scoreAll, and the profile breakdown reads
+         it, so the rescore has to happen before anything repaints. */
+      a.cat=e.target.value; row.style.setProperty('--catcolor',catColor(a));
+      scoreAll(); refreshScored();
+    });
     row.querySelector('.a-track').addEventListener('change',function(e){a.track=e.target.value;scoreAll();refreshScored()});
     row.querySelector('.a-on').addEventListener('change',function(e){
       a.on=e.target.checked;row.classList.toggle('off',!a.on);
@@ -2615,7 +3257,8 @@ function scoreAll(){
     }
     pts+=bonus;
     p.pts+=pts;p.evts++;if(isCross)p.cross++;
-    p.hist.push({label:l.label||a.label,action:a.label,pts:pts,bonus:bonus,date:l.date,cross:isCross});
+    p.hist.push({label:l.label||a.label,action:a.label,pts:pts,bonus:bonus,date:l.date,cross:isCross,
+                 actionId:l.actionId,cat:catOf(a)});
     var key=p.org+'|'+l.actionId+'|'+(l.label||'')+'|'+(l.date||'');
     orgEvent[key]=(orgEvent[key]||0)+1;
   });
@@ -2728,7 +3371,7 @@ function renderStandings(){
       if(STV.track&&p.track!==STV.track)return false;
       return true;
     });
-    h+='<div class="tablewrap"><table><thead><tr><th class="l">#</th><th class="l">Member</th>'+
+    h+='<div class="tablewrap scrollcard"><table><thead><tr><th class="l">#</th><th class="l">Member</th>'+
       '<th class="l">'+esc(unitWord())+'</th>'+(tracksOf().length?'<th class="l">'+esc(S.club.trackWord)+'</th>':'')+
       '<th>Points</th><th>Entries</th></tr></thead><tbody>';
     mm.forEach(function(p){
@@ -2786,7 +3429,8 @@ function renderLog(){
       pts=(a.pts+b)+(b?' (+'+b+')':'');
     }
     h+='<tr class="'+(p?'':'rowflag')+'"><td class="l name">'+esc(l.name)+(p?'':' <span class="mono" style="color:var(--flag);font-size:10px">UNMATCHED</span>')+'</td>'+
-      '<td class="l">'+esc(a?a.label:'(deleted action)')+(a&&!a.on?' <span class="mono" style="font-size:10px;color:var(--mute)">OFF</span>':'')+'</td>'+
+      '<td class="l">'+esc(a?a.label:'(deleted action)')+(a?' '+catChip(a):'')+
+        (a&&!a.on?' <span class="mono" style="font-size:10px;color:var(--mute)">OFF</span>':'')+'</td>'+
       '<td class="l">'+esc(l.label||'')+'</td><td class="l">'+esc(l.date||'')+'</td><td>'+pts+'</td>'+
       '<td><button class="kill logkill" data-id="'+l.id+'" title="Remove entry">\u00D7</button></td></tr>';
   });
@@ -3561,7 +4205,32 @@ function openMemberCard(name){
       h+='<p class="hint" style="margin-top:16px">Their personality type and points are their own. Officers and the member themselves can see them.</p>';
     }
     if(m.notes)h+='<p class="hint" style="margin-top:14px;color:var(--compete)">Note: '+esc(m.notes)+'</p>';
+
     box.innerHTML=h;
+    paintRecs();
+
+    /* Officers award recognitions from the card they are already looking at,
+       so it takes one click from seeing somebody's name to marking what they
+       did. Members see the badges and no controls. */
+    function paintRecs(){
+      var old=box.querySelector('.recblock'); if(old)old.parentNode.removeChild(old);
+      var wrap=document.createElement('div');
+      wrap.className='recblock';
+      wrap.innerHTML='<h3>Recognitions</h3>'+recBadges(m.name,canEdit())+
+        (canEdit()?'<div class="row" style="margin-top:10px"><button class="tiny ghost" type="button" id="recadd">Add a recognition</button></div>':'');
+      box.appendChild(wrap);
+      wrap.__rerender=paintRecs;
+      wireRecKills(wrap,m.name);
+      var b=wrap.querySelector('#recadd');
+      if(b)b.addEventListener('click',function(){
+        uiPrompt('Recognise '+m.name,'What they did. This is shown on their profile and does not affect points.',
+                 'Member of the Month \u2014 March','','Add').then(function(t){
+          if(t===null)return;
+          addRecognition(m.name,t);
+          paintRecs();
+        });
+      });
+    }
   });
 }
 function wireMemberLinks(root){
@@ -3751,7 +4420,29 @@ function renderProfile(){
         (String(p.IsLead||'').match(/^y/i)?stat('Yes','Leader'):'')+
       '</div>';
     }
+    if(p){
+      var rb=recBadges(nm,false);
+      if(rb)h+='<h3 style="margin-top:20px">Recognitions</h3>'+rb;
+    }
     h+='</div>';
+
+    /* Built from the history the backend just returned rather than from
+       S.people, which a member never receives -- the breakdown is for the
+       member first, and an officer reading their own page second. */
+    if(p&&r.history&&r.history.length){
+      var ct=catTotalsFromHistory(r.history), tot=0;
+      POINT_CATS.forEach(function(c){tot+=ct[c.id]});
+      var any=POINT_CATS.filter(function(c){return ct[c.id]>0});
+      if(any.length&&tot>0){
+        h+='<div class="panel"><h2>Where your points came from</h2><div class="catbars">'+
+          any.map(function(c){
+            var pctv=Math.round(ct[c.id]/tot*100);
+            return '<div class="catbar"><span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+
+              esc(c.label)+'</span><span class="catnum">'+ct[c.id]+'</span>'+
+              '<span class="cattrack"><i style="width:'+pctv+'%;background:'+c.color+'"></i></span></div>';
+          }).join('')+'</div></div>';
+      }
+    }
 
     if(r.history&&r.history.length){
       h+='<div class="panel"><h2>Your recent points</h2>';
@@ -3773,7 +4464,7 @@ function renderProfile(){
         '<button id="me-save">Save</button>'+
       '</div>'+
       '<h3>Profile picture</h3>'+
-      '<p class="hint">Kept small and stored with your club’s data. Square images look best.</p>'+
+      '<p class="hint">Square images look best.</p>'+
       '<div class="row" style="margin-top:0"><input type="file" id="me-photo" accept="image/*" style="display:block">'+
       '<button class="ghost" id="me-photo-clear">Remove picture</button></div>'+
       '<div class="msg" id="me-msg"></div>'+
@@ -4002,6 +4693,7 @@ function renderFormKit(){
       if(r&&r.ok){
         S.club.formUrl=r.formUrl; S.club.sheetUrl=r.sheetUrl;
         S.club.formEditUrl=r.editUrl||'';
+        FE.loaded=false; FE.items=[];
         var f=$('cf-form'); if(f)f.value=r.formUrl;
         var sh=$('cf-sheet'); if(sh)sh.value=r.sheetUrl;
         save(); syncClub();
@@ -4083,20 +4775,32 @@ function renderClubRosterTable(){
   });
   if(!CROSTER.length){box.innerHTML='<p class="empty">Nobody has signed up for this club yet. Share the join code and the sign-up form.</p>';return}
   if(!rows.length){box.innerHTML='<p class="empty">Nobody matches.</p>';return}
+  var canKill=canEdit();
   var h='<div class="tablewrap"><table><thead><tr><th class="l"></th><th class="l">Name</th>'+
-    '<th class="l">Email</th><th class="l">Role</th><th class="l">Via</th><th class="l">Joined</th></tr></thead><tbody>';
-  rows.forEach(function(u){
+    '<th class="l">Email</th><th class="l">Role</th><th class="l">Via</th><th class="l">Joined</th>'+
+    (canKill?'<th class="l"></th>':'')+'</tr></thead><tbody>';
+  rows.forEach(function(u,ri){
     var nm=((u.first||'')+' '+(u.last||'')).trim();
     h+='<tr><td class="l">'+(u.photo?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
       '<td class="l">'+(nm?'<span class="nm linked" data-person="'+esc(nm)+'">'+esc(nm)+'</span>':'<span class="mute">\u2014</span>')+'</td>'+
       '<td class="l"><span class="mono" style="font-size:12px">'+esc(u.email||u.who)+'</span></td>'+
       '<td class="l">'+esc(u.role)+'</td>'+
       '<td class="l">'+(u.kind==='google'?'Google':'Password')+'</td>'+
-      '<td class="l"><span class="mono" style="font-size:11px">'+esc(String(u.joined||'').slice(0,10))+'</span></td></tr>';
+      '<td class="l"><span class="mono" style="font-size:11px">'+esc(String(u.joined||'').slice(0,10))+'</span></td>'+
+      (canKill?'<td class="l">'+(canDeleteAccount(u)?'<div class="rowacts"><button class="danger" data-kill="'+ri+'" type="button">Remove</button></div>':'')+'</td>':'')+
+      '</tr>';
   });
   box.innerHTML=h+'</tbody></table></div><p class="hint" style="margin-top:10px">'+rows.length+
     (rows.length===CROSTER.length?' on the roster.':' of '+CROSTER.length+' shown.');
   wireMemberLinks(box);
+  Array.prototype.forEach.call(box.querySelectorAll('[data-kill]'),function(b){
+    b.addEventListener('click',function(){
+      deleteAccount(rows[b.dataset.kill|0],function(msg,ok){
+        rlSay(ok?('Removed '+msg+'.'):msg, ok?'info':'');
+        if(ok)renderClubRoster();
+      });
+    });
+  });
 }
 function renderClubSetup(){
   var sel=$('presetsel');
@@ -4452,6 +5156,7 @@ function switchAff(code){
   if(!code||code===A.aff)return;
   A.aff=code; A.affName=code; storeAff(code);
   S.people=[];S.orgs=[];S.orgNames=[];S.log=[];S.standings=[];
+  FE.loaded=false; FE.items=[];
   S.club=cloneClub(DEFAULT_CLUB);S.actions=cloneActions();
   setRole(A.role,null);
   /* Wipe the screen before the fetch, not after it. Otherwise the club being
@@ -4485,8 +5190,9 @@ function renderSignupTable(){
   });
   if(!rows.length){box.innerHTML='<p class="empty">Nobody matches.</p>';return}
   var h='<div class="tablewrap"><table><thead><tr><th class="l"></th><th class="l">Name</th>'+
-    '<th class="l">Email</th><th class="l">Club</th><th class="l">Role</th><th class="l">Via</th><th class="l">Joined</th></tr></thead><tbody>';
-  rows.forEach(function(u){
+    '<th class="l">Email</th><th class="l">Club</th><th class="l">Role</th><th class="l">Via</th><th class="l">Joined</th>'+
+    '<th class="l"></th></tr></thead><tbody>';
+  rows.forEach(function(u,ri){
     var nm=((u.first||'')+' '+(u.last||'')).trim();
     h+='<tr><td class="l">'+(u.photo?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
       '<td class="l name">'+esc(nm||'—')+'</td>'+
@@ -4494,9 +5200,18 @@ function renderSignupTable(){
       '<td class="l">'+esc(u.affName||u.aff)+'</td>'+
       '<td class="l">'+esc(u.role)+'</td>'+
       '<td class="l">'+(u.kind==='google'?'Google':'Password')+'</td>'+
-      '<td class="l"><span class="mono" style="font-size:11px">'+esc(String(u.joined||'').slice(0,10))+'</span></td></tr>';
+      '<td class="l"><span class="mono" style="font-size:11px">'+esc(String(u.joined||'').slice(0,10))+'</span></td>'+
+      '<td class="l">'+(canDeleteAccount(u)?'<div class="rowacts"><button class="danger" data-kill="'+ri+'" type="button">Remove</button></div>':'')+'</td></tr>';
   });
   box.innerHTML=h+'</tbody></table></div><p class="hint" style="margin-top:10px">'+rows.length+' of '+SIGNUPS.length+' shown.</p>';
+  Array.prototype.forEach.call(box.querySelectorAll('[data-kill]'),function(b){
+    b.addEventListener('click',function(){
+      deleteAccount(rows[b.dataset.kill|0],function(msg,ok){
+        if(ok)renderSignups();
+        else if(typeof accSay==='function')accSay(msg);
+      });
+    });
+  });
 }
 function renderSignups(){
   var box=$('sgtable'); if(!box)return;
@@ -5028,9 +5743,28 @@ wireDrop('cupdrop','cupfile',function(f){
   fr.readAsText(f);
 });
 $('addact').addEventListener('click',function(){
-  S.actions.push({id:newActionId(),label:'New action',pts:1,track:'x',on:true});
+  S.actions.push({id:newActionId(),label:'New action',pts:1,track:'x',cat:'meet',on:true});
   renderActions();fillActionSelect();save();
 });
+
+/* Org Cup is two pages behind one dropdown: standings on arrival, because that
+   is what everyone opens it for, and the catalog on its own page so editing
+   scoring is a deliberate trip rather than something scrolled past. */
+(function(){
+  var sel=$('cuppage'); if(!sel)return;
+  function paintCupPage(){
+    var v=sel.value;
+    ['stand','earn'].forEach(function(k){
+      var el=$('cup-page-'+k); if(!el)return;
+      var on=(k===v);
+      el.classList.toggle('on',on);
+      el.hidden=!on;
+    });
+    if(v==='earn')renderActions();
+  }
+  sel.addEventListener('change',paintCupPage);
+  paintCupPage();
+})();
 $('resetacts').addEventListener('click',function(){
   (S.log.length?uiConfirm('Reset the catalog?','Every logged entry is deleted with it, because entries point at actions.','Reset',true):Promise.resolve(true)).then(function(__ok){ if(!__ok)return;
 
@@ -5276,6 +6010,9 @@ function buildDemo(){
   var iso0=t0.getFullYear()+'-'+String(t0.getMonth()+1).padStart(2,'0')+'-'+String(t0.getDate()).padStart(2,'0');
   $('qdate').value=iso0;
   $('atdate').value=iso0;
+  initBoard();
+  initHidden();
+  initFormEditor();
   if(isDemo()){ goDemo(); buildDemo(); return; }
   var d=loadSaved();
   if(d&&restore(d)){
