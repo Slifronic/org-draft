@@ -1351,16 +1351,33 @@ var DEFAULT_CLUB={
   leadsPer:2,
   formUrl:'', sheetUrl:'', formEmbed:true
 };
+/* Club vocabulary is short free text an officer types once — "Org", "Lead",
+   "Track" — and it is concatenated into dozens of strings that are then written
+   with innerHTML. Escaping every one of those sinks would be a list nobody can
+   keep complete, so the angle brackets are removed here instead, at the two
+   points the words enter the model. There is no legitimate label containing
+   markup, so nothing is lost. */
+function cleanLabel(v){
+  return String(v==null?'':v).replace(/[<>]/g,'').replace(/[\u0000-\u001F\u007F]/g,'').slice(0,60);
+}
+/* Links are stored the same way and end up in href. Entity-escaping a href does
+   not stop javascript: — only an explicit scheme check does. */
+function safeUrl(v){
+  var u=String(v==null?'':v).trim();
+  return /^https?:\/\//i.test(u)?u:'';
+}
 function cloneClub(c){
   c=c||DEFAULT_CLUB;
-  return {clubName:c.clubName, unit:c.unit, units:c.units,
-    useTracks:c.useTracks, trackWord:c.trackWord,
-    tracks:c.tracks.map(function(t){return {id:t.id,label:t.label}}),
-    flexLabel:c.flexLabel, useYear:c.useYear, newWord:c.newWord, oldWord:c.oldWord,
+  return {clubName:cleanLabel(c.clubName), unit:cleanLabel(c.unit), units:cleanLabel(c.units),
+    useTracks:c.useTracks, trackWord:cleanLabel(c.trackWord),
+    tracks:c.tracks.map(function(t){return {id:t.id,label:cleanLabel(t.label)}}),
+    flexLabel:cleanLabel(c.flexLabel), useYear:c.useYear,
+    newWord:cleanLabel(c.newWord), oldWord:cleanLabel(c.oldWord),
     useMbti:c.useMbti, mbtiRequired:c.mbtiRequired,
-    roleLead:c.roleLead, roleSenior:c.roleSenior, roleJunior:c.roleJunior,
-    leadsPer:c.leadsPer, formUrl:c.formUrl||'', sheetUrl:c.sheetUrl||'',
-    formEditUrl:c.formEditUrl||'',
+    roleLead:cleanLabel(c.roleLead), roleSenior:cleanLabel(c.roleSenior),
+    roleJunior:cleanLabel(c.roleJunior),
+    leadsPer:c.leadsPer, formUrl:safeUrl(c.formUrl), sheetUrl:safeUrl(c.sheetUrl),
+    formEditUrl:safeUrl(c.formEditUrl),
     /* Notices and recognitions are club history, not part of a starter kit, so
        they ride through cloneClub rather than being reset by "Load the kit". */
     board:(c.board||[]).slice(), recognitions:c.recognitions||{},
@@ -1835,10 +1852,16 @@ var S={
   swaps:[], applied:{},
   club:null, preset:'business'
 };
+var CLUB_LABELS={clubName:1,unit:1,units:1,trackWord:1,flexLabel:1,newWord:1,oldWord:1,
+                 roleLead:1,roleSenior:1,roleJunior:1};
+var CLUB_URLS={formUrl:1,sheetUrl:1,formEditUrl:1};
 function mergeClub(base,over){
   var out=cloneClub(base);
   if(over)for(var k in over)if(Object.prototype.hasOwnProperty.call(over,k)){
-    out[k]=(k==='tracks')?over[k].map(function(t){return {id:t.id,label:t.label}}):over[k];
+    if(k==='tracks')out[k]=over[k].map(function(t){return {id:t.id,label:cleanLabel(t.label)}});
+    else if(CLUB_LABELS[k])out[k]=cleanLabel(over[k]);
+    else if(CLUB_URLS[k])out[k]=safeUrl(over[k]);
+    else out[k]=over[k];
   }
   return out;
 }
@@ -2765,7 +2788,7 @@ function renderFormEditor(){
       FE.reading=false;
       if(!r||!r.ok){
         box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not open that form.')+
-          (S.club.formEditUrl?' <a href="'+esc(S.club.formEditUrl)+'" target="_blank" rel="noopener">Open it in Google Forms</a>.':'')+'</p>';
+          (safeUrl(S.club.formEditUrl)?' <a href="'+esc(safeUrl(S.club.formEditUrl))+'" target="_blank" rel="noopener">Open it in Google Forms</a>.':'')+'</p>';
         return;
       }
       FE.items=(r.items||[]).map(function(it){
@@ -4084,7 +4107,7 @@ function renderDraft(){
       html+='<span class="'+cls+'"><b>'+a+'</b>'+pair[0]+'/<b>'+b+'</b>'+pair[1]+'</span>';
     });
     html+='</div>';
-    flags.forEach(function(f){html+='<div class="warn">! '+f+'</div>'});
+    flags.forEach(function(f){html+='<div class="warn">! '+esc(f)+'</div>'});
     html+='</div><ul class="roster">';
     var shown=g.filter(matchPerson);
     shown.slice().sort(function(x,y){return (y.lead?1:0)-(x.lead?1:0)||y.year-x.year}).forEach(function(p){
@@ -4717,7 +4740,7 @@ function formKitSay(t,kind){
 }
 function renderRosterLinks(){
   var box=$('rosterlinks'); if(!box)return;
-  var f=S.club.formUrl, sh=S.club.sheetUrl;
+  var f=safeUrl(S.club.formUrl), sh=safeUrl(S.club.sheetUrl);
   if(!f&&!sh){
     box.innerHTML='<p class="hint" style="margin:0">No form yet. Create one under <b>Intake \u2192 Roster source</b>, or paste existing links above.</p>';
     return;
@@ -4726,7 +4749,7 @@ function renderRosterLinks(){
   if(f)h+='<a class="linkbtn" href="'+esc(f)+'" target="_blank" rel="noopener"><b>Form</b> Open the sign-up form</a>';
   /* Answering the form and editing its questions are different URLs. Without
      this one an officer has the link members use and no way to change it. */
-  if(S.club.formEditUrl)h+='<a class="linkbtn" href="'+esc(S.club.formEditUrl)+'" target="_blank" rel="noopener"><b>Edit</b> Change the questions</a>';
+  if(safeUrl(S.club.formEditUrl))h+='<a class="linkbtn" href="'+esc(safeUrl(S.club.formEditUrl))+'" target="_blank" rel="noopener"><b>Edit</b> Change the questions</a>';
   if(sh)h+='<a class="linkbtn" href="'+esc(sh)+'" target="_blank" rel="noopener"><b>Sheet</b> Open the responses</a>';
   h+='</div>';
   h+='<div class="linkrow" style="margin-top:10px"><button id="repubform" class="ghost">Republish the form</button></div>'+
@@ -4831,7 +4854,8 @@ function wireClubSetup(){
             'cf-rsenior':'roleSenior','cf-rjunior':'roleJunior'};
   Object.keys(text).forEach(function(id){
     $(id).addEventListener('input',function(e){
-      S.club[text[id]]=e.target.value;
+      var f=text[id];
+      S.club[f]=CLUB_URLS[f]?safeUrl(e.target.value):cleanLabel(e.target.value);
       if(id==='cf-flex')renderTrackList();
       if(id==='cf-form'||id==='cf-sheet')renderRosterLinks();
       clubChanged();
@@ -4996,7 +5020,7 @@ function renderClubForm(){
   backendPost('formSchema',{formUrl:S.club.formUrl}).then(function(r){
     if(!r||!r.ok){
       box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that form.')+
-        ' <a href="'+esc(S.club.formUrl)+'" target="_blank" rel="noopener">Open it directly instead</a>.</p>';
+        ' <a href="'+esc(safeUrl(S.club.formUrl))+'" target="_blank" rel="noopener">Open it directly instead</a>.</p>';
       $('formsubmit').style.display='none'; return;
     }
     FORM.schema=r; FORM.loaded=true;

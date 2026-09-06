@@ -654,7 +654,7 @@ function doPost(e) {
       var lock0 = LockService.getScriptLock();
       try { lock0.waitLock(20000); } catch (e) { return out({ok: false, error: 'Busy, try again.'}); }
       try { return out(doLogin(body.payload)); }
-      catch (err) { return out({ok: false, error: 'Login failed: ' + err}); }
+      catch (err) { return out(failRef_('doLogin', err)); }
       finally { try { lock0.releaseLock(); } catch (e2) {} }
     }
 
@@ -662,7 +662,7 @@ function doPost(e) {
 
     var id;
     try { id = identify(body); }
-    catch (err) { return out({ok: false, error: 'Identity check failed: ' + err}); }
+    catch (err) { return out(failRef_('identify', err)); }
     if (!id.ok) return out({ok: false, error: id.error});
 
     var email = id.who, role = id.role;
@@ -678,13 +678,22 @@ function doPost(e) {
     try {
       return out(dispatch(action, body.payload, email, role, id));
     } catch (err) {
-      return out({ok: false, error: String(err)});
+      return out(failRef_('dispatch:' + action, err));
     } finally {
       try { if (lock) lock.releaseLock(); } catch (err2) {}
     }
   } catch (fatal) {
-    return out({ok: false, error: 'Backend error: ' + fatal});
+    return out(failRef_('doPost', fatal));
   }
+}
+
+/* Exceptions carry sheet names, row numbers and stack frames. The caller gets a
+   generic line and a short reference; the detail stays in the script's own
+   execution log, which only the owner can read. */
+function failRef_(where, err) {
+  var ref = Utilities.getUuid().slice(0, 8);
+  try { console.error('[' + ref + '] ' + where + ': ' + (err && err.stack ? err.stack : err)); } catch (e) {}
+  return {ok: false, error: 'Something went wrong on the server. Reference ' + ref + '.', ref: ref};
 }
 
 function dispatch(action, payload, email, role, id) {
