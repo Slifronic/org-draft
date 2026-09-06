@@ -1599,6 +1599,30 @@ function storeSession(v){try{v?localStorage.setItem(SESSION_KEY,v):localStorage.
    answers. It is a display convenience and nothing more: every write re-sends
    the token and is re-checked against the sheet, so a role edited into local
    storage buys nothing but a briefly wrong-looking screen. */
+/* A password account gets a session token and stays signed in across reloads.
+   A Google account got nothing, so every reload depended on Google's
+   auto-select re-issuing a credential -- which browsers increasingly decline
+   to do without a click. The Google token is kept the same way, and only for
+   as long as Google itself says it is valid. */
+var GTOK_KEY='orgsystem.gtok';
+function storeGoogleToken(t){
+  try{
+    if(!t){localStorage.removeItem(GTOK_KEY);return}
+    var exp=(jwtPeek(t)||{}).exp;
+    if(!exp)return;
+    localStorage.setItem(GTOK_KEY,JSON.stringify({t:t,exp:exp}));
+  }catch(e){}
+}
+function loadGoogleToken(){
+  try{
+    var v=JSON.parse(localStorage.getItem(GTOK_KEY)||'null');
+    if(!v||!v.t||!v.exp)return null;
+    /* A minute of headroom, so a token that dies mid-request does not send
+       somebody back to the card holding a half-loaded page. */
+    if((v.exp*1000)-Date.now()<60000){localStorage.removeItem(GTOK_KEY);return null}
+    return v.t;
+  }catch(e){return null}
+}
 var WHO_KEY='orgsystem.who';
 function loadWho(){
   try{return JSON.parse(localStorage.getItem(WHO_KEY)||'null')}catch(e){return null}
@@ -1684,14 +1708,14 @@ function applyRole(){
 
 function onCredential(resp){
   var t=resp&&resp.credential; if(!t)return;
-  A.token=t;A.session=null;A.via='google';storeSession(null);
+  A.token=t;A.session=null;A.via='google';storeSession(null);storeGoogleToken(t);
   var claims=jwtPeek(t);
   A.email=claims.email||'';A.name=claims.name||'';A.pic=claims.picture||'';
   gateMsg('Checking your role…');
   backendPost('getAll',null).then(function(r){
     if(!r||!r.ok){
       gateMsg((r&&r.error)||'The club sheet did not answer. Ask whoever runs it to redeploy the script.',true);
-      A.token=null; storeWho(null); showGate(true); return;
+      A.token=null; storeGoogleToken(null); storeWho(null); showGate(true); return;
     }
     A.aff=r.aff||A.aff; A.affName=r.affName||A.affName;
     A.needsAff=!!r.needsAff;
@@ -1711,7 +1735,7 @@ function onCredential(resp){
 function signOut(){
   try{if(window.google&&google.accounts&&google.accounts.id)google.accounts.id.disableAutoSelect()}catch(e){}
   A.token=null;A.session=null;A.role='none';A.email='';A.name='';A.pic='';A.offline=false;A.via='';
-  PROVISIONAL=false; storeWho(null);
+  PROVISIONAL=false; storeWho(null); storeGoogleToken(null);
   A.aff='';A.affName='';A.needsAff=false;
   storeSession(null);storeAff('');
   document.body.dataset.role='none';
@@ -1799,14 +1823,24 @@ function pwLogin(user,pass){
    cheapest way to find out whether it is still valid, and it returns the
    current role rather than trusting anything kept locally. */
 function resumeSession(){
-  var tok=loadSession();
-  if(!tok)return Promise.resolve(false);
-  A.session=tok; A.via='password';
+  var tok=loadSession(), gtok=null;
+  if(tok){ A.session=tok; A.via='password'; }
+  else {
+    gtok=loadGoogleToken();
+    if(!gtok)return Promise.resolve(false);
+    A.token=gtok; A.via='google';
+    var c=jwtPeek(gtok)||{};
+    A.email=c.email||''; A.name=c.name||''; A.pic=c.picture||'';
+  }
   return backendPost('getAll',null).then(function(r){
-    if(!r||!r.ok){A.session=null;A.via='';storeSession(null);storeWho(null);
-                  showGate(true);return false}
+    if(!r||!r.ok){
+      A.session=null;A.token=null;A.via='';
+      storeSession(null);storeGoogleToken(null);storeWho(null);
+      showGate(true);return false;
+    }
     PROVISIONAL=false;
-    A.email=r.email||''; A.name=r.name||r.email||''; A.pic='';
+    A.email=r.email||A.email||''; A.name=r.name||r.email||A.name||'';
+    if(A.via!=='google')A.pic='';
     A.aff=r.aff||''; A.affName=r.affName||r.aff||''; A.needsAff=!!r.needsAff;
     setRole(r.role,null);
     if(A.needsAff){showGate(true);gateMode('join');return false}
@@ -6278,8 +6312,18 @@ function viewForPath(){
   for(var k in ROUTES)if(ROUTES[k]===seg)return k;
   return '';
 }
+/* True while the sign-in card is covering the page. */
+function gateUp(){
+  var g=$('gate');
+  return !!g&&!g.classList.contains('off');
+}
 function syncUrl(id,replace){
   if(!ROUTES[id])return;
+  /* Nothing behind the sign-in card is a place the visitor navigated to, so
+     writing /draft into the address bar there was both wrong and sticky --
+     they reload, land on /draft, and are shown the card again. The address
+     they arrived on is left alone and honoured once they are in. */
+  if(gateUp())return;
   var want=pathForView(id)+location.search;
   if(location.pathname+location.search===want)return;
   try{ history[replace?'replaceState':'pushState']({view:id},'',want) }catch(e){}
@@ -6318,6 +6362,14 @@ function initRouting(){
   initHidden();
   initFormEditor();
   if(isDemo()){ goDemo(); buildDemo(); return; }
+  /* The working copy is filed per club, and A.aff is empty until the backend
+     answers. Reading it here without seeding the club first meant every club
+     looked under "default", found nothing, and fell through to the sign-in
+     card with a perfectly good draft sitting in storage. */
+  var who=loadWho();
+  if(!A.aff)A.aff=(who&&who.aff)||loadAff()||'';
+  if(who&&who.affName)A.affName=who.affName;
+
   var d=loadSaved();
   if(d&&restore(d)){
     unlockNav();syncRuleInputs();scoreAll();renderDraft();renderCup();
@@ -6328,13 +6380,19 @@ function initRouting(){
        painted page behind a blank card for the length of a round trip. The
        real role replaces this one when the backend answers, and a failure puts
        the overlay straight back. */
-    var who=loadWho();
     if(who&&who.role&&who.role!=='none'){
       PROVISIONAL=true;
       A.email=who.email||''; A.name=who.name||''; A.pic=who.pic||'';
       A.aff=who.aff||''; A.affName=who.affName||''; A.via=who.via||'';
       setRole(who.role,null);
       showGate(false);
+      /* The address was left alone while the card was up. Now that it is down,
+         either honour the one they arrived on or write the one they are
+         actually looking at. */
+      if(!applyRoute()){
+        var cur=document.querySelector('.view.on');
+        if(cur)syncUrl(cur.id,true);
+      }
     }
   } else {
     renderActions();fillActionSelect();
