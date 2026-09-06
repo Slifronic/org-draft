@@ -52,6 +52,32 @@ function shareWithOfficers(fileIds, who) {
   return {shared: ok, failed: failed};
 }
 
+/* Hand a file to the club's own Google account. The script's account is added
+   as an editor before the transfer, because after it the script is no longer
+   the owner and would otherwise lose the access it needs to publish the form
+   and read the answers. Consumer accounts can refuse or defer a transfer, so a
+   failure is reported rather than swallowed -- the file still exists and is
+   still shared, it just did not change hands. */
+function handOwnership(fileIds, newOwner) {
+  var moved = [], failed = [];
+  newOwner = String(newOwner || '').trim();
+  if (!newOwner) return {moved: moved, failed: failed, skipped: true};
+  if (newOwner.toLowerCase() === String(MASTER_EMAIL).toLowerCase())
+    return {moved: moved, failed: failed, skipped: true};
+  fileIds.forEach(function (fid) {
+    if (!fid) return;
+    try {
+      var f = DriveApp.getFileById(fid);
+      try { f.addEditor(MASTER_EMAIL); } catch (e) {}
+      f.setOwner(newOwner);
+      moved.push(fid);
+    } catch (e) {
+      failed.push(String(e.message || e));
+    }
+  });
+  return {moved: moved, failed: failed, skipped: false};
+}
+
 /* A form copied through Drive arrives unpublished. Google's newer Forms
    publishing model then serves "This document is not published" on the very
    URL getPublishedUrl() hands back, which is exactly what a club sees when it
@@ -877,7 +903,24 @@ function dispatch(action, payload, email, role, id) {
       var want = flatN((payload || {}).name);
       var row = null;
       readScoped('teams', aff).forEach(function (r) { if (flatN(r.MemberName) === want) row = r; });
-      if (!row) return {ok: false, error: 'No such member in this club.'};
+      /* Somebody who has signed up but has not been drafted has no row in
+         Teams, and answering "no such member" for a name the officer is
+         looking at in the roster is just wrong. Fall back to the account. */
+      if (!row) {
+        var acct = accountsFor(aff).filter(function (u) {
+          return flatN(String(u.first) + String(u.last)) === want ||
+                 flatN(u.who) === want || flatN(u.email) === want;
+        })[0];
+        if (!acct) return {ok: false, error: 'No such member in this club.'};
+        var selfA = flatN(id.name || email) === want ||
+                    String(acct.who).toLowerCase() === String(email).toLowerCase();
+        return {ok: true, full: RANK[role] >= RANK.admin || selfA, undrafted: true,
+                member: {name: ((acct.first || '') + ' ' + (acct.last || '')).trim() || acct.who,
+                         email: (RANK[role] >= RANK.admin || selfA) ? (acct.email || acct.who) : '',
+                         org: '', track: '', mbti: '', lead: '', notes: '',
+                         role: acct.role, joined: acct.joined, kind: acct.kind,
+                         points: null, entries: null, photo: acct.photo || null}};
+      }
       var self = flatN(id.name || email) === want;
       var full = RANK[role] >= RANK.admin || self;
       var pts = 0, evts = 0;
@@ -1228,14 +1271,23 @@ function dispatch(action, payload, email, role, id) {
          needs a different URL entirely, and without it an officer has no way
          in even once they have been given access. */
       cfg.formEditUrl = form.getEditUrl();
+      cfg.ownerEmail  = String(((payload || {}).ownerEmail || cfg.ownerEmail || '')).trim();
       var shared = shareWithOfficers([copy.getId(), ss.getId()], email);
+      /* A club's form and its answers belong to the club, not to whoever's
+         account happens to run this script. Ownership moves to the address the
+         club nominated; the script's own account is added as an editor first
+         so the handover cannot lock this system out of the file it just made
+         and still has to publish, read and edit. */
+      var handover = handOwnership([copy.getId(), ss.getId()], cfg.ownerEmail);
       var cfJson = JSON.stringify(cfg);
       if (cfRow > 0) cfSheet.getRange(cfRow, 2).setValue(cfJson);
       else cfSheet.appendRow([cfKey, cfJson]);
 
       return {ok: true, formUrl: cfg.formUrl, sheetUrl: cfg.sheetUrl,
               editUrl: cfg.formEditUrl, title: title,
-              sharedWith: email, shareFailed: shared.failed};
+              sharedWith: email, shareFailed: shared.failed,
+              owner: cfg.ownerEmail || '', ownerMoved: handover.moved.length,
+              ownerSkipped: !!handover.skipped, ownerFailed: handover.failed};
     }
 
     /* Clears a club's roster, points and attendance but keeps the club, its

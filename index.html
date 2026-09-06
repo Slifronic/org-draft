@@ -925,6 +925,11 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   <h3>Personality types</h3>
   <label class="check"><input type="checkbox" id="cf-usembti"> Collect MBTI and use it to spread types across teams</label>
   <label class="check" style="margin-top:8px"><input type="checkbox" id="cf-mbtireq"> Hold the draft until every member has one</label>
+  <div class="row" style="margin-top:10px">
+    <div class="field" style="flex:1;min-width:260px"><label for="cf-mbtiurl">Link to the test everyone takes</label>
+      <input type="text" class="mono" id="cf-mbtiurl" placeholder="https://www.16personalities.com/free-personality-test"></div>
+  </div>
+  <p class="setupsub">One test for the whole club, so everyone is answering the same instrument. This link is shown wherever a type is asked for.</p>
   <p class="setupsub">Plenty of clubs will want this off. With it off the draft still balances size, division and tenure, the Assistant drops its type advice, and no one is asked to hand over a personality result.</p>
   <div class="msg" id="clubmsg"></div>
 </div>
@@ -1054,6 +1059,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
       <button id="cr-refresh" class="ghost">Refresh</button>
     </div>
     <div id="crtable" style="margin-top:12px"></div>
+    <div class="msg" id="crmsg"></div>
   </div>
 
   <div class="panel" data-section="the-club-s-form-and-sheet">
@@ -1062,6 +1068,8 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
     <div class="row" style="margin-top:0">
       <div class="field" style="flex:1;min-width:220px"><label for="cf-form">Google Form link</label><input type="text" class="mono" id="cf-form" placeholder="https://docs.google.com/forms/..."></div>
+      <div class="field" style="flex:1;min-width:240px"><label for="cf-owner">Club Google account</label>
+        <input type="text" class="mono" id="cf-owner" placeholder="yourclub@gmail.com" autocapitalize="none" spellcheck="false"></div>
       <div class="field" style="flex:1;min-width:220px"><label for="cf-sheet">Response spreadsheet link</label><input type="text" class="mono" id="cf-sheet" placeholder="https://docs.google.com/spreadsheets/..."></div>
     </div>
     <div class="msg" id="rlmsg"></div>
@@ -1443,6 +1451,7 @@ function cloneClub(c){
     roleJunior:cleanLabel(c.roleJunior),
     leadsPer:c.leadsPer, formUrl:safeUrl(c.formUrl), sheetUrl:safeUrl(c.sheetUrl),
     formEditUrl:safeUrl(c.formEditUrl),
+    mbtiTestUrl:safeUrl(c.mbtiTestUrl), ownerEmail:cleanLabel(c.ownerEmail),
     /* Notices and recognitions are club history, not part of a starter kit, so
        they ride through cloneClub rather than being reset by "Load the kit". */
     board:(c.board||[]).slice(), recognitions:c.recognitions||{},
@@ -1967,8 +1976,8 @@ var S={
   club:null, preset:'business'
 };
 var CLUB_LABELS={clubName:1,unit:1,units:1,trackWord:1,flexLabel:1,newWord:1,oldWord:1,
-                 roleLead:1,roleSenior:1,roleJunior:1};
-var CLUB_URLS={formUrl:1,sheetUrl:1,formEditUrl:1};
+                 roleLead:1,roleSenior:1,roleJunior:1,ownerEmail:1};
+var CLUB_URLS={formUrl:1,sheetUrl:1,formEditUrl:1,mbtiTestUrl:1};
 function mergeClub(base,over){
   var out=cloneClub(base);
   if(over)for(var k in over)if(Object.prototype.hasOwnProperty.call(over,k)){
@@ -3026,7 +3035,9 @@ function canDeleteAccount(u){
   var who=String(u.who||'').toLowerCase();
   if(!who)return false;
   if(who===me)return false;
-  if(String(u.role||'').toLowerCase()==='master'&&!isMaster())return false;
+  /* The backend refuses this outright whoever is asking, so offering it only
+     produces an error somebody has to read and then wonder about. */
+  if(String(u.role||'').toLowerCase()==='master')return false;
   return true;
 }
 function deleteAccount(u,after){
@@ -3262,6 +3273,13 @@ var POINT_CATS=[
   {id:'lead',  label:'Leadership',  color:'#a98bd0'},
   {id:'grow',  label:'Recruiting',  color:'#4fa3a3'}
 ];
+/* One link for the whole club, so everyone answers the same instrument. */
+function mbtiTestUrl(){return safeUrl(S.club.mbtiTestUrl)}
+function mbtiTestLink(prefix){
+  var u=mbtiTestUrl();
+  if(!u)return '';
+  return (prefix||'')+'<a href="'+esc(u)+'" target="_blank" rel="noopener">Take the test</a>';
+}
 function catById(id){
   for(var i=0;i<POINT_CATS.length;i++)if(POINT_CATS[i].id===id)return POINT_CATS[i];
   return POINT_CATS[0];
@@ -4336,11 +4354,25 @@ function renderDraftFilters(){
 }
 
 /* ---- member card ---- */
+/* The draft in this browser already knows who is on which team and what they
+   have scored, so a card can be drawn from it without asking the sheet. Used
+   when there is no backend to ask -- the demo, a local draft, a dropped
+   connection -- rather than leaving a card that says Loading for ever. */
+function localMemberCard(name){
+  var p=findPersonByName(name); if(!p)return null;
+  return {ok:true,full:canSeePersonal(p),local:true,member:{
+    name:p.name,org:orgLabel(p.org),track:p.track,
+    mbti:canSeePersonal(p)?(p.mbti||''):'',lead:p.lead?'yes':'no',
+    notes:canSeeNotes()?(p.note||''):'',
+    points:canSeePersonal(p)?(p.pts||0):null,
+    entries:canSeePersonal(p)?(p.evts||0):null,photo:null}};
+}
 function openMemberCard(name){
   var box=$('cardbody');
   $('membercard').classList.add('on');
   box.innerHTML='<p class="empty">Loading…</p>';
-  backendPost('memberCard',{name:name}).then(function(r){
+  (A.offline?Promise.resolve(null):backendPost('memberCard',{name:name})).then(function(r){
+    if(!r||!r.ok)r=localMemberCard(name);
     if(!r||!r.ok){box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that member.')+'</p>';return}
     var m=r.member;
     var h='<div class="profhead">'+
@@ -4355,7 +4387,22 @@ function openMemberCard(name){
     } else {
       h+='<p class="hint" style="margin-top:16px">Their personality type and points are their own. Officers and the member themselves can see them.</p>';
     }
+    /* Signed up but not drafted: show what the account actually knows rather
+       than an empty card, because this is exactly who an officer clicks on
+       while working through a new roster. */
+    if(r.undrafted){
+      h+='<div class="profgrid" style="margin-top:14px">'+
+        (m.role?stat(esc(String(m.role)),'Role'):'')+
+        (m.kind?stat(m.kind==='google'?'Google':'Password','Signs in with'):'')+
+        (m.joined?stat(esc(String(m.joined).slice(0,10)),'Joined'):'')+
+      '</div>'+
+      (m.email?'<p class="hint" style="margin-top:12px"><span class="mono">'+esc(m.email)+'</span></p>':'')+
+      '<p class="hint">Not in the draft yet — they will get an '+esc(unitWord().toLowerCase())+
+      ' the next time it runs.</p>';
+    }
     if(m.notes)h+='<p class="hint" style="margin-top:14px;color:var(--compete)">Note: '+esc(m.notes)+'</p>';
+    if(r.full&&S.club.useMbti&&!m.mbti&&mbtiTestUrl())
+      h+='<p class="hint" style="margin-top:12px">No type recorded. '+mbtiTestLink()+'</p>';
 
     box.innerHTML=h;
     paintRecs();
@@ -4570,6 +4617,9 @@ function renderProfile(){
         (p.MBTI?stat(esc(String(p.MBTI)),'Type'):'')+
         (String(p.IsLead||'').match(/^y/i)?stat('Yes','Leader'):'')+
       '</div>';
+      if(S.club.useMbti&&!p.MBTI&&mbtiTestUrl())
+        h+='<p class="hint" style="margin-top:12px">Your club uses personality types and yours is not recorded yet. '+
+           mbtiTestLink()+', then send an officer your four letters.</p>';
     }
     if(p){
       var rb=recBadges(nm,false);
@@ -4822,9 +4872,20 @@ function shareNote(r){
   if(r.shareFailed&&r.shareFailed.length)
     return ' The form was made, but Drive would not give '+esc(r.sharedWith||'you')+
            ' access to it ('+esc(r.shareFailed[0])+') — it will have to be shared by hand.';
+  var out='';
   if(r.sharedWith)
-    return ' '+esc(r.sharedWith)+' can now edit the questions and read the responses.';
-  return '';
+    out=' '+esc(r.sharedWith)+' can now edit the questions and read the responses.';
+  /* Ownership is the part that can quietly not happen: Google lets a consumer
+     account refuse or defer a handover, and a club that thinks it owns its own
+     form when it does not will find out at the worst moment. */
+  if(r.ownerSkipped)
+    out+=' It is owned by the account running this system — set a club Google account above and create it again if the club should own it.';
+  else if(r.ownerFailed&&r.ownerFailed.length)
+    out+=' Ownership could not be moved to '+esc(r.owner||'that account')+' ('+esc(r.ownerFailed[0])+
+         '), so it is still owned by the account running this system.';
+  else if(r.ownerMoved)
+    out+=' '+esc(r.owner)+' now owns both files.';
+  return out;
 }
 function renderFormKit(){
   var box=$('formkit'); if(!box)return;
@@ -4840,7 +4901,7 @@ function renderFormKit(){
   $('mkform').addEventListener('click',function(){
     var b=$('mkform'); b.disabled=true; b.textContent='Creating\u2026';
     formKitSay('Copying the form and attaching a spreadsheet. This takes a few seconds.','info');
-    backendPost('cloneForm',null).then(function(r){
+    backendPost('cloneForm',{ownerEmail:S.club.ownerEmail||''}).then(function(r){
       if(r&&r.ok){
         S.club.formUrl=r.formUrl; S.club.sheetUrl=r.sheetUrl;
         S.club.formEditUrl=r.editUrl||'';
@@ -4857,6 +4918,10 @@ function renderFormKit(){
       }
     });
   });
+}
+function crSay(t,kind){
+  var m=$('crmsg'); if(!m)return;
+  m.textContent=t; m.className='msg show'+(kind?' '+kind:'');
 }
 function rlSay(t,kind){
   var m=$('rlmsg'); if(!m)return;
@@ -4933,7 +4998,8 @@ function renderClubRosterTable(){
   rows.forEach(function(u,ri){
     var nm=((u.first||'')+' '+(u.last||'')).trim();
     h+='<tr><td class="l">'+(u.photo?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
-      '<td class="l">'+(nm?'<span class="nm linked" data-person="'+esc(nm)+'">'+esc(nm)+'</span>':'<span class="mute">\u2014</span>')+'</td>'+
+      '<td class="l"><span class="nm linked" data-person="'+esc(nm||u.email||u.who)+'">'+
+        esc(nm||u.email||u.who)+'</span></td>'+
       '<td class="l"><span class="mono" style="font-size:12px">'+esc(u.email||u.who)+'</span></td>'+
       '<td class="l">'+esc(u.role)+'</td>'+
       '<td class="l">'+(u.kind==='google'?'Google':'Password')+'</td>'+
@@ -4947,7 +5013,7 @@ function renderClubRosterTable(){
   Array.prototype.forEach.call(box.querySelectorAll('[data-kill]'),function(b){
     b.addEventListener('click',function(){
       deleteAccount(rows[b.dataset.kill|0],function(msg,ok){
-        rlSay(ok?('Removed '+msg+'.'):msg, ok?'info':'');
+        crSay(ok?('Removed '+msg+'.'):msg, ok?'info':'');
         if(ok)renderClubRoster();
       });
     });
@@ -4970,6 +5036,8 @@ function renderClubSetup(){
   var y=$('cf-useyear');   if(y)y.checked=!!S.club.useYear;
   var m=$('cf-usembti');   if(m)m.checked=!!S.club.useMbti;
   var mr=$('cf-mbtireq');  if(mr){mr.checked=!!S.club.mbtiRequired; mr.disabled=!S.club.useMbti}
+  var mu=$('cf-mbtiurl');  if(mu&&document.activeElement!==mu)mu.value=S.club.mbtiTestUrl||'';
+  var ow=$('cf-owner');    if(ow&&document.activeElement!==ow)ow.value=S.club.ownerEmail||'';
   var tb=$('trackbox'); if(tb)tb.style.display=S.club.useTracks?'':'none';
   var yb=$('yearbox');  if(yb)yb.style.display=S.club.useYear?'':'none';
   renderTrackList(); renderRosterLinks(); renderFormKit(); renderDraftTarget();
@@ -4977,7 +5045,8 @@ function renderClubSetup(){
 function wireClubSetup(){
   if(!$('cf-club'))return;
   var text={'cf-club':'clubName','cf-unit':'unit','cf-units':'units','cf-trackword':'trackWord',
-            'cf-form':'formUrl','cf-sheet':'sheetUrl',
+            'cf-form':'formUrl','cf-sheet':'sheetUrl','cf-owner':'ownerEmail',
+            'cf-mbtiurl':'mbtiTestUrl',
             'cf-flex':'flexLabel','cf-new':'newWord','cf-old':'oldWord','cf-rlead':'roleLead',
             'cf-rsenior':'roleSenior','cf-rjunior':'roleJunior'};
   Object.keys(text).forEach(function(id){
@@ -5154,7 +5223,9 @@ function renderClubForm(){
     FORM.schema=r; FORM.loaded=true;
     $('formtitle').textContent=r.title;
     $('formsubmit').style.display='';
-    box.innerHTML=r.fields.map(formField).join('');
+    box.innerHTML=r.fields.map(formField).join('')+
+      (mbtiTestUrl()?'<p class="hint" style="margin-top:12px">Need your four letters? '+
+        mbtiTestLink()+'</p>':'');
     /* Prefill anything that is obviously asking for a name or an email. */
     var first=String(A.name||'').split(' ')[0]||'';
     var last=String(A.name||'').split(' ').slice(1).join(' ');
