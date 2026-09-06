@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Cg%20stroke%3D%22%23e9ebdf%22%20stroke-width%3D%224.2%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2291.0%22%20y2%3D%2250.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2279.0%22%20y2%3D%2221.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2250.0%22%20y2%3D%229.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2221.0%22%20y2%3D%2221.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%229.0%22%20y2%3D%2250.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2221.0%22%20y2%3D%2279.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2250.0%22%20y2%3D%2291.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2279.0%22%20y2%3D%2279.0%22%2F%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2225.5%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23e9ebdf%22%3E%3Ccircle%20cx%3D%2291.0%22%20cy%3D%2250.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2279.0%22%20cy%3D%2221.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2250.0%22%20cy%3D%229.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2221.0%22%20cy%3D%2221.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%229.0%22%20cy%3D%2250.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2221.0%22%20cy%3D%2279.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2250.0%22%20cy%3D%2291.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2279.0%22%20cy%3D%2279.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%226.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
 <script>
 /* Ahead of the stylesheet on purpose: applying the theme from boot() meant a
    light-mode visitor saw a dark page flash first. */
@@ -696,6 +697,10 @@ input[type=text],input[type=date],input[type=password],input[type=email],select,
 h1{font-size:clamp(30px,4.8vw,46px)}
 
 /* ============ THEME TOGGLE ============ */
+/* The mark is drawn in currentColor, so it inherits whatever it sits on. */
+.brandmark{color:var(--ink)}
+#chatbtn .brandmark{color:var(--onfill)}
+.gatecard .brandmark{color:var(--ink)}
 .themebtn{
   background:transparent;border:1px solid var(--rule);color:var(--slate);border-radius:0;
   font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;
@@ -745,7 +750,10 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
 <div id="gate">
   <div class="gatecard">
-    <div class="eyebrow">The Org System</div>
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px">
+      <svg width="34" height="34" viewBox="0 0 100 100" class="brandmark" aria-hidden="true"><g stroke="currentColor" stroke-width="4.2" stroke-linecap="round" fill="none"><line x1="50" y1="50" x2="91.0" y2="50.0"/><line x1="50" y1="50" x2="79.0" y2="21.0"/><line x1="50" y1="50" x2="50.0" y2="9.0"/><line x1="50" y1="50" x2="21.0" y2="21.0"/><line x1="50" y1="50" x2="9.0" y2="50.0"/><line x1="50" y1="50" x2="21.0" y2="79.0"/><line x1="50" y1="50" x2="50.0" y2="91.0"/><line x1="50" y1="50" x2="79.0" y2="79.0"/><circle cx="50" cy="50" r="25.5"/></g><g fill="currentColor"><circle cx="91.0" cy="50.0" r="8.8"/><circle cx="79.0" cy="21.0" r="8.8"/><circle cx="50.0" cy="9.0" r="8.8"/><circle cx="21.0" cy="21.0" r="8.8"/><circle cx="9.0" cy="50.0" r="8.8"/><circle cx="21.0" cy="79.0" r="8.8"/><circle cx="50.0" cy="91.0" r="8.8"/><circle cx="79.0" cy="79.0" r="8.8"/><circle cx="50" cy="50" r="6.5"/></g></svg>
+      <div class="eyebrow" style="margin-bottom:0">The Org System</div>
+    </div>
     <h2>Sign in to continue</h2>
     <p id="gateintro">This page holds your club&rsquo;s roster, personality types, and points. Sign in with the Google account your club knows you by — what you can see and change depends on the role your club officers gave that address.</p>
     <div class="gatebtn" id="gsibtn"></div>
@@ -801,20 +809,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
 <header>
   <div style="display:flex;align-items:center;gap:11px;margin-bottom:2px">
-    <svg width="28" height="28" viewBox="0 0 100 100" style="flex-shrink:0" aria-hidden="true">
-      <g stroke="#e9ebdf" stroke-opacity="0.28" stroke-width="2.2">
-        <line x1="50" y1="18" x2="77.7" y2="34"/><line x1="77.7" y1="34" x2="77.7" y2="66"/>
-        <line x1="77.7" y1="66" x2="50" y2="82"/><line x1="50" y1="82" x2="22.3" y2="66"/>
-        <line x1="22.3" y1="66" x2="22.3" y2="34"/><line x1="22.3" y1="34" x2="50" y2="18"/>
-      </g>
-      <g stroke="#e9ebdf" stroke-width="2.6">
-        <line x1="50" y1="50" x2="50" y2="18"/><line x1="50" y1="50" x2="77.7" y2="34"/>
-        <line x1="50" y1="50" x2="77.7" y2="66"/><line x1="50" y1="50" x2="50" y2="82"/>
-        <line x1="50" y1="50" x2="22.3" y2="66"/><line x1="50" y1="50" x2="22.3" y2="34"/>
-      </g>
-      <g fill="#1A1613"><circle cx="50" cy="18" r="5.4"/><circle cx="77.7" cy="34" r="5.4"/><circle cx="77.7" cy="66" r="5.4"/><circle cx="50" cy="82" r="5.4"/><circle cx="22.3" cy="66" r="5.4"/><circle cx="22.3" cy="34" r="5.4"/></g>
-      <circle cx="50" cy="50" r="7.6" fill="#185849"/>
-    </svg>
+    <svg width="28" height="28" viewBox="0 0 100 100" class="brandmark" style="flex-shrink:0" aria-hidden="true"><g stroke="currentColor" stroke-width="4.2" stroke-linecap="round" fill="none"><line x1="50" y1="50" x2="91.0" y2="50.0"/><line x1="50" y1="50" x2="79.0" y2="21.0"/><line x1="50" y1="50" x2="50.0" y2="9.0"/><line x1="50" y1="50" x2="21.0" y2="21.0"/><line x1="50" y1="50" x2="9.0" y2="50.0"/><line x1="50" y1="50" x2="21.0" y2="79.0"/><line x1="50" y1="50" x2="50.0" y2="91.0"/><line x1="50" y1="50" x2="79.0" y2="79.0"/><circle cx="50" cy="50" r="25.5"/></g><g fill="currentColor"><circle cx="91.0" cy="50.0" r="8.8"/><circle cx="79.0" cy="21.0" r="8.8"/><circle cx="50.0" cy="9.0" r="8.8"/><circle cx="21.0" cy="21.0" r="8.8"/><circle cx="9.0" cy="50.0" r="8.8"/><circle cx="21.0" cy="79.0" r="8.8"/><circle cx="50.0" cy="91.0" r="8.8"/><circle cx="79.0" cy="79.0" r="8.8"/><circle cx="50" cy="50" r="6.5"/></g></svg>
     <div class="eyebrow" style="margin-bottom:0" id="eyebrowtitle">The Org System</div>
     <div class="whoami" id="whoami" style="display:none">
       <img id="wpic" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
@@ -1352,16 +1347,7 @@ Marcus Lee"></textarea>
 <!-- ============ ASSISTANT CHAT ============ -->
 <button id="chatbtn" aria-label="Ask the Assistant" title="Ask the Assistant" aria-expanded="false">
   <span class="cbadge"></span>
-  <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true">
-    <g stroke="#e9ebdf" stroke-opacity="0.45" stroke-width="3">
-      <line x1="50" y1="18" x2="77.7" y2="34"/><line x1="77.7" y1="34" x2="77.7" y2="66"/>
-      <line x1="77.7" y1="66" x2="50" y2="82"/><line x1="50" y1="82" x2="22.3" y2="66"/>
-      <line x1="22.3" y1="66" x2="22.3" y2="34"/><line x1="22.3" y1="34" x2="50" y2="18"/>
-    </g>
-    <g fill="#e9ebdf"><circle cx="50" cy="18" r="6"/><circle cx="77.7" cy="34" r="6"/><circle cx="77.7" cy="66" r="6"/>
-      <circle cx="50" cy="82" r="6"/><circle cx="22.3" cy="66" r="6"/><circle cx="22.3" cy="34" r="6"/></g>
-    <circle cx="50" cy="50" r="9" fill="#185849"/>
-  </svg>
+  <svg width="26" height="26" viewBox="0 0 100 100" class="brandmark" aria-hidden="true"><g stroke="currentColor" stroke-width="4.2" stroke-linecap="round" fill="none"><line x1="50" y1="50" x2="91.0" y2="50.0"/><line x1="50" y1="50" x2="79.0" y2="21.0"/><line x1="50" y1="50" x2="50.0" y2="9.0"/><line x1="50" y1="50" x2="21.0" y2="21.0"/><line x1="50" y1="50" x2="9.0" y2="50.0"/><line x1="50" y1="50" x2="21.0" y2="79.0"/><line x1="50" y1="50" x2="50.0" y2="91.0"/><line x1="50" y1="50" x2="79.0" y2="79.0"/><circle cx="50" cy="50" r="25.5"/></g><g fill="currentColor"><circle cx="91.0" cy="50.0" r="8.8"/><circle cx="79.0" cy="21.0" r="8.8"/><circle cx="50.0" cy="9.0" r="8.8"/><circle cx="21.0" cy="21.0" r="8.8"/><circle cx="9.0" cy="50.0" r="8.8"/><circle cx="21.0" cy="79.0" r="8.8"/><circle cx="50.0" cy="91.0" r="8.8"/><circle cx="79.0" cy="79.0" r="8.8"/><circle cx="50" cy="50" r="6.5"/></g></svg>
 </button>
 
 <div id="chatpanel" role="dialog" aria-label="Assistant chat">

@@ -46,6 +46,29 @@ function contentH(s) {
   return 0;
 }
 
+/* The brand mark, drawn rather than placed as an image: PowerPoint's SVG
+   support is uneven across versions, and this is nine circles and four lines.
+   Spokes are drawn as four full diameters through the hub. */
+function brandMark(sl, cx, cy, size, color) {
+  const k = size / 100, d = 41 * k, dd = d * 0.7071;
+  const stroke = { color, width: 4.2 * k * 72 };
+  sl.addShape(p.ShapeType.line, { x: cx - d,  y: cy,      w: 2 * d,  h: 0,      line: stroke });
+  sl.addShape(p.ShapeType.line, { x: cx,      y: cy - d,  w: 0,      h: 2 * d,  line: stroke });
+  sl.addShape(p.ShapeType.line, { x: cx - dd, y: cy - dd, w: 2 * dd, h: 2 * dd, line: stroke });
+  sl.addShape(p.ShapeType.line, { x: cx - dd, y: cy - dd, w: 2 * dd, h: 2 * dd, line: stroke, flipV: true });
+  const rr = 25.5 * k;
+  sl.addShape(p.ShapeType.ellipse, {
+    x: cx - rr, y: cy - rr, w: 2 * rr, h: 2 * rr, fill: { type: 'none' }, line: stroke });
+  const nr = 8.8 * k;
+  for (let i = 0; i < 8; i++) {
+    const a = (i * 45) * Math.PI / 180;
+    const px = cx + d * Math.cos(a), py = cy - d * Math.sin(a);
+    sl.addShape(p.ShapeType.ellipse, { x: px - nr, y: py - nr, w: 2 * nr, h: 2 * nr, fill: { color } });
+  }
+  const hr = 6.5 * k;
+  sl.addShape(p.ShapeType.ellipse, { x: cx - hr, y: cy - hr, w: 2 * hr, h: 2 * hr, fill: { color } });
+}
+
 function bg(sl, color) { sl.background = { color: color || C.bg }; }
 
 function card(sl, x, y, w, h, fill) {
@@ -62,6 +85,7 @@ deck.forEach((s) => {
   /* ---------------- title / close ---------------- */
   if (s.kind === 'title' || s.kind === 'close') {
     sl.addShape(p.ShapeType.rect, { x: 0, y: 0, w: 0.16, h: H, fill: { color: C.teal } });
+    brandMark(sl, 1.66, 1.62, 0.72, C.ink);
     sl.addText(s.eyebrow.toUpperCase(), {
       x: 1.3, y: 2.25, w: W - 2.6, h: 0.3,
       fontFace: F.mono, fontSize: 12, charSpacing: 2.4, color: C.mute, margin: 0,

@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Cg%20stroke%3D%22%23e9ebdf%22%20stroke-width%3D%224.2%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2291.0%22%20y2%3D%2250.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2279.0%22%20y2%3D%2221.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2250.0%22%20y2%3D%229.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2221.0%22%20y2%3D%2221.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%229.0%22%20y2%3D%2250.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2221.0%22%20y2%3D%2279.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2250.0%22%20y2%3D%2291.0%22%2F%3E%3Cline%20x1%3D%2250%22%20y1%3D%2250%22%20x2%3D%2279.0%22%20y2%3D%2279.0%22%2F%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2225.5%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23e9ebdf%22%3E%3Ccircle%20cx%3D%2291.0%22%20cy%3D%2250.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2279.0%22%20cy%3D%2221.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2250.0%22%20cy%3D%229.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2221.0%22%20cy%3D%2221.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%229.0%22%20cy%3D%2250.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2221.0%22%20cy%3D%2279.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2250.0%22%20cy%3D%2291.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2279.0%22%20cy%3D%2279.0%22%20r%3D%228.8%22%2F%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%226.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
 <title>Orientation — The Org System</title>
 <script>
 /* Ahead of the stylesheet, and sharing the app's key, so arriving here from a
@@ -44,6 +45,7 @@ header{border-bottom:1px solid var(--rule);padding:34px 0 26px;margin-bottom:30p
                    linear-gradient(90deg,var(--gridline) 1px,transparent 1px);
   background-size:34px 34px;background-position:-1px -1px;
   box-shadow:inset 0 -1px 0 var(--forest)}
+.brandmark{color:var(--ink);flex-shrink:0}
 .eyebrow{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11.5px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--mute);margin-bottom:10px}
 h1{font-size:clamp(30px,4.8vw,46px);font-weight:300;letter-spacing:-.022em;line-height:1.02}
@@ -128,7 +130,10 @@ footer a{color:var(--slate)}
 
 <header>
   <div class="wrap">
-    <div class="eyebrow">Phi Beta Lambda · The Org System</div>
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:10px">
+      <svg width="28" height="28" viewBox="0 0 100 100" class="brandmark" style="flex-shrink:0" aria-hidden="true"><g stroke="currentColor" stroke-width="4.2" stroke-linecap="round" fill="none"><line x1="50" y1="50" x2="91.0" y2="50.0"/><line x1="50" y1="50" x2="79.0" y2="21.0"/><line x1="50" y1="50" x2="50.0" y2="9.0"/><line x1="50" y1="50" x2="21.0" y2="21.0"/><line x1="50" y1="50" x2="9.0" y2="50.0"/><line x1="50" y1="50" x2="21.0" y2="79.0"/><line x1="50" y1="50" x2="50.0" y2="91.0"/><line x1="50" y1="50" x2="79.0" y2="79.0"/><circle cx="50" cy="50" r="25.5"/></g><g fill="currentColor"><circle cx="91.0" cy="50.0" r="8.8"/><circle cx="79.0" cy="21.0" r="8.8"/><circle cx="50.0" cy="9.0" r="8.8"/><circle cx="21.0" cy="21.0" r="8.8"/><circle cx="9.0" cy="50.0" r="8.8"/><circle cx="21.0" cy="79.0" r="8.8"/><circle cx="50.0" cy="91.0" r="8.8"/><circle cx="79.0" cy="79.0" r="8.8"/><circle cx="50" cy="50" r="6.5"/></g></svg>
+      <div class="eyebrow" style="margin-bottom:0">Phi Beta Lambda · The Org System</div>
+    </div>
     <h1>Orientation <span>/ what this thing is and how to use it</span></h1>
     <p class="lede">This chapter runs its teams, its attendance and its Cup out of one page. This is the tour — what each tab does, who can see it, and what you are expected to do with it.</p>
     <div class="topbar">

@@ -73,6 +73,27 @@ function E(x, y, w, h, fill, border) {
     background:${c(fill)};border-radius:50%;border:1px solid ${c(border)};box-sizing:border-box"></div>`;
 }
 
+function brandMark(cx, cy, size, color) {
+  const k = size / 100, d = 41 * k, sw = 4.2 * k, rr = 25.5 * k, nr = 8.8 * k, hr = 6.5 * k;
+  let o = '';
+  const line = (x1, y1, x2, y2) =>
+    `<svg class="r" style="left:${px(cx - d)};top:${px(cy - d)};width:${px(2 * d)};height:${px(2 * d)};overflow:visible"
+       viewBox="0 0 100 100"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+       stroke="${c(color)}" stroke-width="${(sw / (2 * d)) * 100}" stroke-linecap="round"/></svg>`;
+  o += line(0, 50, 100, 50) + line(50, 0, 50, 100) + line(0, 0, 100, 100) + line(100, 0, 0, 100);
+  o += `<div class="r" style="left:${px(cx - rr)};top:${px(cy - rr)};width:${px(2 * rr)};height:${px(2 * rr)};
+        border:${px(sw)} solid ${c(color)};border-radius:50%;box-sizing:border-box"></div>`;
+  for (let i = 0; i < 8; i++) {
+    const a = (i * 45) * Math.PI / 180;
+    const nx = cx + d * Math.cos(a), ny = cy - d * Math.sin(a);
+    o += `<div class="r" style="left:${px(nx - nr)};top:${px(ny - nr)};width:${px(2 * nr)};height:${px(2 * nr)};
+          background:${c(color)};border-radius:50%"></div>`;
+  }
+  o += `<div class="r" style="left:${px(cx - hr)};top:${px(cy - hr)};width:${px(2 * hr)};height:${px(2 * hr)};
+        background:${c(color)};border-radius:50%"></div>`;
+  return o;
+}
+
 deck.forEach((s, idx) => {
   let b = '';
   const head = (y = 0.62) => {
@@ -84,6 +105,7 @@ deck.forEach((s, idx) => {
 
   if (s.kind === 'title' || s.kind === 'close') {
     b += R(0, 0, 0.16, H, C.teal);
+    b += brandMark(1.66, 1.62, 0.72, C.ink);
     b += T(s.eyebrow, { x: 1.3, y: 2.25, w: W - 2.6, fs: 12, col: C.mute, mono: true, cs: 2.4 });
     b += T(s.title, { x: 1.3, y: 2.62, w: W - 2.6, fs: s.kind === 'title' ? 60 : 48, col: C.ink, head: true, lh: 1.05 });
     b += R(1.3, 4.06, 1.6, 0.045, C.teal);
