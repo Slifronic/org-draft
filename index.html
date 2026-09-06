@@ -1507,6 +1507,9 @@ var GOOGLE_CLIENT_ID='60468094639-p10c21qva7269q2p6lqhucg488g98caa.apps.googleus
 var RANK={none:0,member:1,admin:2,master:3};
 var A={token:null,session:null,email:'',name:'',pic:'',role:'none',offline:false,via:'',
        aff:'',affName:'',needsAff:false};
+/* True only while the screen is showing a role restored from this browser
+   rather than one the backend has just confirmed. */
+var PROVISIONAL=false;
 var SESSION_KEY='orgsystem.session';
 function loadSession(){try{return localStorage.getItem(SESSION_KEY)}catch(e){return null}}
 /* Only the global master can be in more than one club, so only the master has
@@ -1516,6 +1519,19 @@ var AFF_KEY='orgsystem.aff';
 function loadAff(){try{return localStorage.getItem(AFF_KEY)||''}catch(e){return ''}}
 function storeAff(v){try{v?localStorage.setItem(AFF_KEY,v):localStorage.removeItem(AFF_KEY)}catch(e){}}
 function storeSession(v){try{v?localStorage.setItem(SESSION_KEY,v):localStorage.removeItem(SESSION_KEY)}catch(e){}}
+
+/* The last identity that signed in here, kept so a returning visit can paint
+   the app it already has instead of an empty sign-in card while the backend
+   answers. It is a display convenience and nothing more: every write re-sends
+   the token and is re-checked against the sheet, so a role edited into local
+   storage buys nothing but a briefly wrong-looking screen. */
+var WHO_KEY='orgsystem.who';
+function loadWho(){
+  try{return JSON.parse(localStorage.getItem(WHO_KEY)||'null')}catch(e){return null}
+}
+function storeWho(w){
+  try{ w?localStorage.setItem(WHO_KEY,JSON.stringify(w)):localStorage.removeItem(WHO_KEY) }catch(e){}
+}
 
 function roleAtLeast(r){return RANK[A.role]>=RANK[r]}
 function canEdit(){return roleAtLeast('admin')}
@@ -1555,10 +1571,13 @@ function setRole(role,claims){
   if(w)w.style.display='flex';
   $('wname').textContent=A.offline?'Local only':(A.name||A.email||'Signed in');
   $('wrole').innerHTML=A.offline?'<b>not synced</b>'
-    :('signed in as <b>'+esc(A.role)+'</b>'+(A.affName?' · '+esc(A.affName):''));
+    :(PROVISIONAL?'restoring your session…'
+      :('signed in as <b>'+esc(A.role)+'</b>'+(A.affName?' · '+esc(A.affName):'')));
   $('wrole').className='rolebadge'+(A.role==='master'?' master':'');
   var pic=$('wpic');
   if(pic){ if(A.pic){pic.src=A.pic;pic.style.display=''} else pic.style.display='none' }
+  if(!A.offline&&!PROVISIONAL&&A.role!=='none')
+    storeWho({role:A.role,email:A.email,name:A.name,pic:A.pic,aff:A.aff,affName:A.affName,via:A.via});
   applyRole();
 }
 /* Keeps the running app honest after a role resolves or changes. */
@@ -1585,23 +1604,30 @@ function onCredential(resp){
   var claims=jwtPeek(t);
   A.email=claims.email||'';A.name=claims.name||'';A.pic=claims.picture||'';
   gateMsg('Checking your role…');
-  backendPost('whoami',null).then(function(r){
+  backendPost('getAll',null).then(function(r){
     if(!r||!r.ok){
       gateMsg((r&&r.error)||'The club sheet did not answer. Ask whoever runs it to redeploy the script.',true);
-      A.token=null;return;
+      A.token=null; storeWho(null); showGate(true); return;
     }
     A.aff=r.aff||A.aff; A.affName=r.affName||A.affName;
     A.needsAff=!!r.needsAff;
-    if(r.role==='master'&&!r.needsAff&&loadAff())A.aff=loadAff();
+    /* A master viewing another club keeps that choice across reloads, and the
+       club in the response is only their default. Re-asking getAll for the
+       chosen club is one extra trip, but only for the one account that can do
+       this at all. */
+    PROVISIONAL=false;
+    var wanted=(r.role==='master'&&!r.needsAff&&loadAff())?loadAff():null;
+    if(wanted&&wanted!==r.aff)A.aff=wanted;
     setRole(r.role,claims);
-    if(A.needsAff){ gateMode('join'); return; }
+    if(A.needsAff){ showGate(true); gateMode('join'); return; }
     showGate(false);
-    afterSignIn();
+    afterSignIn((wanted&&wanted!==r.aff)?null:r);
   });
 }
 function signOut(){
   try{if(window.google&&google.accounts&&google.accounts.id)google.accounts.id.disableAutoSelect()}catch(e){}
   A.token=null;A.session=null;A.role='none';A.email='';A.name='';A.pic='';A.offline=false;A.via='';
+  PROVISIONAL=false; storeWho(null);
   A.aff='';A.affName='';A.needsAff=false;
   storeSession(null);storeAff('');
   document.body.dataset.role='none';
@@ -1692,14 +1718,16 @@ function resumeSession(){
   var tok=loadSession();
   if(!tok)return Promise.resolve(false);
   A.session=tok; A.via='password';
-  return backendPost('whoami',null).then(function(r){
-    if(!r||!r.ok){A.session=null;A.via='';storeSession(null);return false}
+  return backendPost('getAll',null).then(function(r){
+    if(!r||!r.ok){A.session=null;A.via='';storeSession(null);storeWho(null);
+                  showGate(true);return false}
+    PROVISIONAL=false;
     A.email=r.email||''; A.name=r.name||r.email||''; A.pic='';
     A.aff=r.aff||''; A.affName=r.affName||r.aff||''; A.needsAff=!!r.needsAff;
     setRole(r.role,null);
-    if(A.needsAff){gateMode('join');return false}
+    if(A.needsAff){showGate(true);gateMode('join');return false}
     showGate(false);
-    afterSignIn();
+    afterSignIn(r);
     return true;
   });
 }
@@ -1812,6 +1840,17 @@ function initGate(){
   }
   gateMode('signin');
   resumeSession().then(function(resumed){ if(!resumed)initGsi(); });
+  /* A restored screen that never gets confirmed is worse than a sign-in card:
+     the page looks live and every write fails. If nothing has authenticated by
+     now, put the card back. */
+  setTimeout(function(){
+    if(!PROVISIONAL||A.offline)return;
+    PROVISIONAL=false;
+    A.role='none'; document.body.dataset.role='none';
+    var w=$('whoami'); if(w)w.style.display='none';
+    showGate(true); gateMode('signin');
+    gateMsg('Sign in again to sync — the page was showing your last saved copy.');
+  },8000);
 }
 function initGsi(){
   if(!GOOGLE_CLIENT_ID){
@@ -5958,11 +5997,15 @@ $('wipe').addEventListener('click',function(){
 /* Runs once the sheet has confirmed a role. The sheet is the shared
    multi-browser store, so if it already holds Teams data it wins over
    whatever this browser had cached in localStorage. */
-function afterSignIn(){
+/* `pre` is a getAll response the caller already has. Sign-in used to spend one
+   round trip asking who you are and a second asking for the club; getAll now
+   answers both, so the second trip is skipped when the answer is already
+   here. */
+function afterSignIn(pre){
   unlockNav();
   if(A.needsAff){ showGate(true); gateMode('join'); return; }
   if($('v-intake').classList.contains('on')&&!canEdit())setView(S.orgs.length?'v-draft':'v-cup');
-  backendGet().then(function(data){
+  (pre?Promise.resolve(pre):backendGet()).then(function(data){
     if(data&&data.ok){
       if(data.needsAff){ A.needsAff=true; showGate(true); gateMode('join'); return; }
       if(data.aff){A.aff=data.aff; A.affName=data.affName||data.aff; setRole(A.role,null)}
@@ -6043,6 +6086,19 @@ function buildDemo(){
     unlockNav();syncRuleInputs();scoreAll();renderDraft();renderCup();
     setView('v-draft');
     say('Restored your saved draft \u2014 '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','info');
+    /* Everything above has already been rendered behind the sign-in overlay.
+       If this browser has signed in before, show it now rather than holding a
+       painted page behind a blank card for the length of a round trip. The
+       real role replaces this one when the backend answers, and a failure puts
+       the overlay straight back. */
+    var who=loadWho();
+    if(who&&who.role&&who.role!=='none'){
+      PROVISIONAL=true;
+      A.email=who.email||''; A.name=who.name||''; A.pic=who.pic||'';
+      A.aff=who.aff||''; A.affName=who.affName||''; A.via=who.via||'';
+      setRole(who.role,null);
+      showGate(false);
+    }
   } else {
     renderActions();fillActionSelect();
   }

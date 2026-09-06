@@ -1348,8 +1348,12 @@ function dispatch(action, payload, email, role, id) {
       readTab('config').forEach(function (r) {
         if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
       });
+      /* This carries everything whoami answers as well, so signing in is one
+         round trip rather than two. Apps Script costs about a second per call
+         plus a redirect, and that second call was pure latency. */
       return {
-        ok: true, role: role, email: email, config: cfg,
+        ok: true, role: role, email: email, name: id.name || email, via: id.via,
+        config: cfg,
         aff: aff, affName: (findAff(aff) || {}).name || aff,
         needsAff: !!id.needsAff,
         affiliations: id.isRoot ? allAffiliations().map(function (a) {
