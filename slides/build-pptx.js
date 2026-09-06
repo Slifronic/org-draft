@@ -32,6 +32,10 @@ function head(s, sl, y = 0.62) {
    band between the header rule and the bottom margin instead. */
 function contentH(s) {
   if (s.kind === 'stat')     return 1.85 + 0.35 + 1.0;
+  if (s.kind === 'anatomy')  return 1.35 + 0.4 + 1.1 + 0.3 + 0.85;
+  if (s.kind === 'cupstruct')return s.rows.length * 0.78 - 0.12;
+  if (s.kind === 'kindlist') return s.kinds.length * 1.38 - 0.16;
+  if (s.kind === 'math')     return 1.75 + 0.4 + 1.0;
   if (s.kind === 'three')    return (s.tail ? 2.5 : 3.0) + (s.tail ? 1.24 : 0);
   if (s.kind === 'steps')    return s.steps.length * 1.32 - 0.2 + (s.tail ? 0.9 : 0);
   if (s.kind === 'callout')  return 0.15 + 3.3;
@@ -81,6 +85,109 @@ deck.forEach((s) => {
   const top0 = head(s, sl);
   const top = top0 + Math.max(0, ((H - 0.7 - top0) - contentH(s)) / 2);
 
+
+  /* ---------------- what an Org is ---------------- */
+  if (s.kind === 'anatomy') {
+    const gap = 0.3, cw = 2.3;
+    s.facts.forEach((f, i) => {
+      const x = M + i * (cw + gap);
+      card(sl, x, top, cw, 1.35);
+      sl.addText(f.n, {
+        x: x + 0.26, y: top + 0.16, w: cw - 0.52, h: 0.7, valign: 'top',
+        fontFace: F.head, fontSize: 40, color: C.ink, margin: 0,
+      });
+      sl.addText(f.l.toUpperCase(), {
+        x: x + 0.26, y: top + 0.9, w: cw - 0.52, h: 0.32,
+        fontFace: F.mono, fontSize: 10, charSpacing: 1.5, color: C.mute, margin: 0,
+      });
+    });
+    sl.addText(s.body, {
+      x: M + 3 * (cw + gap) + 0.2, y: top + 0.05, w: W - M * 2 - 3 * (cw + gap) - 0.2, h: 1.5,
+      valign: 'top', fontFace: F.body, fontSize: 16, color: C.slate,
+      lineSpacingMultiple: 1.34, margin: 0,
+    });
+    sl.addShape(p.ShapeType.rect, { x: M, y: top + 1.78, w: 0.06, h: 0.95, fill: { color: C.teal } });
+    sl.addText(s.kicker, {
+      x: M + 0.34, y: top + 1.8, w: W - M * 2 - 0.6, h: 0.95, valign: 'top',
+      fontFace: F.head, fontSize: 23, color: C.ink, lineSpacingMultiple: 1.22, margin: 0,
+    });
+    return;
+  }
+
+  /* ---------------- how the Cup is put together ---------------- */
+  if (s.kind === 'cupstruct') {
+    const rh = 0.66, gap = 0.12;
+    s.rows.forEach((r, i) => {
+      const y = top + i * (rh + gap);
+      card(sl, M, y, W - M * 2, rh);
+      sl.addShape(p.ShapeType.rect, { x: M, y, w: 0.05, h: rh, fill: { color: C.teal } });
+      sl.addText(r.k.toUpperCase(), {
+        x: M + 0.34, y: y + 0.21, w: 2.1, h: 0.3,
+        fontFace: F.mono, fontSize: 10.5, charSpacing: 1.5, color: C.tealUp, margin: 0,
+      });
+      sl.addText(r.v, {
+        x: M + 2.6, y: y + 0.16, w: W - M * 2 - 2.95, h: 0.42, valign: 'top',
+        fontFace: F.body, fontSize: 16, color: C.slate, margin: 0,
+      });
+    });
+    return;
+  }
+
+  /* ---------------- the kinds of points, described ---------------- */
+  if (s.kind === 'kindlist') {
+    const rh = 1.22, gap = 0.16;
+    s.kinds.forEach((k, i) => {
+      const y = top + i * (rh + gap);
+      card(sl, M, y, W - M * 2, rh);
+      sl.addShape(p.ShapeType.rect, { x: M, y, w: 0.06, h: rh, fill: { color: k.c } });
+      sl.addShape(p.ShapeType.rect, { x: M + 0.36, y: y + 0.34, w: 0.2, h: 0.2, fill: { color: k.c } });
+      sl.addText(k.t, {
+        x: M + 0.7, y: y + 0.23, w: 2.3, h: 0.42,
+        fontFace: F.head, fontSize: 23, color: C.ink, margin: 0,
+      });
+      sl.addText(k.d, {
+        x: M + 3.15, y: y + 0.18, w: W - M * 2 - 3.5, h: 0.9, valign: 'top',
+        fontFace: F.body, fontSize: 14.5, color: C.slate, lineSpacingMultiple: 1.3, margin: 0,
+      });
+    });
+    return;
+  }
+
+  /* ---------------- a point, worked through ---------------- */
+  if (s.kind === 'math') {
+    const bw = 3.3, gap = 0.9, bh = 1.75;
+    const startX = M + 0.35;
+    s.parts.forEach((pt, i) => {
+      const x = startX + i * (bw + gap);
+      const last = i === s.parts.length - 1;
+      card(sl, x, top, bw, bh, last ? C.moss : C.card);
+      if (last) sl.addShape(p.ShapeType.rect, { x, y: top, w: 0.06, h: bh, fill: { color: C.teal } });
+      sl.addText(pt.n, {
+        x: x + 0.3, y: top + 0.18, w: bw - 0.6, h: 0.78, valign: 'top',
+        fontFace: F.head, fontSize: 44, color: pt.c, margin: 0,
+      });
+      sl.addText(pt.l.toUpperCase(), {
+        x: x + 0.3, y: top + 0.98, w: bw - 0.6, h: 0.3,
+        fontFace: F.mono, fontSize: 10, charSpacing: 1.5, color: C.mute, margin: 0,
+      });
+      sl.addText(pt.s, {
+        x: x + 0.3, y: top + 1.26, w: bw - 0.6, h: 0.46, valign: 'top',
+        fontFace: F.body, fontSize: 13, color: C.slate, margin: 0,
+      });
+      if (i < s.parts.length - 1) {
+        sl.addText(i === 0 ? '+' : '=', {
+          x: x + bw, y: top + 0.55, w: gap, h: 0.6, align: 'center',
+          fontFace: F.head, fontSize: 30, color: C.mute, margin: 0,
+        });
+      }
+    });
+    sl.addText(s.note, {
+      x: M, y: top + bh + 0.4, w: W - M * 2 - 0.6, h: 1.0, valign: 'top',
+      fontFace: F.body, fontSize: 15, color: C.mute, lineSpacingMultiple: 1.34, margin: 0,
+    });
+    return;
+  }
+
   /* ---------------- big numbers ---------------- */
   if (s.kind === 'stat') {
     const gap = 0.36, cw = (W - M * 2 - gap * 2) / 3;
@@ -120,10 +227,10 @@ deck.forEach((s) => {
       }
       sl.addText(it.h, {
         x: x + 0.34, y: ty, w: cw - 0.68, h: 0.46,
-        fontFace: F.head, fontSize: 25, color: C.ink, margin: 0,
+        fontFace: F.head, fontSize: 22, color: C.ink, margin: 0,
       });
       sl.addText(it.p, {
-        x: x + 0.34, y: ty + 0.52, w: cw - 0.68, h: ch - (ty - top) - 0.72, valign: 'top',
+        x: x + 0.34, y: ty + 0.5, w: cw - 0.68, h: ch - (ty - top) - 0.7, valign: 'top',
         fontFace: F.body, fontSize: 15, color: C.slate, lineSpacingMultiple: 1.32, margin: 0,
       });
     });

@@ -49,6 +49,10 @@ function T(txt, o) {
    band between the header rule and the bottom margin instead. */
 function contentH(s) {
   if (s.kind === 'stat')     return 1.85 + 0.35 + 1.0;
+  if (s.kind === 'anatomy')  return 1.35 + 0.4 + 1.1 + 0.3 + 0.85;
+  if (s.kind === 'cupstruct')return s.rows.length * 0.78 - 0.12;
+  if (s.kind === 'kindlist') return s.kinds.length * 1.38 - 0.16;
+  if (s.kind === 'math')     return 1.75 + 0.4 + 1.0;
   if (s.kind === 'three')    return (s.tail ? 2.5 : 3.0) + (s.tail ? 1.24 : 0);
   if (s.kind === 'steps')    return s.steps.length * 1.32 - 0.2 + (s.tail ? 0.9 : 0);
   if (s.kind === 'callout')  return 0.15 + 3.3;
@@ -89,6 +93,58 @@ deck.forEach((s, idx) => {
     const top0 = head();
     const top = top0 + Math.max(0, ((H - 0.7 - top0) - contentH(s)) / 2);
 
+
+    if (s.kind === 'anatomy') {
+      const gap = 0.3, cw = 2.3;
+      s.facts.forEach((f, i) => {
+        const x = M + i * (cw + gap);
+        b += R(x, top, cw, 1.35, C.card, 0.06, C.rule);
+        b += T(f.n, { x: x + 0.26, y: top + 0.16, w: cw - 0.52, fs: 40, col: C.ink, head: true, lh: 1.05 });
+        b += T(f.l, { x: x + 0.26, y: top + 0.9, w: cw - 0.52, fs: 10, col: C.mute, mono: true, cs: 1.5 });
+      });
+      b += T(s.body, { x: M + 3 * (cw + gap) + 0.2, y: top + 0.05, w: W - M * 2 - 3 * (cw + gap) - 0.2, fs: 16, col: C.slate, lh: 1.34 });
+      b += R(M, top + 1.78, 0.06, 0.95, C.teal);
+      b += T(s.kicker, { x: M + 0.34, y: top + 1.8, w: W - M * 2 - 0.6, fs: 23, col: C.ink, head: true, lh: 1.22 });
+    }
+
+    if (s.kind === 'cupstruct') {
+      const rh = 0.66, gap = 0.12;
+      s.rows.forEach((r, i) => {
+        const y = top + i * (rh + gap);
+        b += R(M, y, W - M * 2, rh, C.card, 0.06, C.rule);
+        b += R(M, y, 0.05, rh, C.teal);
+        b += T(r.k, { x: M + 0.34, y: y + 0.21, w: 2.1, fs: 10.5, col: C.tealUp, mono: true, cs: 1.5 });
+        b += T(r.v, { x: M + 2.6, y: y + 0.16, w: W - M * 2 - 2.95, fs: 16, col: C.slate });
+      });
+    }
+
+    if (s.kind === 'kindlist') {
+      const rh = 1.22, gap = 0.16;
+      s.kinds.forEach((k, i) => {
+        const y = top + i * (rh + gap);
+        b += R(M, y, W - M * 2, rh, C.card, 0.06, C.rule);
+        b += R(M, y, 0.06, rh, k.c);
+        b += R(M + 0.36, y + 0.34, 0.2, 0.2, k.c);
+        b += T(k.t, { x: M + 0.7, y: y + 0.23, w: 2.3, fs: 23, col: C.ink, head: true });
+        b += T(k.d, { x: M + 3.15, y: y + 0.18, w: W - M * 2 - 3.5, fs: 14.5, col: C.slate, lh: 1.3 });
+      });
+    }
+
+    if (s.kind === 'math') {
+      const bw = 3.3, gap = 0.9, bh = 1.75, startX = M + 0.35;
+      s.parts.forEach((pt, i) => {
+        const x = startX + i * (bw + gap), last = i === s.parts.length - 1;
+        b += R(x, top, bw, bh, last ? C.moss : C.card, 0.06, C.rule);
+        if (last) b += R(x, top, 0.06, bh, C.teal);
+        b += T(pt.n, { x: x + 0.3, y: top + 0.18, w: bw - 0.6, fs: 44, col: pt.c, head: true, lh: 1.05 });
+        b += T(pt.l, { x: x + 0.3, y: top + 0.98, w: bw - 0.6, fs: 10, col: C.mute, mono: true, cs: 1.5 });
+        b += T(pt.s, { x: x + 0.3, y: top + 1.26, w: bw - 0.6, fs: 13, col: C.slate });
+        if (i < s.parts.length - 1)
+          b += T(i === 0 ? '+' : '=', { x: x + bw, y: top + 0.55, w: gap, fs: 30, col: C.mute, head: true, align: 'center' });
+      });
+      b += T(s.note, { x: M, y: top + bh + 0.4, w: W - M * 2 - 0.6, fs: 15, col: C.mute, lh: 1.34 });
+    }
+
     if (s.kind === 'stat') {
       const gap = 0.36, cw = (W - M * 2 - gap * 2) / 3;
       s.stats.forEach((st, i) => {
@@ -108,8 +164,8 @@ deck.forEach((s, idx) => {
         b += R(x, top, 0.05, ch, it.c);
         let ty = top + 0.3;
         if (it.n) { b += T(it.n, { x: x + 0.34, y: ty, w: cw - 0.68, fs: 12, col: it.c, mono: true, cs: 1.6 }); ty += 0.36; }
-        b += T(it.h, { x: x + 0.34, y: ty, w: cw - 0.68, fs: 25, col: C.ink, head: true });
-        b += T(it.p, { x: x + 0.34, y: ty + 0.52, w: cw - 0.68, fs: 15, col: C.slate, lh: 1.32 });
+        b += T(it.h, { x: x + 0.34, y: ty, w: cw - 0.68, fs: 22, col: C.ink, head: true });
+        b += T(it.p, { x: x + 0.34, y: ty + 0.5, w: cw - 0.68, fs: 15, col: C.slate, lh: 1.32 });
       });
       if (s.tail) b += T(s.tail, { x: M, y: top + ch + 0.34, w: W - M * 2 - 0.6, fs: 15, col: C.mute, lh: 1.32 });
     }
