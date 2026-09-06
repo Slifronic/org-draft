@@ -31,6 +31,7 @@ var NEEDS = {
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
   listSignups: 'admin', deleteSignup: 'admin', setOrgName: 'member',
+  myFormAnswers: 'member',
   formItems: 'admin', saveFormItems: 'admin',
   purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
@@ -245,7 +246,8 @@ var TAB = {
   affiliations: {name: 'Affiliations', cols: ['Code', 'Name', 'JoinCode', 'CreatedBy', 'CreatedAt']},
   /* Per-person editable details, separate from credentials so a Google user
      who has no Users row still has somewhere to keep a name and a picture. */
-  profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo']}
+  profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo',
+                                          'Year', 'Track', 'MBTI', 'LeadInterest', 'FormNotes', 'FormAt']}
 };
 var DEFAULT_AFF = 'default';
 /* The form every club starts from. Copied per club rather than shared, so one
@@ -793,8 +795,103 @@ function dispatch(action, payload, email, role, id) {
         evts++; pts += Number(r.Points) || 0;
         hist.push({label: r.ActionLabel, points: Number(r.Points) || 0, when: r.Timestamp});
       });
+      var prow = null;
+      readTab('profiles').forEach(function (r) {
+        if (String(r.Email).toLowerCase() !== String(email).toLowerCase()) return;
+        if (normAff(r.Affiliation) !== aff) return;
+        prow = r;
+      });
       return {ok: true, profile: mine, points: pts, entries: evts,
-              history: hist.slice(-25), aff: aff, role: role, who: email};
+              history: hist.slice(-25), aff: aff, role: role, who: email,
+              answers: prow ? {year: prow.Year, track: prow.Track, mbti: prow.MBTI,
+                               lead: prow.LeadInterest, notes: prow.FormNotes,
+                               at: prow.FormAt} : null};
+    }
+
+    /* ---- the member's own form answers ----
+       The responses land in the club's spreadsheet under whatever the officer
+       titled the questions, and nothing was carrying them back to the account
+       that wrote them. This finds the caller's own row -- by the email Google
+       collected, or failing that by name -- and files the answers against
+       their profile. It reads only the caller's row and writes only the
+       caller's profile, so it is safe at member level. */
+    case 'myFormAnswers': {
+      var fKey = 'club:' + aff, fCfg = {};
+      readTab('config').forEach(function (r) {
+        if (String(r.Key) === fKey) { try { fCfg = JSON.parse(r.Value) || {}; } catch (e) {} }
+      });
+      if (!fCfg.sheetUrl && !fCfg.sheetId)
+        return {ok: false, error: 'This club has not linked a response spreadsheet yet.'};
+
+      var rss;
+      try {
+        rss = fCfg.sheetId ? SpreadsheetApp.openById(fCfg.sheetId)
+                           : SpreadsheetApp.openByUrl(fCfg.sheetUrl);
+      } catch (e) {
+        return {ok: false, error: 'Could not open the response spreadsheet: ' + e.message};
+      }
+      var rsh = rss.getSheets()[0], rv = rsh.getDataRange().getValues();
+      if (rv.length < 2) return {ok: false, error: 'No responses in that spreadsheet yet.'};
+
+      var heads = rv[0].map(function (x) { return String(x || '').toLowerCase(); });
+      function findCol(res) {
+        for (var i = 0; i < heads.length; i++) if (res.test(heads[i])) return i;
+        return -1;
+      }
+      var cEmail = findCol(/e-?mail/),
+          cName  = findCol(/full name|your name|^name$|first name|name/),
+          cYear  = findCol(/year|tenure|how long/),
+          cTrack = findCol(/track|division|which side|lean|interest/),
+          cMbti  = findCol(/mbti|personality|16 ?personalities|four letters|type/),
+          cLead  = findCol(/lead|officer|leadership/),
+          cNote  = findCol(/anything|note|comment|else/);
+
+      var flatF = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var meEmail = String(email).toLowerCase().trim();
+      var meFlat  = flatF(id.name || email);
+      var hit = null;
+      /* Latest matching response wins -- somebody who filled it in twice meant
+         the second one. */
+      for (var ri = 1; ri < rv.length; ri++) {
+        var byEmail = cEmail > -1 && String(rv[ri][cEmail]).toLowerCase().trim() === meEmail;
+        var byName  = cName  > -1 && flatF(rv[ri][cName]) === meFlat && meFlat;
+        if (byEmail || byName) hit = rv[ri];
+      }
+      if (!hit) return {ok: false, error: 'No response in that spreadsheet matches your account yet.'};
+
+      var got = {
+        year:  cYear  > -1 ? String(hit[cYear]  || '') : '',
+        track: cTrack > -1 ? String(hit[cTrack] || '') : '',
+        mbti:  cMbti  > -1 ? String(hit[cMbti]  || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4) : '',
+        lead:  cLead  > -1 ? String(hit[cLead]  || '') : '',
+        notes: cNote  > -1 ? String(hit[cNote]  || '').slice(0, 500) : ''
+      };
+
+      var shF = tab('profiles'), vF = shF.getDataRange().getValues();
+      var iF = {}; for (var cF = 0; cF < vF[0].length; cF++) iF[String(vF[0][cF])] = cF;
+      var when = new Date();
+      var wrote = false;
+      for (var rf = 1; rf < vF.length && !wrote; rf++) {
+        if (String(vF[rf][iF.Email]).toLowerCase() !== meEmail) continue;
+        if (normAff(vF[rf][iF.Affiliation]) !== aff) continue;
+        shF.getRange(rf + 1, iF.Year + 1).setValue(got.year);
+        shF.getRange(rf + 1, iF.Track + 1).setValue(got.track);
+        shF.getRange(rf + 1, iF.MBTI + 1).setValue(got.mbti);
+        shF.getRange(rf + 1, iF.LeadInterest + 1).setValue(got.lead);
+        shF.getRange(rf + 1, iF.FormNotes + 1).setValue(got.notes);
+        shF.getRange(rf + 1, iF.FormAt + 1).setValue(when);
+        wrote = true;
+      }
+      if (!wrote) {
+        var rowF = [];
+        for (var k2 = 0; k2 < vF[0].length; k2++) rowF.push('');
+        rowF[iF.Email] = meEmail; rowF[iF.Affiliation] = aff;
+        rowF[iF.Year] = got.year; rowF[iF.Track] = got.track; rowF[iF.MBTI] = got.mbti;
+        rowF[iF.LeadInterest] = got.lead; rowF[iF.FormNotes] = got.notes; rowF[iF.FormAt] = when;
+        shF.appendRow(rowF);
+      }
+      got.at = when;
+      return {ok: true, answers: got, matchedBy: (cEmail > -1 ? 'email' : 'name')};
     }
 
     /* A signed-in Google address that has not joined a club yet. Same join

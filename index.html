@@ -2159,7 +2159,7 @@ var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
    for exactly the people they were built for. */
 var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
                    myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
-                   setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1};
+                   setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1,myFormAnswers:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -4679,6 +4679,26 @@ function renderProfile(){
       }
     }
 
+    /* What the club's form recorded about this person. It is their own
+       answers, so they see all of it whether or not the draft has run. */
+    var ans=r.answers;
+    h+='<div class="panel"><h2>Your sign-up answers</h2>';
+    if(ans&&(ans.year||ans.track||ans.mbti||ans.lead||ans.notes)){
+      h+='<div class="profgrid">'+
+        (ans.year?stat(esc(String(ans.year)),'Year in the club'):'')+
+        (ans.track?stat(esc(String(ans.track)),esc(S.club.trackWord)):'')+
+        (ans.mbti?stat(esc(String(ans.mbti)),'Type'):'')+
+        (ans.lead?stat(esc(String(ans.lead)),'Leadership interest'):'')+
+      '</div>';
+      if(ans.notes)h+='<p class="hint" style="margin-top:12px">'+esc(ans.notes)+'</p>';
+      if(ans.at)h+='<p class="hint">Recorded '+esc(String(ans.at).slice(0,10))+'.</p>';
+    } else {
+      h+='<p class="empty">Nothing from the form yet. Fill it in and your answers land here.</p>';
+    }
+    h+='<div class="row"><button class="ghost" id="pullform" type="button">Read my answers from the form</button>'+
+       (S.club.formUrl?'<a class="linkbtn" href="'+esc(safeUrl(S.club.formUrl))+'" target="_blank" rel="noopener"><b>Form</b> Open it</a>':'')+
+       '</div><div class="msg" id="pullmsg"></div></div>';
+
     if(r.history&&r.history.length){
       h+='<div class="panel"><h2>Your recent points</h2>';
       r.history.slice().reverse().forEach(function(e){
@@ -4731,6 +4751,18 @@ function renderProfile(){
     });
 
     var pmsg=function(t,k){var m=$('me-msg');if(m){m.textContent=t;m.className='msg show'+(k?' '+k:'')}};
+    if($('pullform'))$('pullform').addEventListener('click',function(){
+      var b=$('pullform'), pm=$('pullmsg');
+      b.disabled=true; b.textContent='Reading\u2026';
+      pm.textContent='Looking for your row in the club\u2019s response sheet.';
+      pm.className='msg show info';
+      backendPost('myFormAnswers',null).then(function(a){
+        b.disabled=false; b.textContent='Read my answers from the form';
+        if(a&&a.ok){ pm.textContent='Found it. Updating your profile\u2026'; pm.className='msg show good';
+                     renderProfile(); }
+        else { pm.textContent=(a&&a.error)||'Could not read your answers.'; pm.className='msg show'; }
+      });
+    });
     if($('me-save'))$('me-save').addEventListener('click',function(){
       backendPost('saveProfile',{firstName:$('me-first').value.trim(),lastName:$('me-last').value.trim()})
         .then(function(r){
@@ -5299,8 +5331,20 @@ function submitClubForm(){
   if(missing.length){m.textContent='Still needed: '+missing.slice(0,3).join(', ')+'.';m.className='msg show';return}
   m.textContent='Sending…';m.className='msg show info';
   backendPost('submitForm',{action:FORM.schema.action,answers:answers}).then(function(r){
-    if(r&&r.ok){m.textContent='Sent. Your answers are in the club’s response sheet.';m.className='msg show good';
-      $('navform').style.display='none'; setTimeout(function(){setView('v-profile')},1200);}
+    if(r&&r.ok){
+      m.textContent='Sent. Reading your answers back…';m.className='msg show info';
+      /* The response has just landed in the club's spreadsheet. Pulling it
+         straight back is what puts it on the account, which is the whole
+         point of filling the form in while signed in. */
+      backendPost('myFormAnswers',null).then(function(a){
+        m.textContent=(a&&a.ok)
+          ? 'Sent, and saved to your profile.'
+          : 'Sent. It will appear on your profile once the club’s sheet catches up.';
+        m.className='msg show good';
+        $('navform').style.display='none';
+        setTimeout(function(){setView('v-profile')},1200);
+      });
+    }
     else {m.textContent=(r&&r.error)||'That did not send.';m.className='msg show';}
   });
 }
