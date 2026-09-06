@@ -30,7 +30,7 @@ var NEEDS = {
   createAffiliation: 'master', updateAffiliation: 'master', deleteAffiliation: 'master',
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
-  listSignups: 'admin', deleteSignup: 'admin',
+  listSignups: 'admin', deleteSignup: 'admin', setOrgName: 'member',
   formItems: 'admin', saveFormItems: 'admin',
   purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
@@ -1373,6 +1373,47 @@ function dispatch(action, payload, email, role, id) {
       }
       sh0.appendRow([ckey, json]);
       return {ok: true, saved: true};
+    }
+
+    /* An Org Lead runs their own Org, and naming it is the one piece of that
+       the system was making them ask an officer for. The caller is matched
+       against the roster by name and has to actually be a lead of the Org
+       being renamed -- the browser sends which Org it means, and this decides
+       whether that is true. Officers go through setTeams as before. */
+    case 'setOrgName': {
+      var onFrom = String((payload || {}).from || '').trim();
+      var onTo   = String((payload || {}).to || '').trim();
+      if (!onFrom || !onTo) return {ok: false, error: 'Both names are required.'};
+      if (onTo.length > 60) return {ok: false, error: 'That name is too long.'};
+      if (/[<>]/.test(onTo)) return {ok: false, error: 'Names cannot contain < or >.'};
+
+      var meName = String(id.name || email || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      var sh = tab('teams'), vals = sh.getDataRange().getValues();
+      var hd = vals[0].map(function (x) { return String(x).trim(); });
+      var cName = hd.indexOf('MemberName'), cOrg = hd.indexOf('Org'),
+          cLead = hd.indexOf('IsLead'), cAff = hd.indexOf('Affiliation');
+      if (cName < 0 || cOrg < 0) return {ok: false, error: 'The Teams tab is missing columns.'};
+
+      var mayRename = RANK[role] >= RANK.admin;
+      if (!mayRename) {
+        for (var i = 1; i < vals.length && !mayRename; i++) {
+          if (cAff > -1 && normAff(vals[i][cAff] || DEFAULT_AFF) !== aff) continue;
+          if (String(vals[i][cOrg]).trim() !== onFrom) continue;
+          var rn = String(vals[i][cName] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (rn && rn === meName && /^y/i.test(String(vals[i][cLead] || ''))) mayRename = true;
+        }
+      }
+      if (!mayRename)
+        return {ok: false, error: 'Only an officer or a lead of that ' + onFrom + ' can rename it.'};
+
+      var changed = 0;
+      for (var j = 1; j < vals.length; j++) {
+        if (cAff > -1 && normAff(vals[j][cAff] || DEFAULT_AFF) !== aff) continue;
+        if (String(vals[j][cOrg]).trim() !== onFrom) continue;
+        sh.getRange(j + 1, cOrg + 1).setValue(onTo);
+        changed++;
+      }
+      return {ok: true, renamed: onTo, rows: changed};
     }
 
     case 'setTeams': {

@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Ahead of the stylesheet on purpose: applying the theme from boot() meant a
+   light-mode visitor saw a dark page flash first. */
+(function(){try{
+  var t=localStorage.getItem('orgsystem.theme')||'';
+  var light=(t==='light')||(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
+  if(light)document.documentElement.setAttribute('data-theme','light');
+}catch(e){}})();
+</script>
 <title>The Org System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,10 +19,26 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
+  color-scheme:dark;
   --ink:#e9ebdf; --slate:#cbccc4; --mute:#94958e; --rule:#3f403d; --paper:#151515; --card:#242424;
   --consult:#7aa9dd; --compete:#e8765e; --either:#b6b8af; --flag:#e8765e; --ok:#4fae8c;
   --wash:#0e352c; --warmwash:#2a2320; --accent:#e9ebdf;
   --onfill:#151515; --void:#0e0e0e; --moss:#0e352c; --forest:#185849; --copper:#8b867f;
+  --hair:#2b2b2b; --badwash:#2a1c19; --goodwash:#16241d;
+  --gridline:rgba(233,235,223,.045);
+}
+/* Light is the same system with the luminance stack inverted: the canvas is
+   the brightest surface, cards sit just below it, and the accents keep their
+   hue so a screenshot of one theme is recognisably the same product as the
+   other. */
+:root[data-theme="light"]{
+  color-scheme:light;
+  --ink:#1b1c19; --slate:#4a4c46; --mute:#6d6f68; --rule:#d3d2ca; --paper:#f2f1ea; --card:#fbfaf5;
+  --consult:#2f6193; --compete:#b4442c; --either:#6f7268; --flag:#b4442c; --ok:#2c6f56;
+  --wash:#e2ece5; --warmwash:#f6efdf; --accent:#1b1c19;
+  --onfill:#fbfaf5; --void:#ffffff; --moss:#dfeae2; --forest:#2c6f56; --copper:#7b7a72;
+  --hair:#e6e5dd; --badwash:#f8e9e5; --goodwash:#e6f0e9;
+  --gridline:rgba(27,28,25,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -84,9 +109,9 @@ input[type=file]{display:none}
 .check{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
 .check input{width:15px;height:15px;flex:0 0 15px}
 
-.msg{margin-top:12px;padding:10px 12px;font-size:13px;font-family:'Space Grotesk',ui-monospace,monospace;border-left:3px solid var(--flag);background:#2a1c19;color:var(--flag);display:none}
+.msg{margin-top:12px;padding:10px 12px;font-size:13px;font-family:'Space Grotesk',ui-monospace,monospace;border-left:3px solid var(--flag);background:var(--badwash);color:var(--flag);display:none}
 .msg.show{display:block}
-.msg.good{border-left-color:var(--ok);background:#16241d;color:var(--ok)}
+.msg.good{border-left-color:var(--ok);background:var(--goodwash);color:var(--ok)}
 .msg.info{border-left-color:var(--accent);background:var(--wash);color:var(--accent)}
 
 /* mapper */
@@ -94,7 +119,7 @@ input[type=file]{display:none}
 .maprow label{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate)}
 .maprow label.req::after{content:' *';color:var(--flag)}
 .maprow select{width:100%}
-.maprow.bad select{border-color:var(--flag);background:#2a1c19}
+.maprow.bad select{border-color:var(--flag);background:var(--badwash)}
 
 /* stats */
 .stats{display:flex;flex-wrap:wrap;border:1px solid var(--rule);background:var(--card);margin-bottom:20px}
@@ -121,7 +146,7 @@ input[type=file]{display:none}
 .axis .skew{color:var(--compete)} .axis .void{color:var(--flag)}
 .warn{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;color:var(--flag);margin-top:7px;letter-spacing:.04em}
 ul.roster{list-style:none;padding:6px 0;flex:1}
-ul.roster li{display:flex;align-items:center;gap:8px;padding:6px 16px;font-size:13.5px;border-bottom:1px solid #2b2b2b}
+ul.roster li{display:flex;align-items:center;gap:8px;padding:6px 16px;font-size:13.5px;border-bottom:1px solid var(--hair)}
 ul.roster li:last-child{border-bottom:none}
 ul.roster li.hasnote{background:var(--warmwash)}
 .dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%}
@@ -143,7 +168,7 @@ ul.roster li.hasnote{background:var(--warmwash)}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);text-align:right;padding:7px 8px;border-bottom:1px solid var(--ink);font-weight:600;white-space:nowrap}
 th.l{text-align:left}
-td{padding:7px 8px;border-bottom:1px solid #2b2b2b;text-align:right;font-family:'Space Grotesk',ui-monospace,monospace;font-size:12.5px;vertical-align:middle}
+td{padding:7px 8px;border-bottom:1px solid var(--hair);text-align:right;font-family:'Space Grotesk',ui-monospace,monospace;font-size:12.5px;vertical-align:middle}
 td.l{text-align:left;font-family:'DM Sans',sans-serif;font-size:13.5px}
 td.name{font-weight:600}
 tr.top td:first-child{color:var(--compete);font-weight:700}
@@ -153,7 +178,7 @@ tr.rowflag{background:var(--warmwash)}
 
 /* action catalog */
 .acts{margin-top:6px}
-.act{display:grid;grid-template-columns:1fr 92px 132px 78px 34px;gap:9px;align-items:center;padding:9px 0;border-bottom:1px solid #2b2b2b}
+.act{display:grid;grid-template-columns:1fr 92px 132px 78px 34px;gap:9px;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair)}
 .act input[type=text]{font-size:13.5px}
 .act.head{border-bottom:1px solid var(--ink);padding-bottom:6px}
 .act.head span{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
@@ -204,7 +229,7 @@ tr.rowflag{background:var(--warmwash)}
 .tchip.dup{border-color:var(--compete);color:var(--compete)}
 .bigname{font-size:26px;font-weight:700;letter-spacing:-.02em;border:none;background:transparent;padding:0;width:100%;font-family:'DM Sans',sans-serif}
 .bigname:focus{outline:2px solid var(--consult);outline-offset:3px}
-.evtline{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #2b2b2b;font-size:13px}
+.evtline{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--hair);font-size:13px}
 .evtline span:last-child{font-family:'Space Grotesk',ui-monospace,monospace;color:var(--slate);font-size:12px;white-space:nowrap}
 
 .unmatched{background:var(--warmwash);border:1px solid var(--rule);padding:11px 14px;margin-top:14px;font-size:12.5px;color:var(--slate)}
@@ -308,7 +333,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .profgrid .stat{border-right:1px solid var(--rule)}
 .profgrid .stat:last-child{border-right:none}
 .userrow{display:grid;grid-template-columns:1fr 120px 34px 34px;gap:9px;align-items:center;
-  padding:9px 0;border-bottom:1px solid #2b2b2b}
+  padding:9px 0;border-bottom:1px solid var(--hair)}
 .userrow.head span{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--slate)}
 .userrow .un{font-family:'Space Grotesk',ui-monospace,monospace;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
@@ -358,6 +383,8 @@ body[data-role="none"] .logkill,body[data-role="member"] .logkill{display:none!i
 body[data-role="member"] .act input,body[data-role="member"] .act select{pointer-events:none;opacity:.55}
 body[data-role="member"] .orgname{cursor:default}
 body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
+body[data-role="member"] .orgname.canrename{cursor:pointer}
+body[data-role="member"] .orgname.canrename:hover{border-bottom-color:var(--rule)}
 
 /* ---- roster links ---- */
 .linkrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
@@ -380,7 +407,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 
 /* ---- club setup ---- */
 .setuprow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:12px}
-.trackrow{display:grid;grid-template-columns:22px 1fr 34px;gap:9px;align-items:center;padding:7px 0;border-bottom:1px solid #2b2b2b}
+.trackrow{display:grid;grid-template-columns:22px 1fr 34px;gap:9px;align-items:center;padding:7px 0;border-bottom:1px solid var(--hair)}
 .trackrow .swatch{width:14px;height:14px;border-radius:50%}
 .trackrow .kill{border:1px solid var(--rule);background:transparent;color:var(--flag);padding:6px 0;font-size:13px;font-weight:700;width:34px}
 .trackrow .kill:hover{background:var(--flag);color:var(--onfill);opacity:1}
@@ -388,7 +415,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 .setupsub{font-size:12.5px;color:var(--slate);margin-top:6px;max-width:76ch}
 
 /* ---- access control table ---- */
-.acctrow{display:grid;grid-template-columns:1fr 130px 232px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #2b2b2b}
+.acctrow{display:grid;grid-template-columns:1fr 130px 232px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair)}
 /* Named rowacts, not acts: .acts is already the Org Cup's action list, and
    reusing it turned that list into a right-justified wrapping flexbox.
    The actions cell used to be a fixed 60px holding three buttons, so they spilled
@@ -431,7 +458,7 @@ body[data-role="member"] .orgname:hover{border-bottom-color:transparent}
 .sellist div[aria-selected=true]{background:var(--paper);font-weight:600}
 .sellist div.on{background:var(--ink);color:var(--onfill)}
 .pickbox{max-height:230px;overflow-y:auto;border:1px solid var(--rule);border-radius:3px;padding:2px;margin-top:4px}
-.pickrow{display:flex;align-items:center;gap:9px;padding:7px 9px;font-size:13.5px;border-bottom:1px solid #2b2b2b;cursor:pointer}
+.pickrow{display:flex;align-items:center;gap:9px;padding:7px 9px;font-size:13.5px;border-bottom:1px solid var(--hair);cursor:pointer}
 .pickrow:last-child{border-bottom:none}
 .pickrow:hover{background:var(--paper)}
 .pickrow input{width:auto;margin:0}
@@ -476,7 +503,7 @@ h1 span{color:var(--mute)}
 .eyebrow,.lbl,.field label{color:var(--mute);letter-spacing:.013em;text-transform:none;font-size:11px}
 
 /* masthead — ember glow */
-header{border-bottom:1px solid var(--rule);background-color:var(--paper);background-image:linear-gradient(rgba(233,235,223,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(233,235,223,.045) 1px,transparent 1px);background-size:34px 34px;background-position:-1px -1px;box-shadow:inset 0 -1px 0 var(--forest)}
+header{border-bottom:1px solid var(--rule);background-color:var(--paper);background-image:linear-gradient(var(--gridline) 1px,transparent 1px),linear-gradient(90deg,var(--gridline) 1px,transparent 1px);background-size:34px 34px;background-position:-1px -1px;box-shadow:inset 0 -1px 0 var(--forest)}
 nav button[aria-current=true]{border-bottom-color:var(--ink)}
 .navcount{background:var(--card);border:1px solid var(--rule);border-radius:4px;color:var(--slate)}
 
@@ -506,7 +533,7 @@ input[type=text],input[type=date],input[type=number],input[type=password],input[
 .filterbar input,.filterbar select,.selbtn{
   background:var(--void);border:1px solid var(--rule);border-radius:4px;color:var(--ink)}
 ::placeholder{color:var(--mute);opacity:1}
-option{background:#242424;color:#e9ebdf}
+option{background:var(--card);color:var(--ink)}
 textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible,.selbtn:focus{
   outline:2px solid var(--ink);outline-offset:2px}
 .drop{background:var(--void);border:1.5px dashed var(--rule);border-radius:8px}
@@ -520,7 +547,7 @@ textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible,.se
 .msg.good{color:var(--ok)}
 
 /* gate / overlays */
-#gate{background-color:var(--paper);background-image:linear-gradient(rgba(233,235,223,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(233,235,223,.05) 1px,transparent 1px);background-size:34px 34px}
+#gate{background-color:var(--paper);background-image:linear-gradient(var(--gridline) 1px,transparent 1px),linear-gradient(90deg,var(--gridline) 1px,transparent 1px);background-size:34px 34px}
 .gateor::before,.gateor::after{background:var(--rule)}
 #chatbtn{background:var(--ink);color:var(--onfill);box-shadow:none;border:1px solid var(--ink)}
 #chatbtn:hover{box-shadow:none;transform:translateY(-1px)}
@@ -640,6 +667,41 @@ footer{color:var(--mute)}
 .scrollcard table{margin:0}
 .scrollcard thead th{position:sticky;top:0;background:var(--card);z-index:1}
 
+/* ============ TYPE SCALE ============
+   Everything reading text goes up roughly a step. The interface was set for a
+   dense officer view and was hard work on a laptop, let alone a phone. */
+body{font-size:16px}
+.hint,.specbody li,.specbody p,.gatecard p{font-size:15px}
+.panel h2,details.spec summary{font-size:13.5px;letter-spacing:.12em}
+.panel h3,.rosterhd{font-size:13px}
+nav button{font-size:12.5px;padding:13px 17px}
+.tab{font-size:12.5px}
+.lbl,.field label,.maprow label,.filterbar .lbl,.userrow.head span,.acctrow.head span{font-size:11.5px}
+table{font-size:13.5px}
+th{font-size:11.5px}
+.stat .n{font-size:29px}
+.stat .l{font-size:11.5px}
+.orgname{font-size:19px}
+ul.roster li,.pickrow,.evtline,.check,.legend{font-size:14.5px}
+.mbti,.role,.tchip,.affchip,.rolebadge,.pts,.orgno,.barkey,.axis,.warn{font-size:11.5px}
+button{font-size:14.5px}
+button.tiny,.rowacts button,.userrow button,.segbtns .seg{font-size:12.5px}
+input[type=text],input[type=date],input[type=password],input[type=email],select,textarea,
+.selbtn,.filterbar input,.filterbar select{font-size:14.5px}
+.sellist div{font-size:14.5px}
+.savenote,.signout,.eyebrow{font-size:11.5px}
+.notice .ntext{font-size:15px}
+.recbadge{font-size:13.5px}
+.catchip{font-size:11px}
+h1{font-size:clamp(30px,4.8vw,46px)}
+
+/* ============ THEME TOGGLE ============ */
+.themebtn{
+  background:transparent;border:1px solid var(--rule);color:var(--slate);border-radius:0;
+  font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;padding:6px 10px;font-weight:400;flex:0 0 auto}
+.themebtn:hover{color:var(--ink);border-color:var(--ink);opacity:1}
+
 /* ============ LAYOUT & SCALING FIXES ============ */
 /* dropdown lists size to their longest option instead of squeezing into the
    button's width, which was wrapping "Case competitions" onto four lines */
@@ -728,6 +790,8 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     </form>
 
     <div class="gateswitch"><button type="button" id="gateswitch">New here? Create an account</button></div>
+    <div style="display:flex;justify-content:center;margin-top:10px">
+      <button class="themebtn" id="themebtn2" type="button">Light</button></div>
     <div class="gatemsg" id="gatemsg"></div>
     <div class="gatefoot" id="gatefoot">Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
   </div>
@@ -758,6 +822,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
         <span class="wname" id="wname"></span>
         <span class="rolebadge" id="wrole"></span>
       </div>
+      <button class="themebtn" id="themebtn" type="button" title="Switch between light and dark">Light</button>
       <button class="signout" id="signout">Sign out</button>
     </div>
   </div>
@@ -814,7 +879,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 <!-- ============ INTAKE ============ -->
 <div class="view on" id="v-intake">
 
-<div class="panel" data-req="admin" id="clubpanel">
+<div class="panel" data-req="admin" id="clubpanel" data-section="club-setup">
   <h2>Club setup</h2>
   <p class="hint">Set your club’s vocabulary once — what a team is called, how the club divides, what the ranks are. It changes everywhere.</p>
 
@@ -864,7 +929,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   <div class="msg" id="clubmsg"></div>
 </div>
 
-<div class="panel" data-req="admin">
+<div class="panel" data-req="admin" data-section="roster-source">
   <h2>Roster source</h2>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-pane="pane-sheet">Google Sheet</button>
@@ -898,7 +963,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   </div>
 </div>
 
-<div class="panel" data-req="admin" id="formedit-panel">
+<div class="panel" data-req="admin" id="formedit-panel" data-section="form-questions">
   <h2>The sign-up form's questions</h2>
   <p class="hint">Edit the club's own form here. Changes go straight to the live form — anyone who opens the link next sees them.</p>
   <div id="formedit"></div>
@@ -943,7 +1008,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   </div>
 </details>
 
-<div class="panel" id="mapper" style="display:none">
+<div class="panel" id="mapper" style="display:none" data-section="column-mapping">
   <h2>Column mapping</h2>
   <p class="hint">Matched automatically from your headers. Starred fields are required — the draft won't run without them.</p>
   <div id="maprows"></div>
@@ -980,7 +1045,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <div class="field" style="flex:1;max-width:320px"><label for="rs-club">Club being viewed</label><select id="rs-club"></select></div>
     <button id="rs-go" class="ghost">Switch</button>
   </div>
-  <div class="panel">
+  <div class="panel" data-section="who-has-signed-up">
     <h2>Who has signed up</h2>
     <p class="hint">Everyone with an account in this club. It fills itself as people join — this is not the draft.</p>
     <div class="row" style="margin-top:0">
@@ -991,7 +1056,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <div id="crtable" style="margin-top:12px"></div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-section="the-club-s-form-and-sheet">
     <h2>The club’s form and sheet</h2>
     <p class="hint">The form members fill in and the spreadsheet its answers land in.</p>
 
@@ -1003,7 +1068,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <div id="rosterlinks" style="margin-top:14px"></div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-section="clear-this-club-s-data">
     <h2>Clear this club’s data</h2>
     <p class="hint">Removes the roster, points and attendance for <b id="cr-clubname">this club</b>. Accounts and setup stay. It cannot be undone.</p>
     <div class="msg" id="crpurgemsg"></div>
@@ -1036,7 +1101,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
 <!-- ============ ATTENDANCE ============ -->
 <div class="view" id="v-attend">
-<div class="panel">
+<div class="panel" data-section="take-attendance">
   <h2>Take attendance</h2>
   <p class="hint">Pick the event, check who showed up, log it. Standings update immediately.</p>
   <div class="row" style="margin-top:0">
@@ -1069,7 +1134,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
 <div class="cuppage" id="cup-page-earn" hidden>
 
-<div class="panel">
+<div class="panel" data-section="what-earns-points">
   <h2>What earns points</h2>
   <p class="hint" data-officer-copy>What each action is worth. Your points update automatically as attendance is logged.</p>
   <p class="hint" data-req="admin">Edit anything here and standings recalculate immediately. The <b>track</b> setting is what makes cross-track attendance detectable, so set it honestly.</p>
@@ -1093,7 +1158,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
 <div class="cuppage on" id="cup-page-stand">
 
-<div class="panel" data-req="admin">
+<div class="panel" data-req="admin" data-section="log-points">
   <h2>Log points</h2>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-pane="cup-quick">Quick log</button>
@@ -1135,7 +1200,7 @@ Marcus Lee"></textarea>
   <div class="msg" id="cupmsg"></div>
 </div>
 
-<div class="panel">
+<div class="panel" data-section="standings">
   <h2>Standings</h2>
   <p class="hint">Ranked on points per member, so team size does not decide the Cup.</p>
   <div id="standings"></div>
@@ -1146,7 +1211,7 @@ Marcus Lee"></textarea>
   </div>
 </div>
 
-<div class="panel" data-req="admin">
+<div class="panel" data-req="admin" data-section="log">
   <h2>Log <span class="savenote" id="logcount"></span></h2>
   <div id="logtable"></div>
 </div>
@@ -1156,7 +1221,7 @@ Marcus Lee"></textarea>
 
 <!-- ============ ASSISTANT ============ -->
 <div class="view" id="v-assist">
-<div class="panel">
+<div class="panel" data-section="recommended-changes">
   <h2>Recommended changes</h2>
   <p class="hint">Swaps that improve type balance only. Every trade is between two people of the same year, track and Lead status, so nothing else moves.</p>
   <div class="row" style="margin-top:0">
@@ -1175,7 +1240,7 @@ Marcus Lee"></textarea>
 </div></div>
 
 <div class="view" id="v-form">
-  <div class="panel">
+  <div class="panel" data-section="club-sign-up-form">
     <h2 id="formtitle">Club sign-up form</h2>
     <p class="hint" id="formintro">Your club's own form, filled in here. Your name and email are already in.</p>
     <div id="formfields"></div>
@@ -1192,7 +1257,7 @@ Marcus Lee"></textarea>
 
 <!-- ============ ACCESS (master only) ============ -->
 <div class="view" id="v-access">
-<div class="panel">
+<div class="panel" data-section="who-can-do-what">
   <h2>Who can do what</h2>
   <p class="hint"><b>Member</b> sees standings, their own team and their own points. <b>Admin</b> runs the club. <b>Master</b> is you — everything an admin can do, plus this page.</p>
   <p class="hint">Anyone not on this list is a member. Add an officer by the exact Google address they sign in with.</p>
@@ -1205,12 +1270,12 @@ Marcus Lee"></textarea>
   </div>
   <div class="msg" id="accmsg"></div>
 </div>
-<div class="panel">
+<div class="panel" data-section="current-roles">
   <h2>Current roles</h2>
   <div id="acctable"></div>
   <div class="row"><button id="accrefresh" class="ghost">Refresh from sheet</button></div>
 </div>
-<div class="panel">
+<div class="panel" data-section="clubs-on-this-system">
   <h2>Clubs on this system</h2>
   <p class="hint">Each club is separate — roster, teams, points and officers. Signing up needs the club’s join code.</p>
   <p class="hint">Treat the join code like a door code. <b>Edit</b> issues a new one. <b>Clear data</b> empties a club for a new semester; <b>Delete</b> removes it entirely.</p>
@@ -1231,7 +1296,7 @@ Marcus Lee"></textarea>
   </div>
 </div>
 
-<div class="panel">
+<div class="panel" data-section="everyone-who-has-signed-up">
   <h2>Everyone who has signed up</h2>
   <p class="hint">Every account on the system and the club it belongs to. Credentials are never shown.</p>
   <div class="filterbar" style="margin-bottom:12px">
@@ -1244,7 +1309,7 @@ Marcus Lee"></textarea>
   <div id="sgtable"></div>
 </div>
 
-<div class="panel">
+<div class="panel" data-section="password-accounts">
   <h2>Password accounts</h2>
   <p class="hint">For members who cannot use a Google account. Weaker than Google sign-in — give each person their own, never a shared login.</p>
   <p class="hint">Set a starting password and have them change it once they are in.</p>
@@ -1259,13 +1324,13 @@ Marcus Lee"></textarea>
   <div class="row"><button id="userrefresh" class="ghost">Refresh from sheet</button></div>
 </div>
 
-<div class="panel">
+<div class="panel" data-section="what-this-actually-protects">
   <h2>What this actually protects</h2>
   <p class="hint" style="margin-bottom:0">Hiding a button is not security, so the page does not rely on it. Every write carries the signed token Google issued to whoever is holding the page, and the Apps Script verifies that signature and re-checks the role before it touches the sheet. A member who edits the page in their browser can rearrange what they see; the shared sheet will still refuse them.</p>
 </div>
 </div>
 
-<div class="panel" id="mypwpanel" style="display:none">
+<div class="panel" id="mypwpanel" style="display:none" data-section="your-password">
   <h2>Your password</h2>
   <p class="hint">You are signed in with a username, so you can change your own password here. It takes effect immediately; other devices stay signed in until their session expires.</p>
   <div class="row" style="margin-top:0">
@@ -1544,6 +1609,16 @@ function isMe(p){
   return !!mine && String(p.name||'').toLowerCase().replace(/[^a-z0-9]/g,'')===mine;
 }
 function canSeePersonal(p){return roleAtLeast('admin')||isMe(p)}
+/* The Org this account leads, or -1. A member who is marked as a lead runs one
+   Org and can rename it; everything else about it still belongs to officers. */
+function myLeadOrg(){
+  for(var i=0;i<S.people.length;i++){
+    var p=S.people[i];
+    if(p.lead&&isMe(p))return p.org;
+  }
+  return -1;
+}
+function canRenameOrg(i){return canEdit()||myLeadOrg()===i}
 function isMaster(){return A.role==='master'}
 
 /* Display only. Never a permission decision -- see the note above. */
@@ -2041,7 +2116,7 @@ var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
    for exactly the people they were built for. */
 var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
                    myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
-                   setMyPassword:1,memberCard:1,formSchema:1,submitForm:1};
+                   setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -2189,8 +2264,9 @@ function download(text,name){
 function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'}
 
 /* ---------------- navigation ---------------- */
-function setView(id){
+function setView(id,fromRoute){
   Array.prototype.forEach.call(document.querySelectorAll('.view'),function(v){v.classList.toggle('on',v.id===id)});
+  syncUrl(id,!!fromRoute);
   Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
     b.setAttribute('aria-current',b.dataset.view===id?'true':'false');
   });
@@ -3101,18 +3177,17 @@ function headingText(panel){
   });
   return out.replace(/\s+/g,' ').trim()||'Section';
 }
-function panelKey(panel){
-  var view=panel.parentNode;
-  while(view&&!(view.classList&&view.classList.contains('view')))view=view.parentNode;
-  /* A panel that carries its own id keeps a key nothing in the heading can
-     move. Everything else falls back to the heading text. */
-  return (view&&view.id||'app')+'::'+(panel.id||headingText(panel).slice(0,60));
-}
+function panelKey(panel){return 'sec::'+panel.dataset.section}
 function panelTitle(panel){return headingText(panel)}
 /* Called after every render that can add panels. Idempotent: a panel that
    already carries a hide button is left alone. */
 function wireHideControls(){
-  Array.prototype.forEach.call(document.querySelectorAll('.view .panel'),function(panel){
+  /* Only panels that were written into the page as sections. Renders like the
+     team page build their own .panel blocks for a roster or a type breakdown,
+     and those are parts of a section rather than sections themselves — giving
+     them a Hide button let somebody hide half of a team card and then look for
+     it in a menu of top-level headings. */
+  Array.prototype.forEach.call(document.querySelectorAll('.view .panel[data-section]'),function(panel){
     var h=panel.querySelector('h2');
     if(!h)return;
     var key=panelKey(panel);
@@ -4092,14 +4167,14 @@ function renderDraft(){
   var tot=counts(S.people),sizes=S.orgs.map(function(g){return g.length});
   var noted=canSeeNotes()?S.people.filter(function(p){return p.note}):[];
   var flagged=S.orgs.filter(function(g){return orgFlags(g).length}).length;
+  /* Three numbers, because those are the ones an officer checks at a glance.
+     Everything the old bar carried is still on the page — leads and the year
+     split are on each Org card, the balance score and the flag count are what
+     the Assistant tab exists to explain. */
   $('draftstats').innerHTML=!canEdit()?'':('<div class="stats">'+
     stat(S.people.length,'Members')+
     stat(S.orgs.length,esc(unitsWord()))+
     stat(Math.min.apply(null,sizes)+'\u2013'+Math.max.apply(null,sizes),esc(unitWord())+' size')+
-    stat(tot.leads,esc(S.club.roleLead)+'s')+
-    (S.club.useYear?stat(tot.y2+' / '+tot.y1,esc(S.club.oldWord+' / '+S.club.newWord)):'')+
-    (S.club.useMbti?stat(totalCost().toFixed(0),'Balance score',totalCost()<S.orgs.length*4?'good':''):'')+
-    stat(flagged,esc(unitsWord())+' flagged',flagged?'bad':'good')+
   '</div>');
 
   var nh='';
@@ -4129,7 +4204,8 @@ function renderDraft(){
       '<div class="orghead">'+
         '<div class="orgno"><span>Org '+pad(i)+' \u00B7 '+g.length+' members</span>'+
           (S.log.length&&S.standings[i]?'<span>#'+S.standings[i].rank+' \u00B7 '+S.standings[i].pts+'pts</span>':'')+'</div>'+
-        '<div class="orgname" data-org="'+i+'" title="Click to rename">'+esc(orgLabel(i))+'</div>'+
+        '<div class="orgname'+(canRenameOrg(i)?' canrename':'')+'" data-org="'+i+'"'+
+          (canRenameOrg(i)?' title="Click to rename"':'')+'>'+esc(orgLabel(i))+'</div>'+
         '<div class="bar">'+allBuckets().map(function(b){
           return '<i style="width:'+((c.byTrack[b.id]||0)/n*100)+'%;background:'+b.color+'"></i>';
         }).join('')+'</div>'+
@@ -4171,12 +4247,25 @@ function renderDraft(){
   });
   Array.prototype.forEach.call($('orggrid').querySelectorAll('.orgname'),function(el){
     el.addEventListener('click',function(){
-      if(!canEdit())return;
       var i=parseInt(el.dataset.org,10);
-      uiPrompt('Rename '+unitWord()+' '+pad(i),'','Name',orgLabel(i),'Rename').then(function(v){ if(v===null)return;
-      S.orgNames[i]=v.trim()||('Org '+pad(i));
+      if(!canRenameOrg(i))return;
+      var wasLeadOnly=!canEdit();
+      var before=orgLabel(i);
+      uiPrompt('Rename '+unitWord()+' '+pad(i),'','Name',before,'Rename').then(function(v){ if(v===null)return;
+      var name=cleanLabel(v).trim()||('Org '+pad(i));
+      if(name===before)return;
+      S.orgNames[i]=name;
       renderDraft();renderStandings();save();
-      syncTeams();
+      /* An officer rewrites the whole team sheet anyway. A lead may only touch
+         the one name, and the backend re-checks that they lead it. */
+      if(wasLeadOnly){
+        backendPost('setOrgName',{from:before,to:name}).then(function(r){
+          if(!r||!r.ok){
+            S.orgNames[i]=before; renderDraft();renderStandings();save();
+            say((r&&r.error)||'That rename was refused.');
+          }
+        });
+      } else syncTeams();
       });
 });
   });
@@ -6014,7 +6103,7 @@ function afterSignIn(pre){
     if(!S.actions.length)S.actions=cloneActions();
     unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
     scoreAll();renderDraft();renderCup();
-    if(S.orgs.length)setView('v-draft');
+    if(!applyRoute()&&S.orgs.length)setView('v-draft');
     save();
     say('Synced from the shared sheet — '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','good');
   });
@@ -6064,8 +6153,83 @@ function buildDemo(){
     say('The demo roster could not be built: '+(e&&e.message?e.message:e));
   }finally{ unseed(); }
   renderCup();
-  if(S.orgs.length)setView('v-draft');
+  if(!applyRoute()&&S.orgs.length)setView('v-draft');
   say('Demo club \u2014 a made-up roster of '+S.people.length+' members in '+S.orgs.length+' Orgs. Change anything; nothing is saved or shared.','info');
+}
+
+/* ================= THEME =================
+   Dark is the design's home, so it is the default. A choice made here is
+   remembered; without one the operating system decides, and a system that
+   changes mid-session moves the page with it. */
+var THEME_KEY='orgsystem.theme';
+function readTheme(){try{return localStorage.getItem(THEME_KEY)||''}catch(e){return ''}}
+function systemLight(){
+  return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
+}
+function applyTheme(t){
+  var light=(t==='light')||(!t&&systemLight());
+  if(light)document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  ['themebtn','themebtn2'].forEach(function(id){
+    var b=$(id); if(b)b.textContent=light?'Dark':'Light';
+  });
+}
+function initTheme(){
+  applyTheme(readTheme());
+  ['themebtn','themebtn2'].forEach(function(id){
+    var b=$(id); if(!b)return;
+    b.addEventListener('click',function(){
+      var next=(document.documentElement.getAttribute('data-theme')==='light')?'dark':'light';
+      try{localStorage.setItem(THEME_KEY,next)}catch(e){}
+      applyTheme(next);
+    });
+  });
+  if(window.matchMedia){
+    var mq=window.matchMedia('(prefers-color-scheme: light)');
+    var onChange=function(){ if(!readTheme())applyTheme(''); };
+    if(mq.addEventListener)mq.addEventListener('change',onChange);
+    else if(mq.addListener)mq.addListener(onChange);
+  }
+}
+
+/* ================= URL ROUTING =================
+   Each tab gets its own address, so a refresh lands back where you were and a
+   link to the standings is a link to the standings. The path is cosmetic --
+   nothing is authorised by it -- and an unknown or forbidden one falls back to
+   whatever the role is allowed to see. */
+var ROUTES={'v-intake':'intake','v-roster':'roster','v-draft':'draft','v-teams':'teams',
+            'v-attend':'attendance','v-cup':'cup','v-assist':'assistant','v-profile':'profile',
+            'v-form':'sign-up-form','v-access':'access'};
+function pathForView(id){return ROUTES[id]?('/'+ROUTES[id]):'/'}
+function viewForPath(){
+  var seg=String(location.pathname||'').replace(/^\/+|\/+$/g,'').toLowerCase();
+  if(!seg)return '';
+  for(var k in ROUTES)if(ROUTES[k]===seg)return k;
+  return '';
+}
+function syncUrl(id,replace){
+  if(!ROUTES[id])return;
+  var want=pathForView(id)+location.search;
+  if(location.pathname+location.search===want)return;
+  try{ history[replace?'replaceState':'pushState']({view:id},'',want) }catch(e){}
+}
+/* A view the current role cannot open is not a route worth honouring. */
+function routeAllowed(id){
+  var btn=document.querySelector('#nav button[data-view="'+id+'"]');
+  if(!btn||btn.disabled)return false;
+  var need=btn.getAttribute('data-req');
+  return !(need&&!roleAtLeast(need));
+}
+function applyRoute(){
+  var id=viewForPath();
+  if(id&&routeAllowed(id)&&$(id)){ setView(id,true); return true; }
+  return false;
+}
+function initRouting(){
+  window.addEventListener('popstate',function(){
+    var id=viewForPath();
+    if(id&&routeAllowed(id)&&$(id))setView(id,true);
+  });
 }
 
 /* boot */
@@ -6077,6 +6241,8 @@ function buildDemo(){
   var iso0=t0.getFullYear()+'-'+String(t0.getMonth()+1).padStart(2,'0')+'-'+String(t0.getDate()).padStart(2,'0');
   $('qdate').value=iso0;
   $('atdate').value=iso0;
+  initTheme();
+  initRouting();
   initBoard();
   initHidden();
   initFormEditor();
@@ -6084,7 +6250,7 @@ function buildDemo(){
   var d=loadSaved();
   if(d&&restore(d)){
     unlockNav();syncRuleInputs();scoreAll();renderDraft();renderCup();
-    setView('v-draft');
+    if(!applyRoute())setView('v-draft');
     say('Restored your saved draft \u2014 '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','info');
     /* Everything above has already been rendered behind the sign-in overlay.
        If this browser has signed in before, show it now rather than holding a

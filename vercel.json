@@ -39,6 +39,46 @@
     {
       "source": "/demo",
       "destination": "/"
+    },
+    {
+      "source": "/intake",
+      "destination": "/"
+    },
+    {
+      "source": "/roster",
+      "destination": "/"
+    },
+    {
+      "source": "/draft",
+      "destination": "/"
+    },
+    {
+      "source": "/teams",
+      "destination": "/"
+    },
+    {
+      "source": "/attendance",
+      "destination": "/"
+    },
+    {
+      "source": "/cup",
+      "destination": "/"
+    },
+    {
+      "source": "/assistant",
+      "destination": "/"
+    },
+    {
+      "source": "/profile",
+      "destination": "/"
+    },
+    {
+      "source": "/sign-up-form",
+      "destination": "/"
+    },
+    {
+      "source": "/access",
+      "destination": "/"
     }
   ]
 }
