@@ -8,6 +8,11 @@
 /* Ahead of the stylesheet on purpose: applying the theme from boot() meant a
    light-mode visitor saw a dark page flash first. */
 (function(){try{
+  /* The chapter's own address only ever wears the chapter's colours, so it
+     settles them here rather than reading a preference it is going to ignore. */
+  if(location.hostname==='org.deanzapbl.com'){
+    document.documentElement.setAttribute('data-theme','pbl');return;
+  }
   var t=localStorage.getItem('orgsystem.theme')||'';
   var r=(t==='light'||t==='pbl'||t==='dark')?t
       :((window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
@@ -1206,14 +1211,14 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <div class="field" style="flex:1;min-width:260px"><label for="cf-mbtiurl">Link to the test everyone takes</label>
       <input type="text" class="mono" id="cf-mbtiurl" placeholder="https://www.16personalities.com/free-personality-test"></div>
   </div>
-  <div class="row" style="margin-top:10px">
+  <div class="row" style="margin-top:10px" id="cf-themerow">
     <div class="field" style="min-width:230px"><label for="cf-theme">Chapter colours</label>
       <select id="cf-theme">
         <option value="">Default — dark and light</option>
         <option value="pbl">De Anza PBL — crimson and cream</option>
       </select></div>
   </div>
-  <p class="setupsub">Members of this club see these colours on arrival. They can still switch to the plain dark or light themes for themselves.</p>
+  <p class="setupsub" id="cf-themenote">Members of this club see these colours on arrival. They can still switch to the plain dark or light themes for themselves.</p>
   <p class="setupsub">One test for the whole club, so everyone is answering the same instrument. This link is shown wherever a type is asked for.</p>
   <p class="setupsub">Plenty of clubs will want this off. With it off the draft still balances size, division and tenure, the Assistant drops its type advice, and no one is asked to hand over a personality result.</p>
   <div class="msg" id="clubmsg"></div>
@@ -6124,7 +6129,12 @@ function renderClubSetup(){
   var mr=$('cf-mbtireq');  if(mr){mr.checked=!!S.club.mbtiRequired; mr.disabled=!S.club.useMbti}
   var mu=$('cf-mbtiurl');  if(mu&&document.activeElement!==mu)mu.value=S.club.mbtiTestUrl||'';
   var ow=$('cf-owner');    if(ow&&document.activeElement!==ow)ow.value=S.club.ownerEmail||'';
-  var th=$('cf-theme');    if(th)th.value=S.club.theme||'';
+  var th=$('cf-theme');    if(th)th.value=pblHost()?'pbl':(S.club.theme||'');
+  /* On the chapter's own address the colours are settled, so the setting is
+     not left on screen looking like a decision somebody still has to make. */
+  if(pblHost())['cf-themerow','cf-themenote'].forEach(function(id){
+    var el=$(id); if(el)el.style.display='none';
+  });
   var tb=$('trackbox'); if(tb)tb.style.display=S.club.useTracks?'':'none';
   var yb=$('yearbox');  if(yb)yb.style.display=S.club.useYear?'':'none';
   renderTrackList(); renderRosterLinks(); renderFormKit(); renderDraftTarget();
@@ -7357,6 +7367,9 @@ function buildDemo(){
    changes mid-session moves the page with it. */
 var THEME_KEY='orgsystem.theme';
 function readTheme(){try{return localStorage.getItem(THEME_KEY)||''}catch(e){return ''}}
+/* The chapter keeps its own address. Arriving there is itself the choice of
+   chapter, so the palette is settled and the toggle has nothing left to ask. */
+function pblHost(){try{return location.hostname==='org.deanzapbl.com'}catch(e){return false}}
 function systemLight(){
   return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
 }
@@ -7369,15 +7382,18 @@ function systemLight(){
    taste and reading a roster in it all evening is a choice. */
 var THEME_LABEL={dark:'Dark',light:'Light',pbl:'Chapter'};
 function clubTheme(){
+  if(pblHost())return 'pbl';
   var t=(S.club&&S.club.theme)||'';
   return (t==='pbl')?t:'';
 }
 function themeRing(){
+  if(pblHost())return ['pbl'];
   var ring=['dark','light'];
   if(clubTheme())ring.unshift(clubTheme());
   return ring;
 }
 function resolveTheme(t){
+  if(pblHost())return 'pbl';
   if(t==='light'||t==='dark')return t;
   if(t==='pbl')return clubTheme()?'pbl':(systemLight()?'light':'dark');
   /* Nothing stored: the chapter's own if it has one, else the machine's. */
@@ -7389,7 +7405,9 @@ function applyTheme(t){
   else document.documentElement.setAttribute('data-theme',r);
   var i=ring.indexOf(r), next=ring[(i<0?0:i+1)%ring.length];
   ['themebtn','themebtn2'].forEach(function(id){
-    var b=$(id); if(b){b.textContent=THEME_LABEL[next]; b.title='Switch to the '+THEME_LABEL[next]+' theme'}
+    var b=$(id); if(!b)return;
+    if(pblHost()){b.style.display='none';return}
+    b.textContent=THEME_LABEL[next]; b.title='Switch to the '+THEME_LABEL[next]+' theme';
   });
 }
 function initTheme(){
