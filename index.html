@@ -9,8 +9,9 @@
    light-mode visitor saw a dark page flash first. */
 (function(){try{
   var t=localStorage.getItem('orgsystem.theme')||'';
-  var light=(t==='light')||(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
-  if(light)document.documentElement.setAttribute('data-theme','light');
+  var r=(t==='light'||t==='pbl'||t==='dark')?t
+      :((window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
+  if(r!=='dark')document.documentElement.setAttribute('data-theme',r);
 }catch(e){}})();
 </script>
 <title>The Org System</title>
@@ -32,6 +33,15 @@
    the brightest surface, cards sit just below it, and the accents keep their
    hue so a screenshot of one theme is recognisably the same product as the
    other. */
+:root[data-theme="pbl"]{
+  color-scheme:dark;
+  --ink:#f6f1e6; --slate:#ddd2bf; --mute:#b09a86; --rule:#6a2b2b; --paper:#3d0f14; --card:#511519;
+  --consult:#e8c07d; --compete:#f0a08a; --either:#c9b8a2; --flag:#ffb3a0; --ok:#c9d6a8;
+  --wash:#6a2b2b; --warmwash:#5c1a1e; --accent:#f6f1e6;
+  --onfill:#3d0f14; --void:#2c0a0e; --moss:#5c1a1e; --forest:#c8a35a; --copper:#b09a86;
+  --hair:#5c1a1e; --badwash:#6a2226; --goodwash:#4a2418;
+  --gridline:rgba(246,241,230,.05);
+}
 :root[data-theme="light"]{
   color-scheme:light;
   --ink:#1b1c19; --slate:#4a4c46; --mute:#6d6f68; --rule:#d3d2ca; --paper:#f2f1ea; --card:#fbfaf5;
@@ -560,6 +570,47 @@ ul.roster li.hasnote{background:var(--warmwash)}
 code{background:var(--void);border-color:var(--rule);color:var(--slate);border-radius:4px}
 footer{color:var(--mute)}
 
+/* ============ MEMBER WALKTHROUGH ============ */
+.tourwrap{position:fixed;left:0;right:0;bottom:0;z-index:960;display:flex;justify-content:center;
+  padding:0 16px 22px;pointer-events:none}
+.tourwrap[hidden]{display:none}
+.tourcard{pointer-events:auto;background:var(--card);border:1px solid var(--rule);
+  border-left:3px solid var(--forest);border-radius:8px;padding:18px 20px;
+  width:100%;max-width:520px;box-shadow:0 -2px 30px rgba(0,0,0,.35)}
+:root[data-theme="light"] .tourcard{box-shadow:0 -2px 30px rgba(27,28,25,.12)}
+.tourstep{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.tourcard h3{font-size:21px;font-weight:300;letter-spacing:-.015em;margin:7px 0 0;color:var(--ink)}
+.tourcard p{font-size:15px;color:var(--slate);margin:8px 0 0;line-height:1.45}
+.tourdots{display:flex;gap:7px;margin-top:14px}
+.tourdots i{width:22px;height:3px;border-radius:2px;background:var(--rule);display:block}
+.tourdots i.on{background:var(--forest)}
+.touracts{display:flex;gap:9px;justify-content:flex-end;margin-top:14px}
+
+/* ============ CALENDAR & HOMEWORK ============ */
+.evrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--hair)}
+.evrow:last-child{border-bottom:0}
+.evrow.gone{opacity:.5}
+.evdate{flex:0 0 128px;font-size:12px;letter-spacing:.06em;color:var(--slate)}
+.evbar{flex:0 0 3px;align-self:stretch;border-radius:2px}
+.evname{flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere}
+.evname em{font-style:normal;color:var(--mute);font-size:13.5px}
+.evkill{flex:0 0 auto;border:1px solid var(--rule);background:transparent;color:var(--flag);
+  border-radius:0;padding:3px 9px;font-size:13px;line-height:1}
+@media(max-width:620px){.evrow{flex-wrap:wrap}.evdate{flex-basis:100%}}
+
+.hwcard{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:15px;margin-bottom:12px}
+.hwhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.hwtitle{flex:1;min-width:0;font-size:19px;font-weight:300;letter-spacing:-.01em;color:var(--ink)}
+.hwdue{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.hwdue.late{color:var(--flag)}
+.hwkill{border:1px solid var(--rule);background:transparent;color:var(--flag);border-radius:0;
+  padding:2px 8px;font-size:13px;line-height:1}
+.hwup{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.hwup input[type=file]{display:none}
+.hwup .linkbtn{cursor:pointer}
+.hwname{color:var(--slate)}
+.hwcard .msg{margin-top:10px}
+
 /* ============ FORM QUESTION EDITOR ============ */
 .feq{border:1px solid var(--rule);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--void)}
 .feq.locked{opacity:.65}
@@ -830,11 +881,26 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <button data-view="v-attend" disabled data-req="admin">Attendance</button>
     <button data-view="v-cup" disabled>Cup</button>
     <button data-view="v-assist" disabled data-req="admin">Assistant</button>
+    <button data-view="v-calendar">Calendar</button>
+    <button data-view="v-work">Homework</button>
     <button data-view="v-profile">Profile</button>
     <button data-view="v-form" id="navform" style="display:none">Sign-up form</button>
     <button data-view="v-access" data-req="master">Access</button>
   </nav>
 </header>
+
+<div class="tourwrap" id="tour" hidden>
+  <div class="tourcard">
+    <div class="tourstep mono" id="tourstep"></div>
+    <h3 id="tourh"></h3>
+    <p id="tourp"></p>
+    <div class="tourdots" id="tourdots"></div>
+    <div class="touracts">
+      <button class="ghost" id="tourskip" type="button">Skip</button>
+      <button id="tournext" type="button">Next</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============ BULLETIN BOARD ============ -->
 <section class="board" id="board" hidden>
@@ -1253,6 +1319,45 @@ Marcus Lee"></textarea>
   </div>
 </div>
 
+<div class="view" id="v-calendar">
+  <div class="panel" data-section="whats-on">
+    <h2>What is on</h2>
+    <p class="hint">Everything the chapter has scheduled. Officers add dates; everyone else reads them.</p>
+    <div class="row" style="margin-top:0" data-req="admin">
+      <div class="field" style="flex:2;min-width:200px"><label for="ev-title">Event</label>
+        <input type="text" id="ev-title" placeholder="Case competition prep"></div>
+      <div class="field"><label for="ev-date">Date</label><input type="date" id="ev-date"></div>
+      <div class="field"><label for="ev-time">Time</label><input type="text" id="ev-time" placeholder="7:00 pm"></div>
+      <div class="field" style="flex:1;min-width:150px"><label for="ev-where">Where</label>
+        <input type="text" id="ev-where" placeholder="Room 204"></div>
+      <div class="field" style="min-width:150px"><label for="ev-kind">Kind</label><select id="ev-kind"></select></div>
+      <button id="ev-add">Add</button>
+    </div>
+    <div class="msg" id="evmsg"></div>
+    <div id="calbody" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<div class="view" id="v-work">
+  <div class="panel" data-req="admin" data-section="set-work">
+    <h2>Set an assignment</h2>
+    <p class="hint">Members upload their file against it. Everything lands in the club's Drive, filed by Org and then by member.</p>
+    <div class="row" style="margin-top:0">
+      <div class="field" style="flex:2;min-width:220px"><label for="hw-title">Assignment</label>
+        <input type="text" id="hw-title" placeholder="Case brief — round one"></div>
+      <div class="field"><label for="hw-due">Due</label><input type="date" id="hw-due"></div>
+      <button id="hw-add">Set it</button>
+    </div>
+    <div class="field" style="margin-top:12px"><label for="hw-note">What to hand in (optional)</label>
+      <input type="text" id="hw-note" placeholder="One PDF, two pages, named after your Org"></div>
+    <div class="msg" id="hwmsg"></div>
+  </div>
+  <div class="panel" data-section="your-work">
+    <h2>Assignments</h2>
+    <div id="hwbody"></div>
+  </div>
+</div>
+
 <!-- ============ PROFILE ============ -->
 <div class="view" id="v-profile">
   <div id="profbody"></div>
@@ -1441,6 +1546,7 @@ function cloneClub(c){
     /* Notices and recognitions are club history, not part of a starter kit, so
        they ride through cloneClub rather than being reset by "Load the kit". */
     board:(c.board||[]).slice(), recognitions:c.recognitions||{},
+    events:(c.events||[]).slice(), work:(c.work||[]).slice(),
     formEmbed:c.formEmbed!==false};
 }
 
@@ -2145,7 +2251,8 @@ var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
    for exactly the people they were built for. */
 var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
                    myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
-                   setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1,myFormAnswers:1};
+                   setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1,myFormAnswers:1,
+                   submitWork:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -2315,6 +2422,8 @@ function setView(id,fromRoute){
     if(isMaster()&&!AFFROWS.length)renderAffs();
     renderFormEditor();
   }
+  if(id==='v-calendar')renderCalendar();
+  if(id==='v-work')renderWork();
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
@@ -3119,6 +3228,209 @@ function wireRecKills(scope,name){
       if(typeof scope.__rerender==='function')scope.__rerender();
     });
   });
+}
+
+/* ================= MEMBER WALKTHROUGH =================
+   Shown once, to members only. An officer arriving for the first time has the
+   whole page to learn and a written orientation to read; a member has four
+   things to do and should not have to find them. Each step points at the tab
+   it is talking about and opens it, so the tour teaches the navigation by
+   using it rather than describing it. */
+var TOUR_KEY='orgsystem.tour';
+var TOUR=[
+  {v:'v-draft',    h:'This is your Org',
+   p:'You were sorted into one of these teams for the year. Find your name — the people on that card are your Org.'},
+  {v:'v-cup',      h:'Everything you turn up to is worth points',
+   p:'They are credited to your Org, and every Org is ranked against the others all semester. This is the standings page.'},
+  {v:'v-calendar', h:'What is on, and when',
+   p:'Officers keep this up to date. Anything on it earns points, and things outside your own division earn extra.'},
+  {v:'v-work',     h:'Anything set for you appears here',
+   p:'Upload your file against the assignment. It is filed automatically under your Org and your name.'},
+  {v:'v-profile',  h:'Your page',
+   p:'Your points, where they came from, your sign-up answers and any recognitions. That is the tour — go and look around.'}
+];
+var TOURAT=0;
+function tourSeen(){try{return localStorage.getItem(TOUR_KEY)==='1'}catch(e){return true}}
+function tourDone(){
+  try{localStorage.setItem(TOUR_KEY,'1')}catch(e){}
+  var t=$('tour'); if(t)t.hidden=true;
+}
+function paintTour(){
+  var st=TOUR[TOURAT]; if(!st)return tourDone();
+  if($(st.v)&&routeAllowed(st.v))setView(st.v);
+  $('tourstep').textContent='Step '+(TOURAT+1)+' of '+TOUR.length;
+  $('tourh').textContent=st.h;
+  $('tourp').textContent=st.p;
+  $('tourdots').innerHTML=TOUR.map(function(_,i){
+    return '<i'+(i===TOURAT?' class="on"':'')+'></i>';
+  }).join('');
+  $('tournext').textContent=(TOURAT===TOUR.length-1)?'Finish':'Next';
+}
+function startTour(){
+  var t=$('tour'); if(!t)return;
+  TOURAT=0; t.hidden=false; paintTour();
+}
+function maybeTour(){
+  /* Members only, once, and only when there is something to look at. */
+  if(A.offline||tourSeen())return;
+  if(A.role!=='member')return;
+  if(!S.orgs.length)return;
+  setTimeout(startTour,700);
+}
+function initTour(){
+  var n=$('tournext'), k=$('tourskip');
+  if(n)n.addEventListener('click',function(){
+    TOURAT++;
+    if(TOURAT>=TOUR.length)tourDone(); else paintTour();
+  });
+  if(k)k.addEventListener('click',tourDone);
+}
+
+/* ================= CALENDAR =================
+   Dates live on the club record beside the notices, so every member sees the
+   same list without anything being imported. Kinds reuse the Cup's colours,
+   because "what is this" and "what is it worth" are the same question. */
+function calList(){
+  return ((S.club&&S.club.events)||[]).slice().sort(function(a,b){
+    return String(a.date||'').localeCompare(String(b.date||''));
+  });
+}
+function calDate(d){
+  if(!d)return '';
+  var p=String(d).split('-');
+  if(p.length!==3)return String(d);
+  var dt=new Date(+p[0],+p[1]-1,+p[2]);
+  return dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+}
+function isPast(d){
+  if(!d)return false;
+  var t=new Date(); t.setHours(0,0,0,0);
+  var p=String(d).split('-');
+  return new Date(+p[0],+p[1]-1,+p[2])<t;
+}
+function renderCalendar(){
+  var box=$('calbody'); if(!box)return;
+  var sel=$('ev-kind');
+  if(sel&&!sel.options.length)
+    sel.innerHTML=POINT_CATS.map(function(c){return '<option value="'+c.id+'">'+esc(c.label)+'</option>'}).join('');
+  var all=calList(), up=all.filter(function(e){return !isPast(e.date)}),
+      gone=all.filter(function(e){return isPast(e.date)});
+  if(!all.length){box.innerHTML='<p class="empty">Nothing scheduled yet.</p>';return}
+  function row(e){
+    var c=catById(e.cat||'meet');
+    return '<div class="evrow'+(isPast(e.date)?' gone':'')+'" data-id="'+esc(e.id)+'">'+
+      '<span class="evdate mono">'+esc(calDate(e.date))+'</span>'+
+      '<span class="evbar" style="background:'+c.color+'"></span>'+
+      '<span class="evname">'+esc(e.title)+
+        (e.where?'<em> · '+esc(e.where)+'</em>':'')+
+        (e.time?'<em> · '+esc(e.time)+'</em>':'')+'</span>'+
+      '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>'+
+      (canEdit()?'<button class="evkill" type="button" title="Remove">×</button>':'')+
+    '</div>';
+  }
+  var h='';
+  if(up.length)h+='<div class="s-lbl" style="margin-bottom:8px">Coming up</div>'+up.map(row).join('');
+  if(gone.length)h+='<div class="s-lbl" style="margin:18px 0 8px">Already happened</div>'+gone.slice(-8).map(row).join('');
+  box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll('.evkill'),function(b){
+    b.addEventListener('click',function(){
+      var id=b.parentNode.dataset.id;
+      S.club.events=(S.club.events||[]).filter(function(e){return e.id!==id});
+      save(); syncClub(); renderCalendar();
+    });
+  });
+}
+function initCalendar(){
+  var add=$('ev-add'); if(!add)return;
+  add.addEventListener('click',function(){
+    var t=($('ev-title').value||'').trim(), d=$('ev-date').value;
+    var m=$('evmsg');
+    if(!t||!d){m.textContent='An event needs a name and a date.';m.className='msg show';return}
+    S.club.events=S.club.events||[];
+    S.club.events.push({id:'e'+Date.now().toString(36),title:cleanLabel(t).slice(0,80),
+      date:d,time:cleanLabel($('ev-time').value).slice(0,20),
+      where:cleanLabel($('ev-where').value).slice(0,60),cat:$('ev-kind').value||'meet'});
+    $('ev-title').value=''; $('ev-time').value=''; $('ev-where').value='';
+    m.textContent='Added.'; m.className='msg show good';
+    save(); syncClub(); renderCalendar();
+  });
+  renderCalendar();
+}
+
+/* ================= HOMEWORK =================
+   An assignment is club data; a submission is a file in the club's Drive,
+   filed under the member's Org and then their name. The page only ever sends
+   one member's own file -- the backend decides where it lands. */
+function hwList(){
+  return ((S.club&&S.club.work)||[]).slice().sort(function(a,b){
+    return String(b.due||'').localeCompare(String(a.due||''));
+  });
+}
+function renderWork(){
+  var box=$('hwbody'); if(!box)return;
+  var items=hwList();
+  if(!items.length){box.innerHTML='<p class="empty">Nothing set yet.</p>';return}
+  box.innerHTML=items.map(function(w){
+    var late=w.due&&isPast(w.due);
+    return '<div class="hwcard" data-id="'+esc(w.id)+'">'+
+      '<div class="hwhead"><span class="hwtitle">'+esc(w.title)+'</span>'+
+        (w.due?'<span class="hwdue mono'+(late?' late':'')+'">'+(late?'Closed ':'Due ')+esc(calDate(w.due))+'</span>':'')+
+        (canEdit()?'<button class="hwkill" type="button" title="Remove">×</button>':'')+'</div>'+
+      (w.note?'<p class="hint" style="margin:6px 0 0">'+esc(w.note)+'</p>':'')+
+      '<div class="hwup">'+
+        '<input type="file" class="hwfile" id="hwf_'+esc(w.id)+'">'+
+        '<label class="linkbtn" for="hwf_'+esc(w.id)+'"><b>File</b> <span class="hwname">Choose a file</span></label>'+
+        '<button class="tiny hwsend" type="button" disabled>Hand it in</button>'+
+      '</div>'+
+      '<div class="msg hwmsg2"></div>'+
+    '</div>';
+  }).join('');
+  Array.prototype.forEach.call(box.querySelectorAll('.hwcard'),function(cardEl){
+    var id=cardEl.dataset.id;
+    var f=cardEl.querySelector('.hwfile'), btn=cardEl.querySelector('.hwsend'),
+        nm=cardEl.querySelector('.hwname'), msg=cardEl.querySelector('.hwmsg2');
+    var k=cardEl.querySelector('.hwkill');
+    if(k)k.addEventListener('click',function(){
+      S.club.work=(S.club.work||[]).filter(function(w){return w.id!==id});
+      save(); syncClub(); renderWork();
+    });
+    f.addEventListener('change',function(){
+      var file=f.files&&f.files[0];
+      nm.textContent=file?file.name:'Choose a file';
+      btn.disabled=!file;
+    });
+    btn.addEventListener('click',function(){
+      var file=f.files&&f.files[0]; if(!file)return;
+      if(file.size>8*1024*1024){msg.textContent='That file is over 8 MB.';msg.className='msg show';return}
+      btn.disabled=true; msg.textContent='Uploading…'; msg.className='msg show info';
+      var fr=new FileReader();
+      fr.onload=function(){
+        var b64=String(fr.result).split(',')[1]||'';
+        backendPost('submitWork',{workId:id,name:file.name,mime:file.type||'application/octet-stream',data:b64})
+          .then(function(r){
+            btn.disabled=false;
+            if(r&&r.ok){msg.textContent='Handed in as '+r.filed+'.';msg.className='msg show good'}
+            else {msg.textContent=(r&&r.error)||'That did not upload.';msg.className='msg show'}
+          });
+      };
+      fr.onerror=function(){btn.disabled=false;msg.textContent='Could not read that file.';msg.className='msg show'};
+      fr.readAsDataURL(file);
+    });
+  });
+}
+function initWork(){
+  var add=$('hw-add'); if(!add)return;
+  add.addEventListener('click',function(){
+    var t=($('hw-title').value||'').trim(), m=$('hwmsg');
+    if(!t){m.textContent='It needs a name.';m.className='msg show';return}
+    S.club.work=S.club.work||[];
+    S.club.work.push({id:'w'+Date.now().toString(36),title:cleanLabel(t).slice(0,80),
+      due:$('hw-due').value||'',note:cleanLabel($('hw-note').value).slice(0,160)});
+    $('hw-title').value=''; $('hw-note').value='';
+    m.textContent='Set.'; m.className='msg show good';
+    save(); syncClub(); renderWork();
+  });
+  renderWork();
 }
 
 /* ================= BULLETIN BOARD =================
@@ -4681,6 +4993,7 @@ function renderProfile(){
     } else {
       h+='<p class="empty">Nothing from the form yet. Fill it in and your answers land here.</p>';
     }
+    h+='<div class="row"><button class="ghost" id="retour" type="button">Show me around again</button></div>';
     h+='<div class="row"><button class="ghost" id="pullform" type="button">Read my answers from the form</button>'+
        (S.club.formUrl?'<a class="linkbtn" href="'+esc(safeUrl(S.club.formUrl))+'" target="_blank" rel="noopener"><b>Form</b> Open it</a>':'')+
        '</div><div class="msg" id="pullmsg"></div></div>';
@@ -4737,6 +5050,10 @@ function renderProfile(){
     });
 
     var pmsg=function(t,k){var m=$('me-msg');if(m){m.textContent=t;m.className='msg show'+(k?' '+k:'')}};
+    if($('retour'))$('retour').addEventListener('click',function(){
+      try{localStorage.removeItem(TOUR_KEY)}catch(e){}
+      startTour();
+    });
     if($('pullform'))$('pullform').addEventListener('click',function(){
       var b=$('pullform'), pm=$('pullmsg');
       b.disabled=true; b.textContent='Reading\u2026';
@@ -6240,6 +6557,7 @@ function afterSignIn(pre){
     scoreAll();renderDraft();renderCup();
     if(!applyRoute()&&S.orgs.length)setView('v-draft');
     save();
+    maybeTour();
     say('Synced from the shared sheet — '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','good');
   });
 }
@@ -6301,12 +6619,21 @@ function readTheme(){try{return localStorage.getItem(THEME_KEY)||''}catch(e){ret
 function systemLight(){
   return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
 }
+/* Dark, light, and the chapter's own crimson-and-tan. Dark stays the default;
+   with no stored choice the operating system decides between dark and light. */
+var THEMES=['dark','light','pbl'];
+var THEME_LABEL={dark:'Dark',light:'Light',pbl:'PBL'};
+function resolveTheme(t){
+  if(t==='light'||t==='pbl'||t==='dark')return t;
+  return systemLight()?'light':'dark';
+}
 function applyTheme(t){
-  var light=(t==='light')||(!t&&systemLight());
-  if(light)document.documentElement.setAttribute('data-theme','light');
-  else document.documentElement.removeAttribute('data-theme');
+  var r=resolveTheme(t);
+  if(r==='dark')document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',r);
+  var next=THEMES[(THEMES.indexOf(r)+1)%THEMES.length];
   ['themebtn','themebtn2'].forEach(function(id){
-    var b=$(id); if(b)b.textContent=light?'Dark':'Light';
+    var b=$(id); if(b){b.textContent=THEME_LABEL[next]; b.title='Switch to the '+THEME_LABEL[next]+' theme'}
   });
 }
 function initTheme(){
@@ -6314,7 +6641,8 @@ function initTheme(){
   ['themebtn','themebtn2'].forEach(function(id){
     var b=$(id); if(!b)return;
     b.addEventListener('click',function(){
-      var next=(document.documentElement.getAttribute('data-theme')==='light')?'dark':'light';
+      var cur=resolveTheme(readTheme());
+      var next=THEMES[(THEMES.indexOf(cur)+1)%THEMES.length];
       try{localStorage.setItem(THEME_KEY,next)}catch(e){}
       applyTheme(next);
     });
@@ -6334,6 +6662,7 @@ function initTheme(){
    whatever the role is allowed to see. */
 var ROUTES={'v-intake':'intake','v-roster':'roster','v-draft':'draft','v-teams':'teams',
             'v-attend':'attendance','v-cup':'cup','v-assist':'assistant','v-profile':'profile',
+            'v-calendar':'calendar','v-work':'homework',
             'v-form':'sign-up-form','v-access':'access'};
 function pathForView(id){return ROUTES[id]?('/'+ROUTES[id]):'/'}
 function viewForPath(){
@@ -6388,6 +6717,9 @@ function initRouting(){
   $('atdate').value=iso0;
   initTheme();
   initRouting();
+  initTour();
+  initCalendar();
+  initWork();
   initBoard();
   initHidden();
   initFormEditor();

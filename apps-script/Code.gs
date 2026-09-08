@@ -31,7 +31,7 @@ var NEEDS = {
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
   listSignups: 'admin', deleteSignup: 'admin', setOrgName: 'member',
-  myFormAnswers: 'member',
+  myFormAnswers: 'member', submitWork: 'member',
   formItems: 'admin', saveFormItems: 'admin',
   purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
@@ -894,6 +894,51 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, answers: got, matchedBy: (cEmail > -1 ? 'email' : 'name')};
     }
 
+    /* ---- handing in work ----
+       One member's own file, filed under the club, then the Org they were
+       drafted into, then their name. The browser sends the bytes and nothing
+       else -- where it lands is decided here, from the roster, so nobody can
+       drop a file into somebody else's folder by relabelling the request. */
+    case 'submitWork': {
+      var swName = String((payload || {}).name || 'submission').replace(/[\\/:*?"<>|]/g, '-').slice(0, 90);
+      var swMime = String((payload || {}).mime || 'application/octet-stream');
+      var swData = String((payload || {}).data || '');
+      var swId   = String((payload || {}).workId || '');
+      if (!swData) return {ok: false, error: 'No file arrived.'};
+      if (swData.length > 12000000) return {ok: false, error: 'That file is too large.'};
+
+      var flatW = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var meW = flatW(id.name || email), myOrg = '', myName = String(id.name || email);
+      readScoped('teams', aff).forEach(function (r) {
+        if (flatW(r.MemberName) !== meW) return;
+        myOrg = String(r.Org || ''); myName = String(r.MemberName || myName);
+      });
+      if (!myOrg) myOrg = 'Not drafted yet';
+
+      /* Which assignment, read from the club's own config rather than trusted
+         from the browser, so the folder name cannot be invented. */
+      var wKey = 'club:' + aff, wCfg = {};
+      readTab('config').forEach(function (r) {
+        if (String(r.Key) === wKey) { try { wCfg = JSON.parse(r.Value) || {}; } catch (e) {} }
+      });
+      var task = ((wCfg.work || []).filter(function (w) { return w.id === swId; })[0] || {}).title || 'Submissions';
+      task = String(task).replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
+
+      var clubName = (findAff(aff) || {}).name || aff;
+      var root = folderUnder(null, clubName + ' — handed in');
+      var f1   = folderUnder(root, task);
+      var f2   = folderUnder(f1, myOrg);
+      var f3   = folderUnder(f2, myName);
+
+      var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmm');
+      var blob = Utilities.newBlob(Utilities.base64Decode(swData), swMime, stamp + ' ' + swName);
+      var file = f3.createFile(blob);
+      /* The club's own account owns its Drive, so give it access to what its
+         members hand in. Failure here must not lose the upload. */
+      try { if (wCfg.ownerEmail) root.addEditor(wCfg.ownerEmail); } catch (e) {}
+      return {ok: true, filed: task + ' / ' + myOrg + ' / ' + myName, fileId: file.getId()};
+    }
+
     /* A signed-in Google address that has not joined a club yet. Same join
        code rule as sign-up, and always as a member. */
     case 'joinAffiliation': {
@@ -1741,4 +1786,13 @@ function applyFormItem_(item, type, title, help, required, options) {
     item.asListItem().setTitle(title).setHelpText(help)
         .setRequired(required).setChoiceValues(choices);
   }
+}
+
+/* Find or make a folder by name, at the Drive root when parent is null. Drive
+   allows two folders with the same name in one place, so an existing one is
+   always reused rather than a second being made every submission. */
+function folderUnder(parent, name) {
+  var it = parent ? parent.getFoldersByName(name) : DriveApp.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return parent ? parent.createFolder(name) : DriveApp.createFolder(name);
 }

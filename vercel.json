@@ -83,6 +83,14 @@
     {
       "source": "/orientation",
       "destination": "/orientation.html"
+    },
+    {
+      "source": "/calendar",
+      "destination": "/"
+    },
+    {
+      "source": "/homework",
+      "destination": "/"
     }
   ]
 }
