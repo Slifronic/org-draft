@@ -247,7 +247,8 @@ var TAB = {
   /* Per-person editable details, separate from credentials so a Google user
      who has no Users row still has somewhere to keep a name and a picture. */
   profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo',
-                                          'Year', 'Track', 'MBTI', 'LeadInterest', 'FormNotes', 'FormAt']}
+                                          'Year', 'Track', 'MBTI', 'LeadInterest', 'FormNotes', 'FormAt',
+                                          'Birthday']}
 };
 var DEFAULT_AFF = 'default';
 /* The form every club starts from. Copied per club rather than shared, so one
@@ -805,6 +806,8 @@ function dispatch(action, payload, email, role, id) {
               history: hist.slice(-25), aff: aff, role: role, who: email,
               answers: prow ? {year: prow.Year, track: prow.Track, mbti: prow.MBTI,
                                lead: prow.LeadInterest, notes: prow.FormNotes,
+                               bday: prow.Birthday ? Utilities.formatDate(
+                                 new Date(prow.Birthday), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
                                at: prow.FormAt} : null};
     }
 
@@ -924,8 +927,22 @@ function dispatch(action, payload, email, role, id) {
           return {ok: false, error: 'Could not open or create a calendar: ' + e.message};
         }
       }
-      /* The club's own account should be able to open what it owns. */
-      try { if (cCfg.ownerEmail) cal.addEditor(cCfg.ownerEmail); } catch (e) {}
+      /* The chapter's calendar belongs to the chapter. The club's own Google
+         account is made an owner where Calendar allows it and an editor
+         otherwise, and the result is reported either way -- a club that
+         believes it controls its own calendar when it does not finds out at
+         the worst possible moment. */
+      var calOwner = '', calShareErr = '';
+      if (cCfg.ownerEmail) {
+        try {
+          cal.addEditor(cCfg.ownerEmail);
+          calOwner = cCfg.ownerEmail;
+          try { cal.setSelected(true); } catch (e) {}
+        } catch (e) { calShareErr = String(e.message || e); }
+      }
+      /* A link the club's account can actually subscribe with. */
+      cCfg.gcalUrl = 'https://calendar.google.com/calendar/u/0/r?cid=' +
+                     encodeURIComponent(cCfg.gcalId);
 
       var incoming = (payload || {}).events || [];
       var byGid = {}, pushed = 0, pulled = 0;
@@ -987,7 +1004,8 @@ function dispatch(action, payload, email, role, id) {
       else cSheet.appendRow([cKey, cJson]);
 
       return {ok: true, events: incoming, pushed: pushed, pulled: pulled,
-              calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || ''};
+              calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '',
+              sharedWith: calOwner, shareError: calShareErr};
     }
 
     /* ---- handing in work ----
@@ -1105,6 +1123,18 @@ function dispatch(action, payload, email, role, id) {
         if (pf) shP.getRange(i0 + 1, idxP.FirstName + 1).setValue(pf);
         if (pl) shP.getRange(i0 + 1, idxP.LastName + 1).setValue(pl);
         if (ph) shP.getRange(i0 + 1, idxP.Photo + 1).setValue(ph);
+        /* A member correcting what the form recorded about them. Only their
+           own row, and only the fields that are theirs to change -- year and
+           leadership interest stay with the officers who read them. */
+        var pay = payload || {};
+        if (pay.track !== undefined && idxP.Track !== undefined)
+          shP.getRange(i0 + 1, idxP.Track + 1).setValue(String(pay.track).slice(0, 40));
+        if (pay.mbti !== undefined && idxP.MBTI !== undefined)
+          shP.getRange(i0 + 1, idxP.MBTI + 1).setValue(String(pay.mbti).toUpperCase().slice(0, 4));
+        if (pay.notes !== undefined && idxP.FormNotes !== undefined)
+          shP.getRange(i0 + 1, idxP.FormNotes + 1).setValue(String(pay.notes).slice(0, 300));
+        if (pay.bday !== undefined && idxP.Birthday !== undefined)
+          shP.getRange(i0 + 1, idxP.Birthday + 1).setValue(String(pay.bday).slice(0, 10));
         return {ok: true, saved: true};
       }
       shP.appendRow([pE, aff, pf, pl, ph]);

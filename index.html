@@ -586,6 +586,63 @@ footer{color:var(--mute)}
 .tourdots i.on{background:var(--forest)}
 .touracts{display:flex;gap:9px;justify-content:flex-end;margin-top:14px}
 
+/* ============ TROPHY CASE, POINTS LOG, HOMEWORK ============ */
+.trophies{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:10px}
+.trophy{display:flex;align-items:center;gap:10px;background:var(--void);border:1px solid var(--rule);
+  border-left:3px solid var(--forest);border-radius:6px;padding:11px 13px;min-width:0}
+.tcup{color:var(--forest);font-size:14px;flex:0 0 auto}
+.tname{flex:1;min-width:0;font-size:14.5px;overflow-wrap:anywhere}
+.tdate{font-size:10px;letter-spacing:.06em;color:var(--mute);white-space:nowrap}
+
+/* A semester of entries would otherwise push the rest of the page away. */
+.ptlog{max-height:300px;overflow-y:auto;border:1px solid var(--rule);border-radius:8px;
+  padding:2px 14px;background:var(--void)}
+.ptlog .evtline:last-child{border-bottom:0}
+
+.hwfor{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--mute);border:1px solid var(--rule);border-radius:4px;padding:2px 7px;margin-top:8px}
+.hwbrief{font-size:14.5px;color:var(--slate);margin:9px 0 0;line-height:1.45;white-space:pre-wrap}
+
+/* ============ DAY & WEEK ============ */
+.spangrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.spangrid.one{grid-template-columns:1fr}
+.spancol{background:var(--card);min-height:170px;padding:8px;display:flex;flex-direction:column;
+  gap:7px;cursor:pointer}
+.spancol:hover{background:var(--void)}
+.spancol.today{box-shadow:inset 0 0 0 2px var(--forest)}
+.spanhead{display:flex;align-items:baseline;gap:7px}
+.spanhead b{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--mute);font-weight:400}
+.spanhead span{font-size:17px;font-weight:300;color:var(--ink)}
+.spanevs{display:flex;flex-direction:column;gap:4px;min-width:0}
+.spannone{color:var(--mute);font-size:13px}
+@media(max-width:760px){
+  .spangrid{grid-template-columns:1fr;gap:0}
+  .spancol{min-height:0;flex-direction:row;align-items:flex-start;gap:12px;
+    border-bottom:1px solid var(--hair)}
+  .spanhead{flex:0 0 70px;flex-direction:column;gap:0}
+  .spanevs{flex:1}
+  .calevs .evchip,.calevs .evchip.small{font-size:0}
+  .spanevs .evchip{font-size:12.5px;padding:3px 7px;background:var(--void);display:flex;gap:6px}
+  .spanevs .evchip i{width:6px;height:6px;flex:0 0 6px;border-radius:2px}
+  .spanevs .evchip b{display:inline}
+}
+
+/* ============ BOOT SCREEN ============
+   The club decides the colours, and the club is not known until the backend
+   answers. Without this the first second of every session is the wrong theme,
+   which reads as the page changing its mind. */
+.boot{position:fixed;inset:0;z-index:9998;background:var(--paper);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  transition:opacity .25s ease}
+.boot[hidden]{display:none}
+.boot.gone{opacity:0;pointer-events:none}
+.bootmark{color:var(--ink);opacity:.9;animation:bootspin 2.4s linear infinite}
+@keyframes bootspin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.bootmark{animation:none}}
+.bootword{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+
 /* ============ MOBILE ============
    Grid and flex children default to min-width:auto, which means a wide child
    refuses to shrink and pushes the column out instead. The team page did
@@ -598,6 +655,16 @@ footer{color:var(--mute)}
 
 @media(max-width:760px){
   .wrap{padding:0 14px}
+  /* the brand line and the account line each get their own row rather than
+     wrapping into three cramped columns */
+  header>div:first-child{flex-wrap:wrap;row-gap:10px}
+  header>div:first-child>.brandmark{order:1}
+  header>div:first-child>#eyebrowtitle{order:2;flex:1 1 auto}
+  .whoami{order:3;width:100%;margin-left:0;gap:10px}
+  .whoami .wtext{flex:1 1 auto;min-width:0}
+  .whoami .wname{font-size:13.5px}
+  .rolebadge{font-size:10px;line-height:1.35}
+  #eyebrowtitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   body{padding-bottom:120px}
 
   /* the tab strip scrolls rather than stacking into six rows */
@@ -981,6 +1048,11 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   </div>
 </div>
 
+<div class="boot" id="boot">
+  <div class="bootmark" id="bootmark"></div>
+  <div class="bootword mono">Loading your chapter…</div>
+</div>
+
 <div class="wrap">
 
 <header>
@@ -997,11 +1069,11 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
       <button class="signout" id="signout">Sign out</button>
     </div>
   </div>
-  <h1><span id="h1title">Org System</span> <span>/ draft, teams, cup</span></h1>
+  <h1><span id="h1title">Org System</span></h1>
   <nav id="nav">
     <button data-view="v-intake" aria-current="true" data-req="admin">Intake</button>
     <button data-view="v-roster" data-req="admin">Roster</button>
-    <button data-view="v-draft" disabled>Draft</button>
+    <button data-view="v-draft" disabled data-req="admin">Draft</button>
     <button data-view="v-teams" disabled>Teams</button>
     <button data-view="v-attend" disabled data-req="admin">Attendance</button>
     <button data-view="v-cup" disabled>Cup</button>
@@ -1407,8 +1479,8 @@ Marcus Lee"></textarea>
   <p class="hint">Ranked on points per member, so team size does not decide the Cup.</p>
   <div id="standings"></div>
   <div class="row">
-    <button id="cupexport" class="ghost">Export standings CSV</button>
-    <button id="logexport" class="ghost">Export full log</button>
+    <button id="cupexport" class="ghost" data-req="admin">Export standings CSV</button>
+    <button id="logexport" class="ghost" data-req="admin">Export full log</button>
     <button id="cupclear" class="danger" data-req="admin">Clear log</button>
   </div>
 </div>
@@ -1455,7 +1527,6 @@ Marcus Lee"></textarea>
 <div class="view" id="v-calendar">
   <div class="panel" data-section="whats-on">
     <h2>What is on</h2>
-    <p class="hint">Everything the chapter has scheduled. Officers add dates; everyone else reads them.</p>
     <div class="row" style="margin-top:0" data-req="admin">
       <div class="field" style="flex:2;min-width:200px"><label for="ev-title">Event</label>
         <input type="text" id="ev-title" placeholder="Case competition prep"></div>
@@ -1469,6 +1540,8 @@ Marcus Lee"></textarea>
     <div class="msg" id="evmsg"></div>
     <div class="calbar">
       <div class="segbtns">
+        <button class="seg" id="cal-day" type="button">Day</button>
+        <button class="seg" id="cal-week" type="button">Week</button>
         <button class="seg on" id="cal-month" type="button">Month</button>
         <button class="seg" id="cal-list" type="button">List</button>
       </div>
@@ -1480,7 +1553,7 @@ Marcus Lee"></textarea>
       </div>
       <div class="calsync">
         <button class="tiny ghost" id="cal-sync" data-req="admin" type="button">Sync with Google Calendar</button>
-        <a class="tiny ghost" id="cal-open" href="#" target="_blank" rel="noopener" style="display:none">Open it</a>
+        <a class="tiny ghost" id="cal-sub" href="#" target="_blank" rel="noopener" style="display:none">Add this calendar to mine</a>
       </div>
     </div>
     <div id="calbody" style="margin-top:14px"></div>
@@ -1490,15 +1563,35 @@ Marcus Lee"></textarea>
 <div class="view" id="v-work">
   <div class="panel" data-req="admin" data-section="set-work">
     <h2>Set an assignment</h2>
-    <p class="hint">Members upload their file against it. Everything lands in the club's Drive, filed by Org and then by member.</p>
     <div class="row" style="margin-top:0">
-      <div class="field" style="flex:2;min-width:220px"><label for="hw-title">Assignment</label>
+      <div class="field" style="flex:1;min-width:200px"><label for="hw-tpl">Start from</label>
+        <select id="hw-tpl">
+          <option value="">Blank</option>
+          <option value="case">Case brief</option>
+          <option value="deck">Slide deck</option>
+          <option value="resume">Résumé review</option>
+          <option value="reflect">Event reflection</option>
+          <option value="proof">Proof of attendance</option>
+        </select></div>
+      <div class="field" style="flex:2;min-width:230px"><label for="hw-title">Assignment</label>
         <input type="text" id="hw-title" placeholder="Case brief — round one"></div>
       <div class="field"><label for="hw-due">Due</label><input type="date" id="hw-due"></div>
-      <button id="hw-add">Set it</button>
     </div>
-    <div class="field" style="margin-top:12px"><label for="hw-note">What to hand in (optional)</label>
-      <input type="text" id="hw-note" placeholder="One PDF, two pages, named after your Org"></div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:150px"><label for="hw-for">Who it is for</label>
+        <select id="hw-for"><option value="all">Everyone</option></select></div>
+      <div class="field" style="flex:1;min-width:150px"><label for="hw-kind">Hand in as</label>
+        <select id="hw-kind">
+          <option value="file">A file</option>
+          <option value="any">A file or a link</option>
+        </select></div>
+      <div class="field" style="flex:2;min-width:220px"><label for="hw-note">What to hand in</label>
+        <input type="text" id="hw-note" placeholder="One PDF, two pages, named after your Org"></div>
+    </div>
+    <div class="field" style="margin-top:12px"><label for="hw-brief">The brief</label>
+      <textarea id="hw-brief" style="height:110px" placeholder="What they are being asked to do, and what a good one looks like."></textarea></div>
+    <div class="row"><button id="hw-add">Set it</button>
+      <button class="ghost" id="hw-clear" type="button">Clear</button></div>
     <div class="msg" id="hwmsg"></div>
   </div>
   <div class="panel" data-section="your-work">
@@ -1510,6 +1603,16 @@ Marcus Lee"></textarea>
 <!-- ============ PROFILE ============ -->
 <div class="view" id="v-profile">
   <div id="profbody"></div>
+<div class="panel" id="mypwpanel" style="display:none" data-section="your-password">
+  <h2>Your password</h2>
+  <p class="hint">You are signed in with a username, so you can change your own password here. It takes effect immediately; other devices stay signed in until their session expires.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:1;min-width:180px"><label for="mp-old">Current password</label><input type="password" id="mp-old" autocomplete="current-password"></div>
+    <div class="field" style="flex:1;min-width:180px"><label for="mp-new">New password</label><input type="password" id="mp-new" autocomplete="new-password"></div>
+    <button id="mp-go">Change password</button>
+  </div>
+  <div class="msg" id="mypwmsg"></div>
+</div>
 </div>
 
 <!-- ============ ACCESS (master only) ============ -->
@@ -1587,16 +1690,6 @@ Marcus Lee"></textarea>
 </div>
 </div>
 
-<div class="panel" id="mypwpanel" style="display:none" data-section="your-password">
-  <h2>Your password</h2>
-  <p class="hint">You are signed in with a username, so you can change your own password here. It takes effect immediately; other devices stay signed in until their session expires.</p>
-  <div class="row" style="margin-top:0">
-    <div class="field" style="flex:1;min-width:180px"><label for="mp-old">Current password</label><input type="password" id="mp-old" autocomplete="current-password"></div>
-    <div class="field" style="flex:1;min-width:180px"><label for="mp-new">New password</label><input type="password" id="mp-new" autocomplete="new-password"></div>
-    <button id="mp-go">Change password</button>
-  </div>
-  <div class="msg" id="mypwmsg"></div>
-</div>
 
 <!-- ============ ASSISTANT CHAT ============ -->
 <button id="chatbtn" aria-label="Ask the Assistant" title="Ask the Assistant" aria-expanded="false">
@@ -2199,7 +2292,7 @@ function initGate(){
     });
   }
   gateMode('signin');
-  resumeSession().then(function(resumed){ if(!resumed)initGsi(); });
+  resumeSession().then(function(resumed){ if(!resumed){initGsi();bootDone()} });
   /* A restored screen that never gets confirmed is worse than a sign-in card:
      the page looks live and every write fails. If nothing has authenticated by
      now, put the card back. */
@@ -2208,7 +2301,7 @@ function initGate(){
     PROVISIONAL=false;
     A.role='none'; document.body.dataset.role='none';
     var w=$('whoami'); if(w)w.style.display='none';
-    showGate(true); gateMode('signin');
+    showGate(true); gateMode('signin'); bootDone();
     gateMsg('Sign in again to sync — the page was showing your last saved copy.');
   },8000);
 }
@@ -3436,6 +3529,32 @@ function initTour(){
   if(k)k.addEventListener('click',tourDone);
 }
 
+/* ================= BOOT SCREEN =================
+   Held until the club's own colours are on, so the first thing anybody sees is
+   their chapter rather than the default palette changing under them. It lifts
+   on its own after a few seconds whatever happens, because a spinner that can
+   outlive its reason is worse than no spinner. */
+var BOOTED=false;
+function bootMark(){
+  var m=$('bootmark'); if(!m||m.firstChild)return;
+  var src=document.querySelector('header .brandmark');
+  if(!src)return;
+  var c=src.cloneNode(true);
+  c.setAttribute('width','54'); c.setAttribute('height','54');
+  m.appendChild(c);
+}
+function bootDone(){
+  if(BOOTED)return; BOOTED=true;
+  var b=$('boot'); if(!b)return;
+  b.classList.add('gone');
+  setTimeout(function(){b.hidden=true},280);
+}
+function initBoot(){
+  bootMark();
+  /* Nothing may hold the page hostage. */
+  setTimeout(bootDone,6000);
+}
+
 /* ================= CALENDAR =================
    Dates live on the club record beside the notices, so every member sees the
    same list without anything being imported. Kinds reuse the Cup's colours,
@@ -3458,7 +3577,7 @@ function isPast(d){
   var p=String(d).split('-');
   return new Date(+p[0],+p[1]-1,+p[2])<t;
 }
-var CALV={mode:'month', y:0, m:0};
+var CALV={mode:'month', y:0, m:0, d:0};
 function calKeyOf(d){return String(d||'')}
 function ymd(y,m,d){
   return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
@@ -3592,19 +3711,67 @@ function renderList(){
   wireEvRows(box);
 }
 
+function weekStart(y,m,d){
+  var t=new Date(y,m,d); t.setDate(t.getDate()-t.getDay()); return t;
+}
+/* One column per day for a week, one long column for a day. Both reuse the
+   month's chips, so an event looks the same wherever it is read. */
+function renderSpan(days,startDate){
+  var box=$('calbody');
+  var byDay={};
+  calList().forEach(function(e){ (byDay[e.date]=byDay[e.date]||[]).push(e) });
+  var today=todayYMD(), cells=[];
+  for(var i=0;i<days;i++){
+    var d=new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+i);
+    cells.push({d:d,key:ymd(d.getFullYear(),d.getMonth(),d.getDate())});
+  }
+  var t=$('cal-title');
+  if(t){
+    t.textContent = days===1
+      ? startDate.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})
+      : cells[0].d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+
+        cells[days-1].d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+  }
+  var h='<div class="spangrid'+(days===1?' one':'')+'">';
+  cells.forEach(function(c){
+    var evs=(byDay[c.key]||[]);
+    h+='<div class="spancol'+(c.key===today?' today':'')+'" data-day="'+c.key+'">'+
+      '<div class="spanhead"><b>'+c.d.toLocaleDateString(undefined,{weekday:'short'})+'</b>'+
+      '<span>'+c.d.getDate()+'</span></div>'+
+      '<div class="spanevs">'+
+        (evs.length?evs.map(function(e){return eventChip(e)}).join('')
+                   :'<span class="spannone">—</span>')+
+      '</div></div>';
+  });
+  box.innerHTML=h+'</div><div id="dayview"></div>';
+  Array.prototype.forEach.call(box.querySelectorAll('.spancol'),function(col){
+    col.addEventListener('click',function(){ showDay(col.dataset.day) });
+  });
+  if(days===1)showDay(cells[0].key);
+}
+
 function renderCalendar(){
   var box=$('calbody'); if(!box)return;
   var sel=$('ev-kind');
   if(sel&&!sel.options.length)
     sel.innerHTML=POINT_CATS.map(function(c){return '<option value="'+c.id+'">'+esc(c.label)+'</option>'}).join('');
   if(!CALV.y){var t=new Date(); CALV.y=t.getFullYear(); CALV.m=t.getMonth()}
-  var nav=$('calnav'); if(nav)nav.style.visibility=(CALV.mode==='month')?'visible':'hidden';
+  var nav=$('calnav'); if(nav)nav.style.visibility=(CALV.mode==='list')?'hidden':'visible';
   var link=$('cal-open');
   if(link){
     if(S.club.gcalUrl){link.style.display='';link.href=safeUrl(S.club.gcalUrl)}
     else link.style.display='none';
   }
-  if(CALV.mode==='month')renderMonth(); else renderList();
+  var sub=$('cal-sub');
+  if(sub){
+    if(S.club.gcalUrl){sub.style.display='';sub.href=safeUrl(S.club.gcalUrl)}
+    else sub.style.display='none';
+  }
+  var base=new Date(CALV.y,CALV.m,CALV.d||1);
+  if(CALV.mode==='month')renderMonth();
+  else if(CALV.mode==='week')renderSpan(7,weekStart(CALV.y,CALV.m,CALV.d||1));
+  else if(CALV.mode==='day')renderSpan(1,base);
+  else renderList();
 }
 
 function initCalendar(){
@@ -3624,23 +3791,30 @@ function initCalendar(){
     save(); syncClub(); renderCalendar();
   });
 
+  /* One step means a different distance in each view, which is the only thing
+     the arrows can sensibly mean. */
   var step=function(n){
     return function(){
-      var d=new Date(CALV.y,CALV.m+n,1);
-      CALV.y=d.getFullYear(); CALV.m=d.getMonth(); renderCalendar();
+      var d;
+      if(CALV.mode==='day')       d=new Date(CALV.y,CALV.m,(CALV.d||1)+n);
+      else if(CALV.mode==='week') d=new Date(CALV.y,CALV.m,(CALV.d||1)+n*7);
+      else                        d=new Date(CALV.y,CALV.m+n,1);
+      CALV.y=d.getFullYear(); CALV.m=d.getMonth(); CALV.d=d.getDate();
+      renderCalendar();
     };
   };
   if($('cal-prev'))$('cal-prev').addEventListener('click',step(-1));
   if($('cal-next'))$('cal-next').addEventListener('click',step(1));
   if($('cal-today'))$('cal-today').addEventListener('click',function(){
-    var t=new Date(); CALV.y=t.getFullYear(); CALV.m=t.getMonth(); renderCalendar();
+    var t=new Date(); CALV.y=t.getFullYear(); CALV.m=t.getMonth(); CALV.d=t.getDate(); renderCalendar();
   });
-  [['cal-month','month'],['cal-list','list']].forEach(function(pair){
+  var MODES=[['cal-day','day'],['cal-week','week'],['cal-month','month'],['cal-list','list']];
+  MODES.forEach(function(pair){
     var b=$(pair[0]); if(!b)return;
     b.addEventListener('click',function(){
       CALV.mode=pair[1];
-      $('cal-month').classList.toggle('on',pair[1]==='month');
-      $('cal-list').classList.toggle('on',pair[1]==='list');
+      if(!CALV.d)CALV.d=new Date().getDate();
+      MODES.forEach(function(q){var e=$(q[0]); if(e)e.classList.toggle('on',q[1]===pair[1])});
       renderCalendar();
     });
   });
@@ -3658,8 +3832,11 @@ function initCalendar(){
         S.club.events=r.events||S.club.events;
         S.club.gcalId=r.calendarId||''; S.club.gcalUrl=r.calendarUrl||'';
         save(); syncClub(); renderCalendar();
-        m.textContent='Synced — '+r.pushed+' sent, '+r.pulled+' brought back.';
-        m.className='msg show good';
+        var note='Synced — '+r.pushed+' sent, '+r.pulled+' brought back.';
+        if(r.shareError)note+=' The club account could not be given access ('+r.shareError+').';
+        else if(r.sharedWith)note+=' '+r.sharedWith+' can edit it.';
+        else note+=' Set a club Google account under Intake so the chapter owns its calendar.';
+        m.textContent=note; m.className='msg show '+(r.shareError?'':'good');
       } else {
         m.textContent=(r&&r.error)||'That did not sync.'; m.className='msg show';
       }
@@ -3680,14 +3857,21 @@ function hwList(){
 }
 function renderWork(){
   var box=$('hwbody'); if(!box)return;
-  var items=hwList();
-  if(!items.length){box.innerHTML='<p class="empty">Nothing set yet.</p>';return}
+  var mine=myLeadOrg(), me=null;
+  for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
+  var items=hwList().filter(function(w){
+    if(!w.org||w.org==='all'||canEdit())return true;
+    return me&&String(me.org)===String(w.org);
+  });
+  if(!items.length){box.innerHTML='<p class="empty">Nothing set for you yet.</p>';return}
   box.innerHTML=items.map(function(w){
     var late=w.due&&isPast(w.due);
     return '<div class="hwcard" data-id="'+esc(w.id)+'">'+
       '<div class="hwhead"><span class="hwtitle">'+esc(w.title)+'</span>'+
         (w.due?'<span class="hwdue mono'+(late?' late':'')+'">'+(late?'Closed ':'Due ')+esc(calDate(w.due))+'</span>':'')+
         (canEdit()?'<button class="hwkill" type="button" title="Remove">×</button>':'')+'</div>'+
+      (w.org&&w.org!=='all'?'<span class="hwfor mono">'+esc(orgLabel(+w.org))+' only</span>':'')+
+      (w.brief?'<p class="hwbrief">'+esc(w.brief)+'</p>':'')+
       (w.note?'<p class="hint" style="margin:6px 0 0">'+esc(w.note)+'</p>':'')+
       '<div class="hwup">'+
         '<input type="file" class="hwfile" id="hwf_'+esc(w.id)+'">'+
@@ -3730,15 +3914,52 @@ function renderWork(){
     });
   });
 }
+/* Officers write the same handful of assignments every term, so the shapes of
+   them are offered rather than retyped. Picking one fills the form in; every
+   field stays editable afterwards. */
+var HW_TEMPLATES={
+  case:   {title:'Case brief — round one', note:'One PDF, two pages maximum.',
+           brief:'Summarise the case, name the decision, and recommend one course of action with the numbers behind it. Two pages. A good one is specific about the tradeoff it is choosing against.'},
+  deck:   {title:'Slide deck', note:'PDF export of your slides.',
+           brief:'Six to eight slides. One idea per slide, a clear recommendation on the second slide, and the supporting analysis after it. Export to PDF so the fonts survive.'},
+  resume: {title:'Résumé for review', note:'One page, PDF.',
+           brief:'One page, PDF, named Firstname-Lastname. Officers will mark it up and hand it back before the career fair.'},
+  reflect:{title:'Event reflection', note:'A short write-up, any format.',
+           brief:'Two or three paragraphs: what the event was, one thing you took from it, and one thing you would do differently. This is for you as much as for the chapter.'},
+  proof:  {title:'Proof of attendance', note:'A photo or a screenshot.',
+           brief:'A photo of you at the event, or a screenshot of the confirmation. Used when an event was not run by the chapter and there was no sign-in sheet.'}
+};
+
 function initWork(){
   var add=$('hw-add'); if(!add)return;
+
+  var tpl=$('hw-tpl');
+  if(tpl)tpl.addEventListener('change',function(){
+    var t=HW_TEMPLATES[tpl.value]; if(!t)return;
+    $('hw-title').value=t.title; $('hw-note').value=t.note; $('hw-brief').value=t.brief;
+  });
+  var clr=$('hw-clear');
+  if(clr)clr.addEventListener('click',function(){
+    ['hw-title','hw-note','hw-brief','hw-due'].forEach(function(id){var e=$(id); if(e)e.value=''});
+    if(tpl)tpl.value='';
+  });
+
+  /* Assignments can be aimed at one Org, which is what an officer running a
+     single team actually wants. */
+  var who=$('hw-for');
+  if(who)who.innerHTML='<option value="all">Everyone</option>'+
+    S.orgs.map(function(_,i){return '<option value="'+i+'">'+esc(orgLabel(i))+' only</option>'}).join('');
+
   add.addEventListener('click',function(){
     var t=($('hw-title').value||'').trim(), m=$('hwmsg');
     if(!t){m.textContent='It needs a name.';m.className='msg show';return}
     S.club.work=S.club.work||[];
     S.club.work.push({id:'w'+Date.now().toString(36),title:cleanLabel(t).slice(0,80),
-      due:$('hw-due').value||'',note:cleanLabel($('hw-note').value).slice(0,160)});
-    $('hw-title').value=''; $('hw-note').value='';
+      due:$('hw-due').value||'',note:cleanLabel($('hw-note').value).slice(0,160),
+      brief:cleanLabel($('hw-brief').value).slice(0,900),
+      org:($('hw-for')||{}).value||'all', kind:($('hw-kind')||{}).value||'file'});
+    ['hw-title','hw-note','hw-brief'].forEach(function(id){var e=$(id); if(e)e.value=''});
+    if(tpl)tpl.value='';
     m.textContent='Set.'; m.className='msg show good';
     save(); syncClub(); renderWork();
   });
@@ -5289,46 +5510,80 @@ function renderProfile(){
       }
     }
 
-    /* What the club's form recorded about this person. It is their own
-       answers, so they see all of it whether or not the draft has run. */
-    var ans=r.answers;
-    h+='<div class="panel"><h2>Your sign-up answers</h2>';
-    if(ans&&(ans.year||ans.track||ans.mbti||ans.lead||ans.notes)){
-      h+='<div class="profgrid">'+
-        (ans.year?stat(esc(String(ans.year)),'Year in the club'):'')+
-        (ans.track?stat(esc(String(ans.track)),esc(S.club.trackWord)):'')+
-        (ans.mbti?stat(esc(String(ans.mbti)),'Type'):'')+
-        (ans.lead?stat(esc(String(ans.lead)),'Leadership interest'):'')+
-      '</div>';
-      if(ans.notes)h+='<p class="hint" style="margin-top:12px">'+esc(ans.notes)+'</p>';
-      if(ans.at)h+='<p class="hint">Recorded '+esc(String(ans.at).slice(0,10))+'.</p>';
+    /* Trophies before points, because a recognition is the thing somebody
+       actually wants to look at when they open their own page. */
+    var recs=recsFor(nm);
+    h+='<div class="panel"><h2>Trophy case</h2>';
+    if(recs.length){
+      h+='<div class="trophies">'+recs.map(function(t){
+        return '<div class="trophy"><span class="tcup">\u25c6</span>'+
+          '<span class="tname">'+esc(t.label)+'</span>'+
+          '<span class="tdate mono">'+esc(boardDate(t.at))+'</span></div>';
+      }).join('')+'</div>';
     } else {
-      h+='<p class="empty">Nothing from the form yet. Fill it in and your answers land here.</p>';
+      h+='<p class="empty">Nothing yet. Officers award these for what the points system does not capture.</p>';
     }
-    h+='<div class="row"><button class="ghost" id="retour" type="button">Show me around again</button></div>';
-    h+='<div class="row"><button class="ghost" id="pullform" type="button">Read my answers from the form</button>'+
-       (S.club.formUrl?'<a class="linkbtn" href="'+esc(safeUrl(S.club.formUrl))+'" target="_blank" rel="noopener"><b>Form</b> Open it</a>':'')+
-       '</div><div class="msg" id="pullmsg"></div></div>';
+    h+='</div>';
 
+    /* Points: the running total, where it came from, and the log itself at a
+       fixed height so a semester of entries does not push everything else off
+       the page. */
     if(r.history&&r.history.length){
-      h+='<div class="panel"><h2>Your recent points</h2>';
-      r.history.slice().reverse().forEach(function(e){
-        h+='<div class="evtline"><span>'+esc(e.label||'Attendance')+'</span>'+
-           '<span>'+(e.when?esc(String(e.when).slice(0,10))+' · ':'')+'+'+esc(String(e.points))+'</span></div>';
-      });
-      h+='</div>';
+      var ct2=catTotalsFromHistory(r.history), tot2=0;
+      POINT_CATS.forEach(function(c){tot2+=ct2[c.id]});
+      var any2=POINT_CATS.filter(function(c){return ct2[c.id]>0});
+      h+='<div class="panel"><h2>Your points</h2>'+
+         '<div class="profgrid">'+stat(r.points,'Total')+stat(r.entries,'Entries')+
+         (r.entries?stat((r.points/r.entries).toFixed(1),'Per entry'):'')+'</div>';
+      if(any2.length&&tot2>0){
+        h+='<h3>Where they came from</h3><div class="catbars">'+any2.map(function(c){
+          var pctv=Math.round(ct2[c.id]/tot2*100);
+          return '<div class="catbar"><span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+
+            esc(c.label)+'</span><span class="catnum">'+ct2[c.id]+'</span>'+
+            '<span class="cattrack"><i style="width:'+pctv+'%;background:'+c.color+'"></i></span></div>';
+        }).join('')+'</div>';
+      }
+      h+='<h3>Everything logged</h3><div class="ptlog">'+
+        r.history.slice().reverse().map(function(e){
+          return '<div class="evtline"><span>'+esc(e.label||'Attendance')+'</span>'+
+            '<span>'+(e.when?esc(String(e.when).slice(0,10))+' \u00b7 ':'')+'+'+esc(String(e.points))+'</span></div>';
+        }).join('')+'</div></div>';
     } else if(p){
-      h+='<div class="panel"><h2>Your recent points</h2><p class="empty">Nothing logged against your name yet.</p></div>';
+      h+='<div class="panel"><h2>Your points</h2><p class="empty">Nothing logged against your name yet.</p></div>';
     }
 
     /* Editable self: name, picture, and for a Google account the option of a
        password so the same person can use either door. */
+    var ans=r.answers||{};
     h+='<div class="panel"><h2>Your details</h2>'+
       '<div class="row" style="margin-top:0">'+
         '<div class="field" style="flex:1;min-width:150px"><label for="me-first">First name</label><input type="text" id="me-first"></div>'+
         '<div class="field" style="flex:1;min-width:150px"><label for="me-last">Last name</label><input type="text" id="me-last"></div>'+
-        '<button id="me-save">Save</button>'+
       '</div>'+
+      /* What the sign-up form recorded, sitting with the rest of the details
+         rather than in a panel of its own — it is the same kind of thing, and
+         some of it the member should be able to correct. */
+      '<div class="row">'+
+        (tracksOf().length?'<div class="field" style="flex:1;min-width:160px"><label for="me-track">'+esc(S.club.trackWord)+'</label>'+
+          '<select id="me-track"><option value="">Not set</option>'+
+          allBuckets().map(function(b){
+            return '<option value="'+esc(b.id)+'"'+(String(ans.track||'')===b.id?' selected':'')+'>'+esc(b.label)+'</option>';
+          }).join('')+'</select></div>':'')+
+        '<div class="field" style="flex:1;min-width:150px"><label for="me-bday">Birthday</label>'+
+          '<input type="date" id="me-bday" value="'+esc(ans.bday||'')+'"></div>'+
+        (S.club.useMbti?'<div class="field" style="width:130px"><label for="me-mbti">Type</label>'+
+          '<input type="text" class="mono" id="me-mbti" maxlength="4" placeholder="INTJ" value="'+esc(ans.mbti||'')+'"></div>':'')+
+      '</div>'+
+      '<div class="row">'+
+        '<div class="field" style="flex:1;min-width:220px"><label for="me-about">Anything the club should know</label>'+
+          '<input type="text" id="me-about" placeholder="Allergies, availability, a nickname" value="'+esc(ans.notes||'')+'"></div>'+
+      '</div>'+
+      '<div class="profmeta" style="margin-top:6px">'+
+        (ans.year?'Year in the club: '+esc(String(ans.year))+' · ':'')+
+        (ans.lead?'Leadership interest: '+esc(String(ans.lead)):'')+
+      '</div>'+
+      '<div class="row"><button id="me-save">Save my details</button></div>'+
+      (S.club.useMbti&&!ans.mbti&&mbtiTestUrl()?'<p class="hint">No type recorded. '+mbtiTestLink()+'</p>':'')+
       '<h3>Profile picture</h3>'+
       '<p class="hint">Square images look best.</p>'+
       '<div class="row" style="margin-top:0"><input type="file" id="me-photo" accept="image/*" style="display:block">'+
@@ -5379,7 +5634,14 @@ function renderProfile(){
       });
     });
     if($('me-save'))$('me-save').addEventListener('click',function(){
-      backendPost('saveProfile',{firstName:$('me-first').value.trim(),lastName:$('me-last').value.trim()})
+      var extra={firstName:$('me-first').value.trim(),lastName:$('me-last').value.trim()};
+      /* The member's own corrections to what the form recorded. Sent with the
+         name so it is one write, not three. */
+      if($('me-track'))extra.track=$('me-track').value;
+      if($('me-bday')) extra.bday =$('me-bday').value;
+      if($('me-mbti')) extra.mbti =$('me-mbti').value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+      if($('me-about'))extra.notes=$('me-about').value.slice(0,300);
+      backendPost('saveProfile',extra)
         .then(function(r){
           if(r&&r.ok){A.name=($('me-first').value.trim()+' '+$('me-last').value.trim()).trim();
             setRole(A.role,null);pmsg('Saved.','good')}
@@ -6098,6 +6360,9 @@ function switchAff(code){
     mergeBackendData(data);
     if(!S.actions.length)S.actions=cloneActions();
     unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
+    /* The notices arrive with the club, so the board has to be drawn again --
+       it was painted before there was anything to put in it. */
+    renderBoard();renderCalendar();renderWork();
     scoreAll();renderDraft();renderCup();renderAffs();renderRosterLinks();
     renderClubRoster();renderFormKit();
     setRole(A.role,null);
@@ -6880,8 +7145,9 @@ function afterSignIn(pre){
     if(!S.actions.length)S.actions=cloneActions();
     unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
     scoreAll();renderDraft();renderCup();
-    if(!applyRoute()&&S.orgs.length)setView('v-draft');
+    if(!applyRoute()&&S.orgs.length)setView(canEdit()?'v-draft':'v-teams');
     save();
+    bootDone();
     maybeTour();
     say('Synced from the shared sheet — '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','good');
   });
@@ -7055,6 +7321,7 @@ function initRouting(){
   var iso0=t0.getFullYear()+'-'+String(t0.getMonth()+1).padStart(2,'0')+'-'+String(t0.getDate()).padStart(2,'0');
   $('qdate').value=iso0;
   $('atdate').value=iso0;
+  initBoot();
   initTheme();
   initRouting();
   initTour();
@@ -7063,7 +7330,7 @@ function initRouting(){
   initBoard();
   initHidden();
   initFormEditor();
-  if(isDemo()){ goDemo(); buildDemo(); return; }
+  if(isDemo()){ goDemo(); buildDemo(); bootDone(); return; }
   /* The working copy is filed per club, and A.aff is empty until the backend
      answers. Reading it here without seeding the club first meant every club
      looked under "default", found nothing, and fell through to the sign-in
@@ -7087,7 +7354,7 @@ function initRouting(){
       A.email=who.email||''; A.name=who.name||''; A.pic=who.pic||'';
       A.aff=who.aff||''; A.affName=who.affName||''; A.via=who.via||'';
       setRole(who.role,null);
-      showGate(false);
+      showGate(false); bootDone();
       /* The address was left alone while the card was up. Now that it is down,
          either honour the one they arrived on or write the one they are
          actually looking at. */
