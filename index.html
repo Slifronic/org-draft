@@ -586,6 +586,25 @@ footer{color:var(--mute)}
 .tourdots i.on{background:var(--forest)}
 .touracts{display:flex;gap:9px;justify-content:flex-end;margin-top:14px}
 
+/* ============ SUBMISSIONS ============ */
+.subs{margin-top:14px;border-top:1px solid var(--hair);padding-top:12px}
+.subrow{display:grid;grid-template-columns:1fr 1.1fr 110px 74px auto;gap:10px;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--hair)}
+.subrow:last-of-type{border-bottom:0}
+.subrow.done{opacity:.62}
+.subname{min-width:0;font-size:14px;overflow-wrap:anywhere}
+.subname em{font-style:normal;color:var(--mute);font-size:12.5px}
+.subfile{min-width:0;font-size:13px;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+a.subfile:hover{color:var(--ink)}
+.subwhen{font-size:11px;color:var(--mute);white-space:nowrap}
+.substat{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.08em}
+.subpts{width:74px}
+@media(max-width:760px){
+  .subrow{grid-template-columns:1fr 74px auto;gap:6px 10px}
+  .subfile{grid-column:1/-1}
+  .subwhen{grid-column:1/2}
+}
+
 /* ============ TROPHY CASE, POINTS LOG, HOMEWORK ============ */
 .trophies{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:10px}
 .trophy{display:flex;align-items:center;gap:10px;background:var(--void);border:1px solid var(--rule);
@@ -3887,8 +3906,11 @@ function renderWork(){
         '<button class="tiny hwsend" type="button" disabled>Hand it in</button>'+
       '</div>'+
       '<div class="msg hwmsg2"></div>'+
+      (canEdit()?'<div class="subs" data-for="'+esc(w.id)+'"><div class="s-lbl">Handed in</div>'+
+        '<div class="subbody"><p class="empty">Loading…</p></div></div>':'')+
     '</div>';
   }).join('');
+  if(canEdit())loadSubs();
   Array.prototype.forEach.call(box.querySelectorAll('.hwcard'),function(cardEl){
     var id=cardEl.dataset.id;
     var f=cardEl.querySelector('.hwfile'), btn=cardEl.querySelector('.hwsend'),
@@ -3913,7 +3935,11 @@ function renderWork(){
         backendPost('submitWork',{workId:id,name:file.name,mime:file.type||'application/octet-stream',data:b64})
           .then(function(r){
             btn.disabled=false;
-            if(r&&r.ok){msg.textContent='Handed in as '+r.filed+'.';msg.className='msg show good'}
+            if(r&&r.ok){
+              msg.textContent=(r.replaced?'Replaced — version '+r.revision+'. ':'Handed in. ')+r.filed+'.';
+              msg.className='msg show good';
+              if(canEdit())loadSubs(true);
+            }
             else {msg.textContent=(r&&r.error)||'That did not upload.';msg.className='msg show'}
           });
       };
@@ -3937,6 +3963,57 @@ var HW_TEMPLATES={
   proof:  {title:'Proof of attendance', note:'A photo or a screenshot.',
            brief:'A photo of you at the event, or a screenshot of the confirmation. Used when an event was not run by the chapter and there was no sign-in sheet.'}
 };
+
+/* Everything handed in, kept per assignment so a click on one does not go and
+   fetch the rest. Officers only — the action is admin-gated server side too. */
+var SUBS={};
+function loadSubs(force){
+  if(!canEdit()||A.offline)return;
+  if(SUBS.loaded&&!force)return paintSubs();
+  backendPost('listSubmissions',null).then(function(r){
+    SUBS={loaded:true,rows:(r&&r.ok)?r.submissions:[]};
+    paintSubs();
+  });
+}
+function paintSubs(){
+  Array.prototype.forEach.call(document.querySelectorAll('.subs'),function(box){
+    var wid=box.dataset.for;
+    var rows=(SUBS.rows||[]).filter(function(x){return x.workId===wid});
+    var body=box.querySelector('.subbody');
+    if(!rows.length){body.innerHTML='<p class="empty">Nobody has handed this in yet.</p>';return}
+    rows.sort(function(a,b){return String(a.name).localeCompare(String(b.name))});
+    body.innerHTML=rows.map(function(x){
+      var done=x.status==='checked';
+      return '<div class="subrow'+(done?' done':'')+'" data-w="'+esc(x.workId)+'" data-n="'+esc(x.name)+'">'+
+        '<span class="subname">'+esc(x.name)+'<em> · '+esc(x.org)+'</em></span>'+
+        (x.fileUrl?'<a class="subfile" href="'+esc(safeUrl(x.fileUrl))+'" target="_blank" rel="noopener">'+
+          esc(x.fileName||'file')+'</a>':'<span class="subfile">—</span>')+
+        '<span class="subwhen mono">'+esc(String(x.at||'').slice(0,10))+
+          (x.revision>1?' · v'+x.revision:'')+'</span>'+
+        '<input type="number" class="subpts" min="0" max="999" placeholder="pts" value="'+
+          (x.points==null?'':esc(String(x.points)))+'">'+
+        '<button class="tiny subok" type="button">'+(done?'Checked':'Check off')+'</button>'+
+      '</div>';
+    }).join('')+'<div class="msg submsg"></div>';
+    Array.prototype.forEach.call(body.querySelectorAll('.subok'),function(b){
+      b.addEventListener('click',function(){
+        var row=b.parentNode, msg=body.querySelector('.submsg');
+        var pts=row.querySelector('.subpts').value;
+        b.disabled=true;
+        backendPost('reviewSubmission',{workId:row.dataset.w,name:row.dataset.n,
+                                        status:'checked',points:pts}).then(function(rr){
+          b.disabled=false;
+          if(rr&&rr.ok){
+            msg.textContent='Checked off'+(rr.points?' — '+rr.points+' points to '+row.dataset.n+'.':'.');
+            msg.className='msg show good';
+            loadSubs(true);
+            if(rr.points)backendGet().then(function(d){mergeBackendData(d);scoreAll();refreshScored()});
+          } else { msg.textContent=(rr&&rr.error)||'That did not save.'; msg.className='msg show' }
+        });
+      });
+    });
+  });
+}
 
 function initWork(){
   var add=$('hw-add'); if(!add)return;
@@ -5279,6 +5356,53 @@ function openMemberCard(name){
 
     box.innerHTML=h;
     paintRecs();
+
+    /* An officer clicking a name wants to do something about that person, not
+       just read about them. Points, their work, and a recognition, all from
+       the card they already have open. */
+    if(canEdit()){
+      var au=document.createElement('div');
+      au.className='recblock';
+      au.innerHTML='<h3>Audit</h3>'+
+        '<div class="row" style="margin-top:0">'+
+          '<div class="field" style="flex:2;min-width:180px"><label>Award for</label>'+
+            '<select id="au-act">'+S.actions.filter(function(x){return x.on}).map(function(x){
+              return '<option value="'+esc(x.id)+'">'+esc(x.label)+' · '+x.pts+'</option>'}).join('')+
+            '</select></div>'+
+          '<div class="field" style="flex:1;min-width:130px"><label>Label</label>'+
+            '<input type="text" id="au-label" placeholder="Week 3 workshop"></div>'+
+          '<button class="tiny" id="au-give" type="button">Give points</button>'+
+        '</div>'+
+        '<div id="au-work" style="margin-top:12px"><p class="empty">Checking their work…</p></div>'+
+        '<div class="msg" id="au-msg"></div>';
+      box.appendChild(au);
+
+      $('au-give').addEventListener('click',function(){
+        var act=$('au-act').value, lbl=$('au-label').value.trim();
+        var t=new Date(), iso=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+        addLog([m.name],act,lbl,iso);
+        $('au-label').value='';
+        var mm=$('au-msg'); mm.textContent='Logged for '+m.name+'.'; mm.className='msg show good';
+      });
+
+      /* What this person has handed in, whichever assignment it was for. */
+      backendPost('listSubmissions',null).then(function(r){
+        var w=$('au-work'); if(!w)return;
+        var flat=function(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')};
+        var rows=((r&&r.ok)?r.submissions:[]).filter(function(x){return flat(x.name)===flat(m.name)});
+        if(!rows.length){w.innerHTML='<p class="empty">Nothing handed in yet.</p>';return}
+        w.innerHTML='<div class="s-lbl" style="margin-bottom:6px">Their work</div>'+rows.map(function(x){
+          return '<div class="subrow'+(x.status==='checked'?' done':'')+'">'+
+            '<span class="subname">'+esc(x.workTitle||'Assignment')+'</span>'+
+            (x.fileUrl?'<a class="subfile" href="'+esc(safeUrl(x.fileUrl))+'" target="_blank" rel="noopener">'+
+              esc(x.fileName||'file')+'</a>':'<span class="subfile">—</span>')+
+            '<span class="subwhen mono">'+esc(String(x.at||'').slice(0,10))+
+              (x.revision>1?' · v'+x.revision:'')+'</span>'+
+            '<span class="substat mono">'+esc(x.status)+(x.points?' · '+x.points+'pts':'')+'</span>'+
+          '</div>';
+        }).join('');
+      });
+    }
 
     /* Officers award recognitions from the card they are already looking at,
        so it takes one click from seeing somebody's name to marking what they

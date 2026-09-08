@@ -32,6 +32,7 @@ var NEEDS = {
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
   listSignups: 'admin', deleteSignup: 'admin', setOrgName: 'member',
   myFormAnswers: 'member', submitWork: 'member', calendarSync: 'admin',
+  listSubmissions: 'admin', reviewSubmission: 'admin',
   formItems: 'admin', saveFormItems: 'admin',
   purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
@@ -246,6 +247,9 @@ var TAB = {
   affiliations: {name: 'Affiliations', cols: ['Code', 'Name', 'JoinCode', 'CreatedBy', 'CreatedAt']},
   /* Per-person editable details, separate from credentials so a Google user
      who has no Users row still has somewhere to keep a name and a picture. */
+  submissions:{name: 'Submissions', cols: ['Affiliation', 'WorkId', 'WorkTitle', 'MemberName', 'Org',
+                                           'FileId', 'FileName', 'FileUrl', 'SubmittedAt', 'Revision',
+                                           'Status', 'Points', 'ReviewedBy', 'ReviewedAt', 'Comment']},
   profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo',
                                           'Year', 'Track', 'MBTI', 'LeadInterest', 'FormNotes', 'FormAt',
                                           'Birthday']}
@@ -1027,12 +1031,50 @@ function dispatch(action, payload, email, role, id) {
        else -- where it lands is decided here, from the roster, so nobody can
        drop a file into somebody else's folder by relabelling the request. */
     case 'submitWork': {
-      var swName = String((payload || {}).name || 'submission').replace(/[\\/:*?"<>|]/g, '-').slice(0, 90);
-      var swMime = String((payload || {}).mime || 'application/octet-stream');
+      var swName = String((payload || {}).name || 'submission');
+      var swMime = String((payload || {}).mime || '');
       var swData = String((payload || {}).data || '');
       var swId   = String((payload || {}).workId || '');
+      if (!swId)   return {ok: false, error: 'No assignment was named.'};
       if (!swData) return {ok: false, error: 'No file arrived.'};
-      if (swData.length > 12000000) return {ok: false, error: 'That file is too large.'};
+
+      /* Base64 is about a third larger than the bytes it carries, so this is
+         roughly an 8 MB file. */
+      if (swData.length > 11000000) return {ok: false, error: 'That file is over 8 MB.'};
+
+      /* What a member may hand in. An allowlist rather than a blocklist: the
+         set of things a chapter actually collects is short and known, and a
+         blocklist is a promise you cannot keep. Extension and declared type
+         must agree, because either one alone is trivially wrong. */
+      var ALLOW = {
+        pdf:  ['application/pdf'],
+        doc:  ['application/msword'],
+        docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        ppt:  ['application/vnd.ms-powerpoint'],
+        pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+        xls:  ['application/vnd.ms-excel'],
+        xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        csv:  ['text/csv', 'application/csv', 'text/plain'],
+        txt:  ['text/plain'],
+        md:   ['text/markdown', 'text/plain'],
+        png:  ['image/png'],
+        jpg:  ['image/jpeg'],
+        jpeg: ['image/jpeg'],
+        heic: ['image/heic'],
+        webp: ['image/webp']
+      };
+      /* Only the last extension counts, so "brief.pdf.html" is an html file. */
+      var bits = swName.split('.');
+      var ext = (bits.length > 1 ? bits.pop() : '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!ALLOW[ext])
+        return {ok: false, error: 'That kind of file is not accepted. Use a PDF, a document, a spreadsheet, or an image.'};
+      if (swMime && ALLOW[ext].indexOf(swMime.split(';')[0].trim().toLowerCase()) < 0)
+        return {ok: false, error: 'That file says it is a ' + swMime + ' but is named .' + ext + '.'};
+      /* Rebuilt from the parts rather than trusting the string: no directory
+         separators, no leading dots, no control characters, bounded length. */
+      var stem = bits.join('.').replace(/[^A-Za-z0-9 _-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+      if (!stem) stem = 'submission';
+      var safeName = stem + '.' + ext;
 
       var flatW = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
       var meW = flatW(id.name || email), myOrg = '', myName = String(id.name || email);
@@ -1042,31 +1084,133 @@ function dispatch(action, payload, email, role, id) {
       });
       if (!myOrg) myOrg = 'Not drafted yet';
 
-      /* Which assignment, read from the club's own config rather than trusted
-         from the browser, so the folder name cannot be invented. */
       var wKey = 'club:' + aff, wCfg = {};
       readTab('config').forEach(function (r) {
         if (String(r.Key) === wKey) { try { wCfg = JSON.parse(r.Value) || {}; } catch (e) {} }
       });
-      var task = ((wCfg.work || []).filter(function (w) { return w.id === swId; })[0] || {}).title || 'Submissions';
-      task = String(task).replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
+      var task = ((wCfg.work || []).filter(function (w) { return w.id === swId; })[0] || {}).title;
+      if (!task) return {ok: false, error: 'That assignment no longer exists.'};
+      var taskFolder = String(task).replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
+
+      /* One row per member per assignment. Handing in again replaces the file
+         and bumps the revision -- it does not add a second row, so an officer
+         always sees exactly one current answer per person. */
+      var shS = tab('submissions'), vS = shS.getDataRange().getValues();
+      var iS = {}; for (var cS = 0; cS < vS[0].length; cS++) iS[String(vS[0][cS])] = cS;
+      var mine = -1, prevRev = 0, prevFile = '';
+      for (var rS = 1; rS < vS.length; rS++) {
+        if (normAff(vS[rS][iS.Affiliation]) !== aff) continue;
+        if (String(vS[rS][iS.WorkId]) !== swId) continue;
+        if (flatW(vS[rS][iS.MemberName]) !== flatW(myName)) continue;
+        mine = rS + 1;
+        prevRev = Number(vS[rS][iS.Revision]) || 1;
+        prevFile = String(vS[rS][iS.FileId] || '');
+        /* Not a rate limit for its own sake: a resubmission loop uploading
+           megabytes would fill the club's Drive and nothing else stops it. */
+        var last = vS[rS][iS.SubmittedAt];
+        if (last && (new Date().getTime() - new Date(last).getTime()) < 60000)
+          return {ok: false, error: 'You handed this in less than a minute ago. Give it a moment before replacing it.'};
+        if (prevRev >= 12)
+          return {ok: false, error: 'This has been replaced too many times. Ask an officer to reset it.'};
+        break;
+      }
 
       var clubName = (findAff(aff) || {}).name || aff;
       var root = folderUnder(null, clubName + ' — handed in');
-      var f1   = folderUnder(root, task);
-      var f2   = folderUnder(f1, myOrg);
-      var f3   = folderUnder(f2, myName);
+      var f3 = folderUnder(folderUnder(folderUnder(root, taskFolder), myOrg), myName);
 
       var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmm');
-      var blob = Utilities.newBlob(Utilities.base64Decode(swData), swMime, stamp + ' ' + swName);
-      var file = f3.createFile(blob);
-      /* The club's own account owns its Drive, so give it access to what its
-         members hand in. Failure here must not lose the upload. */
+      var file;
+      try {
+        var blob = Utilities.newBlob(Utilities.base64Decode(swData), swMime || 'application/octet-stream',
+                                     stamp + ' ' + safeName);
+        file = f3.createFile(blob);
+      } catch (e) {
+        return {ok: false, error: 'That file could not be saved: ' + e.message};
+      }
+      /* The replaced file goes to the bin rather than being erased, so an
+         officer can recover a version a member overwrote by accident. */
+      if (prevFile) { try { DriveApp.getFileById(prevFile).setTrashed(true); } catch (e) {} }
       try { if (wCfg.ownerEmail) root.addEditor(wCfg.ownerEmail); } catch (e) {}
-      return {ok: true, filed: task + ' / ' + myOrg + ' / ' + myName, fileId: file.getId()};
+
+      var now = new Date(), rev = prevRev ? prevRev + 1 : 1;
+      var row = [];
+      for (var k = 0; k < vS[0].length; k++) row.push('');
+      row[iS.Affiliation] = aff;      row[iS.WorkId] = swId;
+      row[iS.WorkTitle] = task;       row[iS.MemberName] = myName;
+      row[iS.Org] = myOrg;            row[iS.FileId] = file.getId();
+      row[iS.FileName] = safeName;    row[iS.FileUrl] = file.getUrl();
+      row[iS.SubmittedAt] = now;      row[iS.Revision] = rev;
+      row[iS.Status] = 'submitted';   row[iS.Points] = '';
+      row[iS.ReviewedBy] = '';        row[iS.ReviewedAt] = ''; row[iS.Comment] = '';
+      if (mine > 0) shS.getRange(mine, 1, 1, row.length).setValues([row]);
+      else shS.appendRow(row);
+
+      return {ok: true, filed: task + ' / ' + myOrg + ' / ' + myName,
+              fileId: file.getId(), revision: rev, replaced: rev > 1};
     }
 
-    /* A signed-in Google address that has not joined a club yet. Same join
+    /* What has been handed in, for the officers who have to read it. */
+    case 'listSubmissions': {
+      var lsW = String((payload || {}).workId || '');
+      var out = [];
+      readTab('submissions').forEach(function (r) {
+        if (normAff(r.Affiliation) !== aff) return;
+        if (lsW && String(r.WorkId) !== lsW) return;
+        out.push({workId: String(r.WorkId), workTitle: String(r.WorkTitle || ''),
+                  name: String(r.MemberName || ''), org: String(r.Org || ''),
+                  fileName: String(r.FileName || ''), fileUrl: String(r.FileUrl || ''),
+                  at: r.SubmittedAt, revision: Number(r.Revision) || 1,
+                  status: String(r.Status || 'submitted'),
+                  points: r.Points === '' ? null : Number(r.Points),
+                  reviewedBy: String(r.ReviewedBy || ''), comment: String(r.Comment || '')});
+      });
+      return {ok: true, submissions: out};
+    }
+
+    /* Marking one piece of work. Points awarded here also land in the Cup log,
+       because a point that exists in two places and agrees in neither is worse
+       than no point at all. */
+    case 'reviewSubmission': {
+      var rvW = String((payload || {}).workId || '');
+      var rvN = String((payload || {}).name || '');
+      var rvS = String((payload || {}).status || 'checked');
+      var rvP = (payload || {}).points;
+      var rvC = String((payload || {}).comment || '').slice(0, 300);
+      if (!rvW || !rvN) return {ok: false, error: 'Which submission?'};
+
+      var shR = tab('submissions'), vR = shR.getDataRange().getValues();
+      var iR = {}; for (var cR = 0; cR < vR[0].length; cR++) iR[String(vR[0][cR])] = cR;
+      var flatR = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var hitRow = -1, title = '', orgR = '';
+      for (var rr = 1; rr < vR.length; rr++) {
+        if (normAff(vR[rr][iR.Affiliation]) !== aff) continue;
+        if (String(vR[rr][iR.WorkId]) !== rvW) continue;
+        if (flatR(vR[rr][iR.MemberName]) !== flatR(rvN)) continue;
+        hitRow = rr + 1; title = String(vR[rr][iR.WorkTitle] || ''); orgR = String(vR[rr][iR.Org] || '');
+        break;
+      }
+      if (hitRow < 0) return {ok: false, error: 'No submission from that member.'};
+
+      shR.getRange(hitRow, iR.Status + 1).setValue(rvS);
+      shR.getRange(hitRow, iR.ReviewedBy + 1).setValue(email);
+      shR.getRange(hitRow, iR.ReviewedAt + 1).setValue(new Date());
+      shR.getRange(hitRow, iR.Comment + 1).setValue(rvC);
+
+      var awarded = 0;
+      if (rvP !== undefined && rvP !== null && rvP !== '') {
+        awarded = Math.max(0, Math.min(999, Number(rvP) || 0));
+        shR.getRange(hitRow, iR.Points + 1).setValue(awarded);
+        if (awarded > 0) {
+          appendRows('pointsLog', [{Timestamp: new Date(), MemberName: rvN,
+            ActionId: 'work:' + rvW, ActionLabel: title || 'Assignment',
+            Points: awarded, Track: '', Org: orgR, Affiliation: aff}]);
+        }
+      }
+      return {ok: true, status: rvS, points: awarded};
+    }
+
+    /* A signed-in Google address that has not joined a club yet.    /* A signed-in Google address that has not joined a club yet. Same join
        code rule as sign-up, and always as a member. */
     case 'joinAffiliation': {
       var ja = findAff((payload || {}).affiliation);
