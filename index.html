@@ -3826,13 +3826,21 @@ function initCalendar(){
   if(sync)sync.addEventListener('click',function(){
     var m=$('evmsg');
     sync.disabled=true; m.textContent='Talking to Google Calendar…'; m.className='msg show info';
+    var late=setTimeout(function(){
+      m.textContent='Still going. Creating a calendar for the first time can take a minute.';
+      m.className='msg show info';
+    },12000);
     backendPost('calendarSync',{events:S.club.events||[]}).then(function(r){
+      clearTimeout(late);
       sync.disabled=false;
       if(r&&r.ok){
         S.club.events=r.events||S.club.events;
         S.club.gcalId=r.calendarId||''; S.club.gcalUrl=r.calendarUrl||'';
         save(); syncClub(); renderCalendar();
         var note='Synced — '+r.pushed+' sent, '+r.pulled+' brought back.';
+        /* A run is capped so it cannot be killed mid-way; anything left over
+           goes on the next press rather than silently not happening. */
+        if(r.remaining)note+=' '+r.remaining+' still to send — press it again.';
         if(r.shareError)note+=' The club account could not be given access ('+r.shareError+').';
         else if(r.sharedWith)note+=' '+r.sharedWith+' can edit it.';
         else note+=' Set a club Google account under Intake so the chapter owns its calendar.';

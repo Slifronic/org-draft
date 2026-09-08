@@ -915,37 +915,47 @@ function dispatch(action, payload, email, role, id) {
         }
       }
       var clubNm = (findAff(aff) || {}).name || aff;
+      var calName = clubNm + ' — chapter calendar';
+
+      /* Writing the config back is its own step, because the calendar id has
+         to survive even if the rest of this call does not. The first version
+         saved only at the end, so a slow run left no id behind and the next
+         attempt made a second calendar, and a third. */
+      function saveCfg() {
+        var j = JSON.stringify(cCfg);
+        if (cRow > 0) cSheet.getRange(cRow, 2).setValue(j);
+        else { cSheet.appendRow([cKey, j]); cRow = cSheet.getLastRow(); }
+      }
+
       var cal = null;
       if (cCfg.gcalId) { try { cal = CalendarApp.getCalendarById(cCfg.gcalId); } catch (e) { cal = null; } }
+      /* A calendar this club already made, from a run that did not get to
+         record it. Adopt it rather than making another. */
       if (!cal) {
         try {
-          cal = CalendarApp.createCalendar(clubNm + ' — chapter calendar');
-          cCfg.gcalId  = cal.getId();
-          cCfg.gcalUrl = 'https://calendar.google.com/calendar/embed?src=' +
-                         encodeURIComponent(cal.getId());
-        } catch (e) {
-          return {ok: false, error: 'Could not open or create a calendar: ' + e.message};
-        }
+          var found = CalendarApp.getCalendarsByName(calName);
+          if (found && found.length) cal = found[0];
+        } catch (e) {}
       }
-      /* The chapter's calendar belongs to the chapter. The club's own Google
-         account is made an owner where Calendar allows it and an editor
-         otherwise, and the result is reported either way -- a club that
-         believes it controls its own calendar when it does not finds out at
-         the worst possible moment. */
+      if (!cal) {
+        try { cal = CalendarApp.createCalendar(calName); }
+        catch (e) { return {ok: false, error: 'Could not create a calendar: ' + e.message}; }
+      }
+      if (cCfg.gcalId !== cal.getId()) {
+        cCfg.gcalId = cal.getId();
+        cCfg.gcalUrl = 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(cCfg.gcalId);
+        saveCfg();          /* banked before anything slow happens */
+      }
+
       var calOwner = '', calShareErr = '';
       if (cCfg.ownerEmail) {
-        try {
-          cal.addEditor(cCfg.ownerEmail);
-          calOwner = cCfg.ownerEmail;
-          try { cal.setSelected(true); } catch (e) {}
-        } catch (e) { calShareErr = String(e.message || e); }
+        try { cal.addEditor(cCfg.ownerEmail); calOwner = cCfg.ownerEmail; }
+        catch (e) { calShareErr = String(e.message || e); }
       }
-      /* A link the club's account can actually subscribe with. */
-      cCfg.gcalUrl = 'https://calendar.google.com/calendar/u/0/r?cid=' +
-                     encodeURIComponent(cCfg.gcalId);
 
       var incoming = (payload || {}).events || [];
-      var byGid = {}, pushed = 0, pulled = 0;
+      var byGid = {}, pushed = 0, pulled = 0, remaining = 0;
+      incoming.forEach(function (ev) { if (ev.gid) byGid[ev.gid] = true; });
 
       function whenOf(ev) {
         var p = String(ev.date || '').split('-');
@@ -959,11 +969,16 @@ function dispatch(action, payload, email, role, id) {
         return {allDay: false, start: st, end: new Date(st.getTime() + 3600000)};
       }
 
-      /* Out: anything the page holds that has never been sent. */
-      incoming.forEach(function (ev) {
-        if (ev.gid) { byGid[ev.gid] = true; return; }
+      /* Out, but bounded. Creating events is the slow part, and a web app that
+         runs past its limit gets killed with nothing saved. Twenty a run, the
+         rest next time, and the caller is told how many are left. */
+      var PUSH_MAX = 20, started = new Date().getTime();
+      for (var pi = 0; pi < incoming.length; pi++) {
+        var ev = incoming[pi];
+        if (ev.gid) continue;
+        if (pushed >= PUSH_MAX || (new Date().getTime() - started) > 60000) { remaining++; continue; }
         var w = whenOf(ev);
-        if (!w) return;
+        if (!w) continue;
         try {
           var made = w.allDay
             ? cal.createAllDayEvent(String(ev.title || 'Event'), w.start,
@@ -974,17 +989,17 @@ function dispatch(action, payload, email, role, id) {
           byGid[ev.gid] = true;
           pushed++;
         } catch (e) {}
-      });
+      }
 
-      /* Back: a window either side of today, so a calendar somebody has been
-         keeping by hand arrives without dragging in years of history. */
-      var from = new Date(); from.setDate(from.getDate() - 30);
-      var to   = new Date(); to.setDate(to.getDate() + 180);
+      /* Back, over a window narrow enough to stay quick. */
+      var from = new Date(); from.setDate(from.getDate() - 14);
+      var to   = new Date(); to.setDate(to.getDate() + 120);
       var tz = Session.getScriptTimeZone();
       try {
         cal.getEvents(from, to).forEach(function (gev) {
           var gid = gev.getId();
           if (byGid[gid]) return;
+          byGid[gid] = true;
           var st = gev.getStartTime();
           incoming.push({
             id: 'g' + String(gid).replace(/[^a-z0-9]/gi, '').slice(0, 14),
@@ -999,11 +1014,9 @@ function dispatch(action, payload, email, role, id) {
       } catch (e) {}
 
       cCfg.events = incoming;
-      var cJson = JSON.stringify(cCfg);
-      if (cRow > 0) cSheet.getRange(cRow, 2).setValue(cJson);
-      else cSheet.appendRow([cKey, cJson]);
+      saveCfg();
 
-      return {ok: true, events: incoming, pushed: pushed, pulled: pulled,
+      return {ok: true, events: incoming, pushed: pushed, pulled: pulled, remaining: remaining,
               calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '',
               sharedWith: calOwner, shareError: calShareErr};
     }
