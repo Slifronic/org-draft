@@ -31,7 +31,7 @@ var NEEDS = {
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
   listSignups: 'admin', deleteSignup: 'admin', setOrgName: 'member',
-  myFormAnswers: 'member', submitWork: 'member',
+  myFormAnswers: 'member', submitWork: 'member', calendarSync: 'admin',
   formItems: 'admin', saveFormItems: 'admin',
   purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
@@ -892,6 +892,102 @@ function dispatch(action, payload, email, role, id) {
       }
       got.at = when;
       return {ok: true, answers: got, matchedBy: (cEmail > -1 ? 'email' : 'name')};
+    }
+
+    /* ---- Google Calendar ----
+       Two-way and deliberately additive. The chapter's calendar gains anything
+       posted in the page; anything somebody put straight into Google turns up
+       in the page. A sync never deletes on either side, because the two sides
+       disagree for legitimate reasons all the time -- an officer drafting in
+       one, a member being invited to the other -- and the destructive reading
+       of that disagreement is always the wrong one. */
+    case 'calendarSync': {
+      var cKey = 'club:' + aff, cSheet = tab('config'), cVals = cSheet.getDataRange().getValues();
+      var cRow = -1, cCfg = {};
+      for (var ci = 1; ci < cVals.length; ci++) {
+        if (String(cVals[ci][0]) === cKey) {
+          cRow = ci + 1;
+          try { cCfg = JSON.parse(cVals[ci][1]) || {}; } catch (e) { cCfg = {}; }
+          break;
+        }
+      }
+      var clubNm = (findAff(aff) || {}).name || aff;
+      var cal = null;
+      if (cCfg.gcalId) { try { cal = CalendarApp.getCalendarById(cCfg.gcalId); } catch (e) { cal = null; } }
+      if (!cal) {
+        try {
+          cal = CalendarApp.createCalendar(clubNm + ' — chapter calendar');
+          cCfg.gcalId  = cal.getId();
+          cCfg.gcalUrl = 'https://calendar.google.com/calendar/embed?src=' +
+                         encodeURIComponent(cal.getId());
+        } catch (e) {
+          return {ok: false, error: 'Could not open or create a calendar: ' + e.message};
+        }
+      }
+      /* The club's own account should be able to open what it owns. */
+      try { if (cCfg.ownerEmail) cal.addEditor(cCfg.ownerEmail); } catch (e) {}
+
+      var incoming = (payload || {}).events || [];
+      var byGid = {}, pushed = 0, pulled = 0;
+
+      function whenOf(ev) {
+        var p = String(ev.date || '').split('-');
+        if (p.length !== 3) return null;
+        var t = String(ev.time || '').trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+        if (!t) return {allDay: true, start: new Date(+p[0], +p[1] - 1, +p[2])};
+        var h = +t[1], mi = +(t[2] || 0), ap = (t[3] || '').toLowerCase();
+        if (ap === 'pm' && h < 12) h += 12;
+        if (ap === 'am' && h === 12) h = 0;
+        var st = new Date(+p[0], +p[1] - 1, +p[2], h, mi);
+        return {allDay: false, start: st, end: new Date(st.getTime() + 3600000)};
+      }
+
+      /* Out: anything the page holds that has never been sent. */
+      incoming.forEach(function (ev) {
+        if (ev.gid) { byGid[ev.gid] = true; return; }
+        var w = whenOf(ev);
+        if (!w) return;
+        try {
+          var made = w.allDay
+            ? cal.createAllDayEvent(String(ev.title || 'Event'), w.start,
+                {location: String(ev.where || ''), description: String(clubNm)})
+            : cal.createEvent(String(ev.title || 'Event'), w.start, w.end,
+                {location: String(ev.where || ''), description: String(clubNm)});
+          ev.gid = made.getId();
+          byGid[ev.gid] = true;
+          pushed++;
+        } catch (e) {}
+      });
+
+      /* Back: a window either side of today, so a calendar somebody has been
+         keeping by hand arrives without dragging in years of history. */
+      var from = new Date(); from.setDate(from.getDate() - 30);
+      var to   = new Date(); to.setDate(to.getDate() + 180);
+      var tz = Session.getScriptTimeZone();
+      try {
+        cal.getEvents(from, to).forEach(function (gev) {
+          var gid = gev.getId();
+          if (byGid[gid]) return;
+          var st = gev.getStartTime();
+          incoming.push({
+            id: 'g' + String(gid).replace(/[^a-z0-9]/gi, '').slice(0, 14),
+            title: String(gev.getTitle() || 'Event').slice(0, 80),
+            date: Utilities.formatDate(st, tz, 'yyyy-MM-dd'),
+            time: gev.isAllDayEvent() ? '' : Utilities.formatDate(st, tz, 'h:mm a').toLowerCase(),
+            where: String(gev.getLocation() || '').slice(0, 60),
+            cat: 'meet', gid: gid
+          });
+          pulled++;
+        });
+      } catch (e) {}
+
+      cCfg.events = incoming;
+      var cJson = JSON.stringify(cCfg);
+      if (cRow > 0) cSheet.getRange(cRow, 2).setValue(cJson);
+      else cSheet.appendRow([cKey, cJson]);
+
+      return {ok: true, events: incoming, pushed: pushed, pulled: pulled,
+              calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || ''};
     }
 
     /* ---- handing in work ----

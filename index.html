@@ -586,6 +586,51 @@ footer{color:var(--mute)}
 .tourdots i.on{background:var(--forest)}
 .touracts{display:flex;gap:9px;justify-content:flex-end;margin-top:14px}
 
+/* ============ MONTH GRID ============ */
+.calbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
+.calnav{display:flex;align-items:center;gap:8px}
+.caltitle{font-size:17px;font-weight:300;letter-spacing:-.01em;min-width:9.5em;text-align:center;color:var(--ink)}
+.calsync{margin-left:auto;display:flex;gap:8px;align-items:center}
+.calsync .tiny{text-decoration:none;display:inline-flex;align-items:center}
+
+.calgrid{border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--card)}
+.calhead{display:grid;grid-template-columns:repeat(7,1fr);background:var(--void)}
+.calhead span{padding:8px 10px;font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--mute);border-right:1px solid var(--rule)}
+.calhead span:last-child{border-right:0}
+.calcells{display:grid;grid-template-columns:repeat(7,1fr)}
+.calcell{min-height:104px;padding:6px 7px;border-top:1px solid var(--rule);border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;gap:4px;cursor:pointer;overflow:hidden}
+.calcell:nth-child(7n){border-right:0}
+.calcell:hover{background:var(--void)}
+.calcell.off{opacity:.32;cursor:default;background:transparent}
+.calcell.off:hover{background:transparent}
+.calcell.today{box-shadow:inset 0 0 0 2px var(--forest)}
+.caldnum{font-family:'Space Grotesk',ui-monospace,monospace;font-size:12px;color:var(--slate)}
+.calcell.today .caldnum{color:var(--ink);font-weight:500}
+.calevs{display:flex;flex-direction:column;gap:3px;min-width:0}
+.evchip{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink);
+  background:var(--void);border-radius:4px;padding:2px 6px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.evchip i{width:6px;height:6px;border-radius:2px;flex:0 0 6px}
+.evchip b{font-weight:400;color:var(--mute);font-size:11px}
+.evchip.small{font-size:11.5px;padding:2px 5px}
+.calmore{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;color:var(--mute);padding-left:2px}
+@media(max-width:760px){
+  .calcell{min-height:74px}
+  .evchip{font-size:0;gap:0;padding:2px 4px}
+  .evchip i{width:100%;height:4px;border-radius:2px;flex:1 1 auto}
+  .evchip b{display:none}
+}
+
+.dayhead{display:flex;align-items:center;gap:12px;margin:20px 0 10px;flex-wrap:wrap}
+.dayhead b{font-size:17px;font-weight:400;color:var(--ink)}
+#dayview .evrow:first-of-type{border-top:1px solid var(--hair)}
+.evadd{flex:0 0 auto;font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;
+  letter-spacing:.06em;color:var(--slate);border:1px solid var(--rule);border-radius:4px;
+  padding:3px 8px;text-decoration:none;white-space:nowrap}
+.evadd:hover{color:var(--ink);border-color:var(--ink)}
+
 /* ============ CALENDAR & HOMEWORK ============ */
 .evrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--hair)}
 .evrow:last-child{border-bottom:0}
@@ -1334,7 +1379,23 @@ Marcus Lee"></textarea>
       <button id="ev-add">Add</button>
     </div>
     <div class="msg" id="evmsg"></div>
-    <div id="calbody" style="margin-top:16px"></div>
+    <div class="calbar">
+      <div class="segbtns">
+        <button class="seg on" id="cal-month" type="button">Month</button>
+        <button class="seg" id="cal-list" type="button">List</button>
+      </div>
+      <div class="calnav" id="calnav">
+        <button class="tiny ghost" id="cal-prev" type="button" aria-label="Previous month">←</button>
+        <span class="caltitle" id="cal-title"></span>
+        <button class="tiny ghost" id="cal-next" type="button" aria-label="Next month">→</button>
+        <button class="tiny ghost" id="cal-today" type="button">Today</button>
+      </div>
+      <div class="calsync">
+        <button class="tiny ghost" id="cal-sync" data-req="admin" type="button">Sync with Google Calendar</button>
+        <a class="tiny ghost" id="cal-open" href="#" target="_blank" rel="noopener" style="display:none">Open it</a>
+      </div>
+    </div>
+    <div id="calbody" style="margin-top:14px"></div>
   </div>
 </div>
 
@@ -1547,6 +1608,7 @@ function cloneClub(c){
        they ride through cloneClub rather than being reset by "Load the kit". */
     board:(c.board||[]).slice(), recognitions:c.recognitions||{},
     events:(c.events||[]).slice(), work:(c.work||[]).slice(),
+    gcalId:cleanLabel(c.gcalId), gcalUrl:safeUrl(c.gcalUrl),
     formEmbed:c.formEmbed!==false};
 }
 
@@ -2103,7 +2165,7 @@ var S={
 };
 var CLUB_LABELS={clubName:1,unit:1,units:1,trackWord:1,flexLabel:1,newWord:1,oldWord:1,
                  roleLead:1,roleSenior:1,roleJunior:1,ownerEmail:1};
-var CLUB_URLS={formUrl:1,sheetUrl:1,formEditUrl:1,mbtiTestUrl:1};
+var CLUB_URLS={formUrl:1,sheetUrl:1,formEditUrl:1,mbtiTestUrl:1,gcalUrl:1};
 function mergeClub(base,over){
   var out=cloneClub(base);
   if(over)for(var k in over)if(Object.prototype.hasOwnProperty.call(over,k)){
@@ -2252,7 +2314,7 @@ var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
 var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
                    myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
                    setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1,myFormAnswers:1,
-                   submitWork:1};
+                   submitWork:1,calendarSync:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -3308,38 +3370,155 @@ function isPast(d){
   var p=String(d).split('-');
   return new Date(+p[0],+p[1]-1,+p[2])<t;
 }
-function renderCalendar(){
-  var box=$('calbody'); if(!box)return;
-  var sel=$('ev-kind');
-  if(sel&&!sel.options.length)
-    sel.innerHTML=POINT_CATS.map(function(c){return '<option value="'+c.id+'">'+esc(c.label)+'</option>'}).join('');
-  var all=calList(), up=all.filter(function(e){return !isPast(e.date)}),
-      gone=all.filter(function(e){return isPast(e.date)});
-  if(!all.length){box.innerHTML='<p class="empty">Nothing scheduled yet.</p>';return}
-  function row(e){
-    var c=catById(e.cat||'meet');
-    return '<div class="evrow'+(isPast(e.date)?' gone':'')+'" data-id="'+esc(e.id)+'">'+
-      '<span class="evdate mono">'+esc(calDate(e.date))+'</span>'+
-      '<span class="evbar" style="background:'+c.color+'"></span>'+
-      '<span class="evname">'+esc(e.title)+
-        (e.where?'<em> · '+esc(e.where)+'</em>':'')+
-        (e.time?'<em> · '+esc(e.time)+'</em>':'')+'</span>'+
-      '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>'+
-      (canEdit()?'<button class="evkill" type="button" title="Remove">×</button>':'')+
-    '</div>';
+var CALV={mode:'month', y:0, m:0};
+function calKeyOf(d){return String(d||'')}
+function ymd(y,m,d){
+  return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+}
+function todayYMD(){var t=new Date();return ymd(t.getFullYear(),t.getMonth(),t.getDate())}
+
+/* One Google Calendar link per event, so a member can put it in their own
+   calendar without the chapter having to share anything. */
+function gcalLink(e){
+  var p=String(e.date||'').split('-'); if(p.length!==3)return '';
+  var d=p.join(''), t=parseTime(e.time);
+  var start,end;
+  if(t){
+    start=d+'T'+t.h+t.mi+'00';
+    var eh=String((+t.h+1)%24).padStart(2,'0');
+    end=d+'T'+eh+t.mi+'00';
+  } else {
+    var nx=new Date(+p[0],+p[1]-1,+p[2]+1);
+    start=d; end=ymd(nx.getFullYear(),nx.getMonth(),nx.getDate()).replace(/-/g,'');
   }
-  var h='';
-  if(up.length)h+='<div class="s-lbl" style="margin-bottom:8px">Coming up</div>'+up.map(row).join('');
-  if(gone.length)h+='<div class="s-lbl" style="margin:18px 0 8px">Already happened</div>'+gone.slice(-8).map(row).join('');
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE'+
+    '&text='+encodeURIComponent(e.title||'Event')+
+    '&dates='+start+'/'+end+
+    (e.where?'&location='+encodeURIComponent(e.where):'')+
+    '&details='+encodeURIComponent((S.club.clubName||'The chapter')+' · '+catById(e.cat||'meet').label);
+}
+function parseTime(t){
+  var m=String(t||'').trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if(!m)return null;
+  var h=+m[1], mi=m[2]||'00', ap=(m[3]||'').toLowerCase();
+  if(ap==='pm'&&h<12)h+=12;
+  if(ap==='am'&&h===12)h=0;
+  return {h:String(h).padStart(2,'0'), mi:mi};
+}
+
+function eventChip(e,compact){
+  var c=catById(e.cat||'meet');
+  return '<span class="evchip'+(compact?' small':'')+'" data-id="'+esc(e.id)+'" title="'+
+    esc(e.title+(e.time?' · '+e.time:'')+(e.where?' · '+e.where:''))+'">'+
+    '<i style="background:'+c.color+'"></i>'+
+    (e.time?'<b>'+esc(e.time.replace(/\s*([ap])m$/i,'$1'))+'</b> ':'')+
+    esc(e.title)+'</span>';
+}
+
+function renderMonth(){
+  var box=$('calbody');
+  var y=CALV.y, m=CALV.m;
+  var first=new Date(y,m,1), start=first.getDay();
+  var days=new Date(y,m+1,0).getDate();
+  var prevDays=new Date(y,m,0).getDate();
+  var t=$('cal-title');
+  if(t)t.textContent=first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+
+  var byDay={};
+  calList().forEach(function(e){ (byDay[e.date]=byDay[e.date]||[]).push(e) });
+
+  var today=todayYMD();
+  var h='<div class="calgrid"><div class="calhead">'+
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){return '<span>'+d+'</span>'}).join('')+
+    '</div><div class="calcells">';
+  var cells=[];
+  for(var i=start-1;i>=0;i--)cells.push({d:prevDays-i,off:true});
+  for(var d=1;d<=days;d++)cells.push({d:d,off:false,key:ymd(y,m,d)});
+  while(cells.length%7)cells.push({d:cells.length-start-days+1,off:true});
+  cells.forEach(function(c){
+    var evs=(!c.off&&byDay[c.key])||[];
+    h+='<div class="calcell'+(c.off?' off':'')+(c.key===today?' today':'')+'"'+
+       (c.key?' data-day="'+c.key+'"':'')+'>'+
+       '<span class="caldnum">'+c.d+'</span>'+
+       '<div class="calevs">'+evs.slice(0,3).map(function(e){return eventChip(e,true)}).join('')+
+       (evs.length>3?'<span class="calmore">+'+(evs.length-3)+' more</span>':'')+
+       '</div></div>';
+  });
+  box.innerHTML=h+'</div></div><div id="dayview"></div>';
+
+  Array.prototype.forEach.call(box.querySelectorAll('.calcell[data-day]'),function(cell){
+    cell.addEventListener('click',function(){ showDay(cell.dataset.day) });
+  });
+}
+
+/* Clicking a day opens it underneath rather than in a dialog, so the month
+   stays on screen while you read it. */
+function showDay(key){
+  var box=$('dayview'); if(!box)return;
+  var evs=calList().filter(function(e){return e.date===key});
+  var p=key.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]);
+  var h='<div class="dayhead"><b>'+esc(d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}))+'</b>'+
+        (canEdit()?'<button class="tiny ghost" id="dayadd" type="button">Add on this day</button>':'')+'</div>';
+  h+= evs.length ? evs.map(evRow).join('')
+                 : '<p class="empty">Nothing on this day.</p>';
   box.innerHTML=h;
+  wireEvRows(box);
+  var a=$('dayadd');
+  if(a)a.addEventListener('click',function(){ $('ev-date').value=key; $('ev-title').focus(); });
+  Array.prototype.forEach.call(box.querySelectorAll('.calcell'),function(){});
+}
+
+function evRow(e){
+  var c=catById(e.cat||'meet'), link=gcalLink(e);
+  return '<div class="evrow'+(isPast(e.date)?' gone':'')+'" data-id="'+esc(e.id)+'">'+
+    '<span class="evdate mono">'+esc(calDate(e.date))+'</span>'+
+    '<span class="evbar" style="background:'+c.color+'"></span>'+
+    '<span class="evname">'+esc(e.title)+
+      (e.where?'<em> · '+esc(e.where)+'</em>':'')+
+      (e.time?'<em> · '+esc(e.time)+'</em>':'')+'</span>'+
+    '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>'+
+    (link?'<a class="evadd" href="'+esc(link)+'" target="_blank" rel="noopener" title="Add to your own Google Calendar">+ Calendar</a>':'')+
+    (canEdit()?'<button class="evkill" type="button" title="Remove">×</button>':'')+
+  '</div>';
+}
+function wireEvRows(box){
   Array.prototype.forEach.call(box.querySelectorAll('.evkill'),function(b){
-    b.addEventListener('click',function(){
+    b.addEventListener('click',function(ev){
+      ev.stopPropagation();
       var id=b.parentNode.dataset.id;
       S.club.events=(S.club.events||[]).filter(function(e){return e.id!==id});
       save(); syncClub(); renderCalendar();
     });
   });
 }
+
+function renderList(){
+  var box=$('calbody');
+  var all=calList(), up=all.filter(function(e){return !isPast(e.date)}),
+      gone=all.filter(function(e){return isPast(e.date)});
+  if(!all.length){box.innerHTML='<p class="empty">Nothing scheduled yet.</p>';return}
+  var h='';
+  if(up.length)h+='<div class="s-lbl" style="margin-bottom:8px">Coming up</div>'+up.map(evRow).join('');
+  if(gone.length)h+='<div class="s-lbl" style="margin:18px 0 8px">Already happened</div>'+gone.slice(-8).map(evRow).join('');
+  box.innerHTML=h;
+  wireEvRows(box);
+}
+
+function renderCalendar(){
+  var box=$('calbody'); if(!box)return;
+  var sel=$('ev-kind');
+  if(sel&&!sel.options.length)
+    sel.innerHTML=POINT_CATS.map(function(c){return '<option value="'+c.id+'">'+esc(c.label)+'</option>'}).join('');
+  if(!CALV.y){var t=new Date(); CALV.y=t.getFullYear(); CALV.m=t.getMonth()}
+  var nav=$('calnav'); if(nav)nav.style.visibility=(CALV.mode==='month')?'visible':'hidden';
+  var link=$('cal-open');
+  if(link){
+    if(S.club.gcalUrl){link.style.display='';link.href=safeUrl(S.club.gcalUrl)}
+    else link.style.display='none';
+  }
+  if(CALV.mode==='month')renderMonth(); else renderList();
+}
+
 function initCalendar(){
   var add=$('ev-add'); if(!add)return;
   add.addEventListener('click',function(){
@@ -3352,8 +3531,53 @@ function initCalendar(){
       where:cleanLabel($('ev-where').value).slice(0,60),cat:$('ev-kind').value||'meet'});
     $('ev-title').value=''; $('ev-time').value=''; $('ev-where').value='';
     m.textContent='Added.'; m.className='msg show good';
+    var p=String(d).split('-');
+    if(p.length===3){CALV.y=+p[0];CALV.m=+p[1]-1}
     save(); syncClub(); renderCalendar();
   });
+
+  var step=function(n){
+    return function(){
+      var d=new Date(CALV.y,CALV.m+n,1);
+      CALV.y=d.getFullYear(); CALV.m=d.getMonth(); renderCalendar();
+    };
+  };
+  if($('cal-prev'))$('cal-prev').addEventListener('click',step(-1));
+  if($('cal-next'))$('cal-next').addEventListener('click',step(1));
+  if($('cal-today'))$('cal-today').addEventListener('click',function(){
+    var t=new Date(); CALV.y=t.getFullYear(); CALV.m=t.getMonth(); renderCalendar();
+  });
+  [['cal-month','month'],['cal-list','list']].forEach(function(pair){
+    var b=$(pair[0]); if(!b)return;
+    b.addEventListener('click',function(){
+      CALV.mode=pair[1];
+      $('cal-month').classList.toggle('on',pair[1]==='month');
+      $('cal-list').classList.toggle('on',pair[1]==='list');
+      renderCalendar();
+    });
+  });
+
+  /* Two-way, and deliberately additive: the chapter's calendar gains anything
+     posted here, and anything somebody put straight into Google turns up here.
+     Nothing is deleted on either side by a sync. */
+  var sync=$('cal-sync');
+  if(sync)sync.addEventListener('click',function(){
+    var m=$('evmsg');
+    sync.disabled=true; m.textContent='Talking to Google Calendar…'; m.className='msg show info';
+    backendPost('calendarSync',{events:S.club.events||[]}).then(function(r){
+      sync.disabled=false;
+      if(r&&r.ok){
+        S.club.events=r.events||S.club.events;
+        S.club.gcalId=r.calendarId||''; S.club.gcalUrl=r.calendarUrl||'';
+        save(); syncClub(); renderCalendar();
+        m.textContent='Synced — '+r.pushed+' sent, '+r.pulled+' brought back.';
+        m.className='msg show good';
+      } else {
+        m.textContent=(r&&r.error)||'That did not sync.'; m.className='msg show';
+      }
+    });
+  });
+
   renderCalendar();
 }
 
