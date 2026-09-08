@@ -10,8 +10,9 @@
    light-mode session does not flash dark first. */
 (function(){try{
   var t=localStorage.getItem('orgsystem.theme')||'';
-  var light=(t==='light')||(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
-  if(light)document.documentElement.setAttribute('data-theme','light');
+  var r=(t==='light'||t==='pbl'||t==='dark')?t
+      :((window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
+  if(r!=='dark')document.documentElement.setAttribute('data-theme',r);
 }catch(e){}})();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,6 +25,13 @@
   --void:#0e0e0e; --forest:#185849; --moss:#0e352c; --flag:#e8765e; --ok:#4fae8c;
   --hair:#2b2b2b; --gridline:rgba(233,235,223,.045);
   --consult:#7aa9dd; --compete:#e8765e; --either:#b6b8af;
+}
+:root[data-theme="pbl"]{
+  color-scheme:light;
+  --ink:#1a1a1a; --slate:#4a4744; --mute:#8a8681; --rule:#d8d4ce; --paper:#edebe7; --card:#f5f3f0;
+  --void:#efede9; --forest:#8a2320; --moss:#f4e7e5; --flag:#a32b22; --ok:#4e7a46;
+  --hair:#e6e2dc; --gridline:rgba(138,35,32,.05);
+  --consult:#8a2320; --compete:#b8892b; --either:#8a8681;
 }
 :root[data-theme="light"]{
   color-scheme:light;
@@ -372,14 +380,17 @@ footer a{color:var(--slate)}
 (function(){
   var b=document.getElementById('themebtn');
   function paint(){
-    var light=document.documentElement.getAttribute('data-theme')==='light';
-    b.textContent=light?'Dark':'Light';
+    var ORDER2=['dark','light','pbl'], LBL2={dark:'Dark',light:'Light',pbl:'PBL'};
+    var c=document.documentElement.getAttribute('data-theme')||'dark';
+    b.textContent=LBL2[ORDER2[(ORDER2.indexOf(c)+1)%ORDER2.length]];
   }
+  var ORDER=['dark','light','pbl'], LBL={dark:'Dark',light:'Light',pbl:'PBL'};
+  function cur(){return document.documentElement.getAttribute('data-theme')||'dark'}
   b.addEventListener('click',function(){
-    var next=(document.documentElement.getAttribute('data-theme')==='light')?'dark':'light';
+    var next=ORDER[(ORDER.indexOf(cur())+1)%ORDER.length];
     try{localStorage.setItem('orgsystem.theme',next)}catch(e){}
-    if(next==='light')document.documentElement.setAttribute('data-theme','light');
-    else document.documentElement.removeAttribute('data-theme');
+    if(next==='dark')document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme',next);
     paint();
   });
   paint();

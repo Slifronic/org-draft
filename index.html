@@ -26,7 +26,7 @@
   --consult:#7aa9dd; --compete:#e8765e; --either:#b6b8af; --flag:#e8765e; --ok:#4fae8c;
   --wash:#0e352c; --warmwash:#2a2320; --accent:#e9ebdf;
   --onfill:#151515; --void:#0e0e0e; --moss:#0e352c; --forest:#185849; --copper:#8b867f;
-  --hair:#2b2b2b; --badwash:#2a1c19; --goodwash:#16241d;
+  --hair:#2b2b2b; --badwash:#2a1c19; --goodwash:#16241d; --fill:#e9ebdf;
   --gridline:rgba(233,235,223,.045);
 }
 /* Light is the same system with the luminance stack inverted: the canvas is
@@ -34,13 +34,13 @@
    hue so a screenshot of one theme is recognisably the same product as the
    other. */
 :root[data-theme="pbl"]{
-  color-scheme:dark;
-  --ink:#f6f1e6; --slate:#ddd2bf; --mute:#b09a86; --rule:#6a2b2b; --paper:#3d0f14; --card:#511519;
-  --consult:#e8c07d; --compete:#f0a08a; --either:#c9b8a2; --flag:#ffb3a0; --ok:#c9d6a8;
-  --wash:#6a2b2b; --warmwash:#5c1a1e; --accent:#f6f1e6;
-  --onfill:#3d0f14; --void:#2c0a0e; --moss:#5c1a1e; --forest:#c8a35a; --copper:#b09a86;
-  --hair:#5c1a1e; --badwash:#6a2226; --goodwash:#4a2418;
-  --gridline:rgba(246,241,230,.05);
+  color-scheme:light;
+  --ink:#1a1a1a; --slate:#4a4744; --mute:#8a8681; --rule:#d8d4ce; --paper:#edebe7; --card:#f5f3f0;
+  --consult:#8a2320; --compete:#b8892b; --either:#8a8681; --flag:#a32b22; --ok:#4e7a46;
+  --wash:#f4e7e5; --warmwash:#f7f0de; --accent:#8a2320;
+  --fill:#8a2320; --onfill:#ffffff; --void:#efede9; --moss:#f4e7e5; --forest:#8a2320;
+  --copper:#b8892b; --hair:#e6e2dc; --badwash:#f8e7e4; --goodwash:#eaf0e6;
+  --gridline:rgba(138,35,32,.05);
 }
 :root[data-theme="light"]{
   color-scheme:light;
@@ -48,7 +48,7 @@
   --consult:#2f6193; --compete:#b4442c; --either:#6f7268; --flag:#b4442c; --ok:#2c6f56;
   --wash:#e2ece5; --warmwash:#f6efdf; --accent:#1b1c19;
   --onfill:#fbfaf5; --void:#ffffff; --moss:#dfeae2; --forest:#2c6f56; --copper:#7b7a72;
-  --hair:#e6e5dd; --badwash:#f8e9e5; --goodwash:#e6f0e9;
+  --hair:#e6e5dd; --badwash:#f8e9e5; --goodwash:#e6f0e9; --fill:#1b1c19;
   --gridline:rgba(27,28,25,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -101,10 +101,10 @@ input[type=text],input[type=date],select{padding:9px 10px;border:1px solid var(-
 input[type=text].mono{font-family:'Space Grotesk',ui-monospace,monospace;font-size:12.5px}
 input[type=number]{width:82px;padding:9px 10px;border:1px solid var(--rule);background:var(--paper);font-family:'Space Grotesk',ui-monospace,monospace;font-size:14px;color:var(--ink)}
 textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;padding:10px 18px;border:1px solid var(--ink);background:var(--ink);color:var(--onfill);cursor:pointer;transition:opacity .15s}
+button{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;padding:10px 18px;border:1px solid var(--ink);background:var(--fill);color:var(--onfill);cursor:pointer;transition:opacity .15s}
 button:hover:not(:disabled){opacity:.82}
 button.ghost{background:transparent;color:var(--ink)}
-button.ghost:hover:not(:disabled){background:var(--ink);color:var(--onfill);opacity:1}
+button.ghost:hover:not(:disabled){background:var(--fill);color:var(--onfill);opacity:1}
 button.tiny{font-size:11.5px;padding:5px 9px;font-family:'Space Grotesk',ui-monospace,monospace;letter-spacing:.04em}
 button.danger{border-color:var(--flag);color:var(--flag);background:transparent}
 button.danger:hover:not(:disabled){background:var(--flag);color:var(--onfill);opacity:1}
@@ -169,7 +169,7 @@ ul.roster li.hasnote{background:var(--warmwash)}
 .pts{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;font-weight:600;color:var(--compete);flex-shrink:0;min-width:24px;text-align:right}
 .pts.zero{color:var(--flag)}
 .role{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);border:1px solid var(--rule);padding:1px 5px;flex-shrink:0}
-.role.lead{background:var(--ink);color:var(--onfill);border-color:var(--ink)}
+.role.lead{background:var(--fill);color:var(--onfill);border-color:var(--fill)}
 .orgfoot{border-top:1px solid var(--rule);padding:9px 16px}
 .legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:12.5px;color:var(--slate);align-items:center}
 .legend span{display:flex;align-items:center;gap:7px}
@@ -226,7 +226,7 @@ tr.rowflag{background:var(--warmwash)}
 /* team view */
 .teampick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
 .teampick button{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11.5px;padding:8px 12px;background:transparent;color:var(--slate);border:1px solid var(--rule)}
-.teampick button[aria-current=true]{background:var(--ink);color:var(--onfill);border-color:var(--ink)}
+.teampick button[aria-current=true]{background:var(--fill);color:var(--onfill);border-color:var(--fill)}
 .teamgrid{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
 @media(max-width:900px){.teamgrid{grid-template-columns:1fr}}
 .axbar{margin-bottom:11px}
@@ -279,7 +279,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
   text-transform:uppercase;color:var(--slate)}
 .chathead button{margin-left:auto;background:transparent;border:1px solid var(--rule);color:var(--slate);
   font-size:15px;line-height:1;padding:5px 9px}
-.chathead button:hover{background:var(--ink);color:var(--onfill);border-color:var(--ink);opacity:1}
+.chathead button:hover{background:var(--fill);color:var(--onfill);border-color:var(--fill);opacity:1}
 #chatlog{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
 .cmsg{max-width:92%}
 .cmsg .cwho{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;
@@ -287,7 +287,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .cmsg .cbody{font-size:13.5px;line-height:1.5}
 .cmsg .cbody b{font-weight:600}
 .cmsg.me{align-self:flex-end;text-align:right}
-.cmsg.me .cbody{background:var(--ink);color:var(--onfill);padding:8px 12px;display:inline-block;text-align:left}
+.cmsg.me .cbody{background:var(--fill);color:var(--onfill);padding:8px 12px;display:inline-block;text-align:left}
 .cmsg.bot .cbody{background:var(--paper);border:1px solid var(--rule);padding:10px 13px}
 .cmsg.bot .cbody ul{margin:7px 0 0 17px} .cmsg.bot .cbody li{margin-bottom:4px}
 .cmsg.bot .cbody .num{font-family:'Space Grotesk',ui-monospace,monospace;font-weight:600}
@@ -335,7 +335,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 
 /* ---- member profile ---- */
 .profhead{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.profavatar{width:58px;height:58px;border-radius:50%;background:var(--ink);color:var(--onfill);display:flex;
+.profavatar{width:58px;height:58px;border-radius:50%;background:var(--fill);color:var(--onfill);display:flex;
   align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0}
 .profname{font-size:26px;font-weight:700;letter-spacing:-.02em}
 .profmeta{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.06em;color:var(--slate);margin-top:3px}
@@ -350,7 +350,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .userrow .un{font-family:'Space Grotesk',ui-monospace,monospace;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .userrow .lockflag{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;color:var(--flag)}
 .userrow button{border:1px solid var(--rule);background:transparent;padding:6px 0;font-size:12px;width:34px}
-.userrow .ukey{color:var(--slate)} .userrow .ukey:hover{background:var(--ink);color:var(--onfill);opacity:1}
+.userrow .ukey{color:var(--slate)} .userrow .ukey:hover{background:var(--fill);color:var(--onfill);opacity:1}
 .userrow .ukill{color:var(--flag)} .userrow .ukill:hover{background:var(--flag);color:var(--onfill);opacity:1}
 @media(max-width:560px){.userrow{grid-template-columns:1fr 90px 30px 30px}}
 #gate{position:fixed;inset:0;background:var(--paper);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -372,7 +372,7 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .rolebadge b{color:var(--accent);font-weight:600}
 .rolebadge.master b{color:var(--compete)}
 .signout{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--rule);color:var(--slate);padding:5px 8px}
-.signout:hover{background:var(--ink);color:var(--onfill);border-color:var(--ink);opacity:1}
+.signout:hover{background:var(--fill);color:var(--onfill);border-color:var(--fill);opacity:1}
 
 /* ---- role gating: the page never shows a control the role cannot use ---- */
 body[data-role="none"] [data-req],
@@ -467,7 +467,7 @@ body[data-role="member"] .orgname.canrename:hover{border-bottom-color:var(--rule
 .sellist[hidden]{display:none}
 .sellist div{padding:8px 10px;font-size:13.5px;border-radius:2px;cursor:pointer}
 .sellist div[aria-selected=true]{background:var(--paper);font-weight:600}
-.sellist div.on{background:var(--ink);color:var(--onfill)}
+.sellist div.on{background:var(--fill);color:var(--onfill)}
 .pickbox{max-height:230px;overflow-y:auto;border:1px solid var(--rule);border-radius:3px;padding:2px;margin-top:4px}
 .pickrow{display:flex;align-items:center;gap:9px;padding:7px 9px;font-size:13.5px;border-bottom:1px solid var(--hair);cursor:pointer}
 .pickrow:last-child{border-bottom:none}
@@ -482,7 +482,7 @@ body[data-role="member"] .orgname.canrename:hover{border-bottom-color:var(--rule
   font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
   font-weight:600;padding:9px 14px}
 .segbtns .seg+.seg{border-left:1px solid var(--rule)}
-.segbtns .seg.on{background:var(--ink);color:var(--onfill)}
+.segbtns .seg.on{background:var(--fill);color:var(--onfill)}
 /* The log grows without limit, and scrolling the whole page past a semester
    of entries to reach anything under it is the wrong trade. It scrolls in
    place instead, a page at a time. */
@@ -526,17 +526,17 @@ nav button[aria-current=true]{border-bottom-color:var(--ink)}
 .readonly,.demobar,.offlinebar,.unmatched,.notes,.msg{border-radius:4px}
 
 /* buttons — binary radius grammar: pill for primary, square for everything else */
-button{background:var(--ink);color:var(--onfill);border:1px solid var(--ink);border-radius:9999px;font-weight:500}
+button{background:var(--fill);color:var(--onfill);border:1px solid var(--fill);border-radius:9999px;font-weight:500}
 button:hover:not(:disabled){opacity:.86}
 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink);border-radius:9999px}
-button.ghost:hover:not(:disabled){background:var(--ink);color:var(--onfill)}
+button.ghost:hover:not(:disabled){background:var(--fill);color:var(--onfill)}
 button.tiny,.rowacts button,.userrow button,.trackrow .kill,.chathead button,.segbtns .seg,.modalacts button.ghost{
   border-radius:0}
 button.tiny,.rowacts button,.userrow button{background:transparent;color:var(--slate);border:1px solid var(--rule)}
 button.tiny:hover,.rowacts button:hover,.userrow button:hover{border-color:var(--ink);color:var(--ink);background:transparent}
 button.danger{background:transparent;border-color:var(--flag);color:var(--flag)}
 .segbtns .seg{background:var(--card);color:var(--ash,var(--mute))}
-.segbtns .seg.on{background:var(--ink);color:var(--onfill)}
+.segbtns .seg.on{background:var(--fill);color:var(--onfill)}
 
 /* inputs — recessed void surfaces */
 input[type=text],input[type=date],input[type=number],input[type=password],input[type=email],select,textarea,
@@ -552,7 +552,7 @@ textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible,.se
 
 /* chips, badges, tags — 4px square grammar */
 .mbti,.role,.tchip,.affchip,.rolebadge,.cchip,.linkbtn,.pts{border-radius:4px}
-.role.lead,.segbtns .seg.on,.sellist div.on{background:var(--ink);color:var(--onfill)}
+.role.lead,.segbtns .seg.on,.sellist div.on{background:var(--fill);color:var(--onfill)}
 .mbti{background:var(--void);border-color:var(--rule);color:var(--slate)}
 .msg.info{background:var(--wash);border-left-color:var(--forest);color:var(--ink)}
 .msg.good{color:var(--ok)}
@@ -560,11 +560,11 @@ textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible,.se
 /* gate / overlays */
 #gate{background-color:var(--paper);background-image:linear-gradient(var(--gridline) 1px,transparent 1px),linear-gradient(90deg,var(--gridline) 1px,transparent 1px);background-size:34px 34px}
 .gateor::before,.gateor::after{background:var(--rule)}
-#chatbtn{background:var(--ink);color:var(--onfill);box-shadow:none;border:1px solid var(--ink)}
+#chatbtn{background:var(--fill);color:var(--onfill);box-shadow:none;border:1px solid var(--fill)}
 #chatbtn:hover{box-shadow:none;transform:translateY(-1px)}
-.cmsg.me .cbody{background:var(--ink);color:var(--onfill);border-radius:9999px}
+.cmsg.me .cbody{background:var(--fill);color:var(--onfill);border-radius:9999px}
 .cmsg.bot .cbody,.ctyping{background:var(--void);border:1px solid var(--rule);border-radius:8px}
-.profavatar{background:var(--ink);color:var(--onfill)}
+.profavatar{background:var(--fill);color:var(--onfill)}
 .bar,.axtrack{background:var(--void);border-radius:2px}
 ul.roster li.hasnote{background:var(--warmwash)}
 code{background:var(--void);border-color:var(--rule);color:var(--slate);border-radius:4px}
@@ -719,7 +719,7 @@ footer{color:var(--mute)}
 .hiddenbar>button{background:transparent;color:var(--slate);border:1px solid var(--rule);border-radius:0;
   font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;
   text-transform:uppercase;padding:7px 12px;font-weight:400}
-.hiddenbar>button:hover{color:var(--ink);border-color:var(--ink);opacity:1}
+.hiddenbar>button:hover{color:var(--ink);border-color:var(--fill);opacity:1}
 .hcount{color:var(--ink);margin-left:6px}
 .hiddenmenu{position:absolute;z-index:940;left:0;top:calc(100% + 4px);background:var(--card);
   border:1px solid var(--rule);border-radius:8px;padding:6px;min-width:240px;width:max-content;
@@ -737,7 +737,7 @@ footer{color:var(--mute)}
 .hidebtn{border:1px solid var(--rule);background:transparent;color:var(--mute);border-radius:0;
   font-family:'Space Grotesk',ui-monospace,monospace;font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;padding:3px 7px;font-weight:400;margin-left:10px;vertical-align:middle}
-.hidebtn:hover{color:var(--ink);border-color:var(--ink);opacity:1}
+.hidebtn:hover{color:var(--ink);border-color:var(--fill);opacity:1}
 .panel.ishidden{display:none}
 
 /* ============ POINT CATEGORIES, CUP PAGES, SCROLL CARDS ============ */
@@ -801,7 +801,7 @@ h1{font-size:clamp(30px,4.8vw,46px)}
   background:transparent;border:1px solid var(--rule);color:var(--slate);border-radius:0;
   font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;
   text-transform:uppercase;padding:6px 10px;font-weight:400;flex:0 0 auto}
-.themebtn:hover{color:var(--ink);border-color:var(--ink);opacity:1}
+.themebtn:hover{color:var(--ink);border-color:var(--fill);opacity:1}
 
 /* ============ LAYOUT & SCALING FIXES ============ */
 /* dropdown lists size to their longest option instead of squeezing into the
