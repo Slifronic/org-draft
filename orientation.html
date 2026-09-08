@@ -380,12 +380,18 @@ footer a{color:var(--slate)}
 (function(){
   var b=document.getElementById('themebtn');
   function paint(){
-    var ORDER2=['dark','light','pbl'], LBL2={dark:'Dark',light:'Light',pbl:'PBL'};
+    var O=['dark','light'], L={dark:'Dark',light:'Light'};
     var c=document.documentElement.getAttribute('data-theme')||'dark';
-    b.textContent=LBL2[ORDER2[(ORDER2.indexOf(c)+1)%ORDER2.length]];
+    if(c==='pbl')c='dark';
+    b.textContent=L[O[(O.indexOf(c)+1)%O.length]];
   }
-  var ORDER=['dark','light','pbl'], LBL={dark:'Dark',light:'Light',pbl:'PBL'};
-  function cur(){return document.documentElement.getAttribute('data-theme')||'dark'}
+  /* This page has no club, so it offers the plain two and simply keeps a
+     chapter palette chosen inside the app if that is what is stored. */
+  var ORDER=['dark','light'];
+  function cur(){
+    var c=document.documentElement.getAttribute('data-theme')||'dark';
+    return c==='pbl'?'dark':c;
+  }
   b.addEventListener('click',function(){
     var next=ORDER[(ORDER.indexOf(cur())+1)%ORDER.length];
     try{localStorage.setItem('orgsystem.theme',next)}catch(e){}
