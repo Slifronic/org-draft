@@ -2251,7 +2251,7 @@ function doSignupSubmit(){
     showGate(false); gateMsg('');
     $('su-pass').value='';
     afterSignIn();
-    if(S.club.formUrl!==undefined)offerClubForm();
+    offerClubForm();
   }).catch(function(e){
     $('su-go').disabled=false;
     gateMsg(e&&e.message?e.message:'Could not create that account.',true);
@@ -5711,6 +5711,9 @@ function applyClubChrome(){
     if(/de\s*-?anza/.test(who)&&/pbl|phi beta lambda/.test(who))S.club.theme='pbl';
   }
   applyTheme(readTheme());
+  /* A form link can be added or cleared long after sign-in, so the tab follows
+     the club rather than only the moment somebody joined. */
+  if(typeof maybeOfferForm==='function')maybeOfferForm();
   var nm=S.club.clubName||'The Org System';
   document.title=nm;
   var e=$('eyebrowtitle'); if(e)e.textContent=nm;
@@ -6205,12 +6208,26 @@ function renderClubForm(){
 }
 /* Shown once, right after joining: the club's form is the thing that puts a
    new member on the roster, so it is offered rather than buried. */
-function offerClubForm(){
-  setTimeout(function(){
-    if(!S.club.formUrl)return;
-    $('navform').style.display='';
+/* Set when somebody has just joined or just made an account, so the form is
+   opened for them once rather than every time they sign in. */
+var FORM_PENDING=false;
+function offerClubForm(){ FORM_PENDING=true; maybeOfferForm(); }
+
+/* The club arrives from the backend a second or two after sign-in, and the
+   first version of this ran on a 1400ms timer — shorter than the round trip
+   more often than not, so it read an empty formUrl and did nothing. It is
+   called when the club actually lands now, and the tab stays available to
+   anybody whose club has a form rather than appearing only in the one moment
+   after joining. */
+function maybeOfferForm(){
+  var btn=$('navform'); if(!btn)return;
+  if(!S.club||!S.club.formUrl){btn.style.display='none';return}
+  if(canEdit()){btn.style.display='';return}
+  btn.style.display='';
+  if(FORM_PENDING){
+    FORM_PENDING=false;
     setView('v-form');
-  },1400);
+  }
 }
 function submitClubForm(){
   var m=$('formmsg');
@@ -6239,6 +6256,7 @@ function submitClubForm(){
           ? 'Sent, and saved to your profile.'
           : 'Sent. It will appear on your profile once the club’s sheet catches up.';
         m.className='msg show good';
+        FORM_PENDING=false;
         $('navform').style.display='none';
         setTimeout(function(){setView('v-profile')},1200);
       });
@@ -6370,7 +6388,7 @@ function switchAff(code){
     unlockNav();syncRuleInputs();applyClubChrome();renderClubSetup();
     /* The notices arrive with the club, so the board has to be drawn again --
        it was painted before there was anything to put in it. */
-    renderBoard();renderCalendar();renderWork();
+    renderBoard();renderCalendar();renderWork();maybeOfferForm();
     scoreAll();renderDraft();renderCup();renderAffs();renderRosterLinks();
     renderClubRoster();renderFormKit();
     setRole(A.role,null);
