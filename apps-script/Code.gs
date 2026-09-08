@@ -1935,3 +1935,57 @@ function folderUnder(parent, name) {
   if (it.hasNext()) return it.next();
   return parent ? parent.createFolder(name) : DriveApp.createFolder(name);
 }
+
+/* ================= ONE-TIME AUTHORISATION =================
+   Apps Script grants scopes when a person runs the code, not when it is
+   deployed. Calendar and Drive were added after this project was last
+   authorised, so the web app could compile, deploy and run and still be
+   refused the moment it touched either one — which is exactly what
+   "The script does not have permission to perform that action" means.
+
+   Run this once from the editor and approve the prompt. It touches Calendar
+   and Drive in the most harmless way each allows: it counts things. Nothing is
+   created, changed or deleted. After it succeeds, the sync and the homework
+   uploads work for everyone, because the web app runs as the account that
+   approved it. */
+function authorizeScopes() {
+  var out = [];
+
+  try {
+    var cals = CalendarApp.getAllOwnedCalendars();
+    out.push('Calendar: OK (' + cals.length + ' calendars visible)');
+  } catch (e) {
+    out.push('Calendar: FAILED — ' + e.message);
+  }
+
+  try {
+    var it = DriveApp.getRootFolder().getFolders();
+    var n = 0;
+    while (it.hasNext() && n < 5) { it.next(); n++; }
+    out.push('Drive: OK');
+  } catch (e) {
+    out.push('Drive: FAILED — ' + e.message);
+  }
+
+  try {
+    out.push('Sheet: OK (' + book().getName() + ')');
+  } catch (e) {
+    out.push('Sheet: FAILED — ' + e.message);
+  }
+
+  var msg = out.join('\n');
+  Logger.log(msg);
+  return msg;
+}
+
+/* Lists the chapter calendars this account owns, so duplicates left behind by
+   the runs that timed out can be found and removed by hand. Read-only. */
+function listChapterCalendars() {
+  var rows = [];
+  CalendarApp.getAllOwnedCalendars().forEach(function (c) {
+    if (c.getName().indexOf('chapter calendar') > -1) rows.push(c.getName() + '  —  ' + c.getId());
+  });
+  var msg = rows.length ? rows.join('\n') : 'No chapter calendars found.';
+  Logger.log(msg);
+  return msg;
+}
