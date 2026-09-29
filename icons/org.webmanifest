@@ -1,0 +1,13 @@
+{
+  "name": "The Org System",
+  "short_name": "Org System",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#151515",
+  "theme_color": "#151515",
+  "icons": [
+    { "src": "/icons/org-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/org-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
