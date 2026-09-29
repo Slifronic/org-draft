@@ -1,0 +1,13 @@
+{
+  "name": "De Anza PBL",
+  "short_name": "De Anza PBL",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#edebe7",
+  "theme_color": "#8a2320",
+  "icons": [
+    { "src": "/icons/pbl-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/pbl-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
