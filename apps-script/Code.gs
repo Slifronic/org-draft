@@ -249,7 +249,8 @@ var TAB = {
      who has no Users row still has somewhere to keep a name and a picture. */
   submissions:{name: 'Submissions', cols: ['Affiliation', 'WorkId', 'WorkTitle', 'MemberName', 'Org',
                                            'FileId', 'FileName', 'FileUrl', 'SubmittedAt', 'Revision',
-                                           'Status', 'Points', 'ReviewedBy', 'ReviewedAt', 'Comment']},
+                                           'Status', 'Points', 'ReviewedBy', 'ReviewedAt', 'Comment',
+                                           'FirstAt']},
   profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo',
                                           'Year', 'Track', 'MBTI', 'LeadInterest', 'FormNotes', 'FormAt',
                                           'Birthday']}
@@ -767,6 +768,42 @@ var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
                  listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
                  clubRoster: 1, formSchema: 1, formItems: 1};
 
+/* ---- the Team Cup ----
+   Computed here because only the server can see everybody's hand-in times,
+   and members get the totals, never who handed in what. Each assignment with
+   a due date is worth up to 100 to every team it was set for: the share of
+   that team's members whose first hand-in landed by the end of the due day. */
+function teamBoard_(aff, cfg) {
+  cfg = cfg || {};
+  var teams = cfg.teams || [], work = (cfg.work || []).filter(function (w) { return w && w.id && w.due; });
+  if (!teams.length) return [];
+  var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var first = {};
+  readTab('submissions').forEach(function (r) {
+    if (normAff(r.Affiliation) !== aff) return;
+    var at = r.FirstAt || r.SubmittedAt;
+    if (at) first[String(r.WorkId) + '|' + flat(r.MemberName)] = new Date(at).getTime();
+  });
+  return teams.map(function (t) {
+    var members = t.members || [], pts = 0, got = 0, of = 0, works = 0;
+    work.forEach(function (w) {
+      var target = w.team || (w.org && w.org !== 'all' ? 'org' : 'all');
+      if (target !== 'all' && target !== t.id) return;
+      if (!members.length) return;
+      var p = String(w.due).split('-');
+      var end = new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59).getTime();
+      var g = 0;
+      members.forEach(function (m) {
+        var at = first[w.id + '|' + flat(m)];
+        if (at && at <= end) g++;
+      });
+      got += g; of += members.length; works++;
+      pts += Math.round(100 * g / members.length);
+    });
+    return {id: t.id, pts: pts, got: got, of: of, works: works};
+  });
+}
+
 function dispatch(action, payload, email, role, id) {
   var aff = normAff((id && id.aff) || DEFAULT_AFF);
   switch (action) {
@@ -1135,7 +1172,7 @@ function dispatch(action, payload, email, role, id) {
          always sees exactly one current answer per person. */
       var shS = tab('submissions'), vS = shS.getDataRange().getValues();
       var iS = {}; for (var cS = 0; cS < vS[0].length; cS++) iS[String(vS[0][cS])] = cS;
-      var mine = -1, prevRev = 0, prevFile = '';
+      var mine = -1, prevRev = 0, prevFile = '', prevFirst = '';
       for (var rS = 1; rS < vS.length; rS++) {
         if (normAff(vS[rS][iS.Affiliation]) !== aff) continue;
         if (String(vS[rS][iS.WorkId]) !== swId) continue;
@@ -1143,6 +1180,7 @@ function dispatch(action, payload, email, role, id) {
         mine = rS + 1;
         prevRev = Number(vS[rS][iS.Revision]) || 1;
         prevFile = String(vS[rS][iS.FileId] || '');
+        prevFirst = vS[rS][iS.FirstAt] || vS[rS][iS.SubmittedAt] || '';
         /* Not a rate limit for its own sake: a resubmission loop uploading
            megabytes would fill the club's Drive and nothing else stops it. */
         var last = vS[rS][iS.SubmittedAt];
@@ -1179,6 +1217,9 @@ function dispatch(action, payload, email, role, id) {
       row[iS.Org] = myOrg;            row[iS.FileId] = file.getId();
       row[iS.FileName] = safeName;    row[iS.FileUrl] = file.getUrl();
       row[iS.SubmittedAt] = now;      row[iS.Revision] = rev;
+      /* The Team Cup scores the first hand-in, so replacing a file after the
+         deadline does not cost the on-time credit it already earned. */
+      if (iS.FirstAt !== undefined) row[iS.FirstAt] = prevFirst || now;
       row[iS.Status] = 'submitted';   row[iS.Points] = '';
       row[iS.ReviewedBy] = '';        row[iS.ReviewedAt] = ''; row[iS.Comment] = '';
       if (mine > 0) shS.getRange(mine, 1, 1, row.length).setValues([row]);
@@ -1873,6 +1914,7 @@ function dispatch(action, payload, email, role, id) {
         needsAff: !!id.needsAff,
         affiliations: id.isRoot ? allAffiliations().map(function (a) {
           return {code: a.code, name: a.name}; }) : null,
+        teamBoard:  teamBoard_(aff, cfg),
         roster:     readTab('roster'),
         teams:      readScoped('teams', aff),
         pointsLog:  readScoped('pointsLog', aff),
