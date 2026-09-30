@@ -680,6 +680,34 @@ a.subfile:hover{color:var(--ink)}
 .bootmark{color:var(--ink);opacity:.9;animation:bootspin 2.4s linear infinite}
 @keyframes bootspin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.bootmark{animation:none}}
+
+/* ============ WAITING ============
+   Three sizes of the same message. A veil with the wheel for the waits that end
+   on a different screen (signing in, checking a join code); a thin bar across
+   the top whenever the sheet is being talked to at all; and a small spinner in
+   front of any line that says it is loading, so "Loading…" is never a static
+   word that might mean something broke. */
+.busy{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:16px;background:var(--paper);background:color-mix(in srgb,var(--paper) 88%,transparent);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);opacity:0;pointer-events:none;
+  transition:opacity .18s ease}
+.busy.on{opacity:1;pointer-events:auto}
+.busymark{color:var(--ink);animation:bootspin 1.6s linear infinite}
+.busyword{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+.busyword::after{content:'';display:inline-block;width:1.4em;text-align:left;animation:busydots 1.2s steps(4) infinite}
+@keyframes busydots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+.netbar{position:fixed;top:0;left:0;right:0;height:3px;z-index:10001;overflow:hidden;
+  pointer-events:none;opacity:0;transition:opacity .2s ease}
+body.netbusy .netbar{opacity:1}
+.netbar i{position:absolute;top:0;bottom:0;width:40%;background:var(--accent);border-radius:3px;
+  animation:netslide 1.1s ease-in-out infinite}
+@keyframes netslide{0%{left:-40%}100%{left:100%}}
+.wait::before{content:'';display:inline-block;width:11px;height:11px;margin-right:8px;
+  vertical-align:-1px;border:2px solid currentColor;border-right-color:transparent;
+  border-radius:50%;opacity:.7;animation:bootspin .7s linear infinite}
+@media(prefers-reduced-motion:reduce){
+  .busymark,.netbar i,.wait::before{animation-duration:2.4s}
+  .busyword::after{animation:none;content:'…'}}
 .bootword{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
 
 /* ============ MOBILE ============
@@ -1085,6 +1113,12 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <div class="gatemsg" id="gatemsg"></div>
     <div class="gatefoot" id="gatefoot"><a href="/orientation">New here? Read the orientation.</a><br>Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
   </div>
+</div>
+
+<div class="netbar" aria-hidden="true"><i></i></div>
+<div class="busy" id="busy" role="status" aria-live="polite">
+  <div class="busymark" id="busymark"></div>
+  <div class="busyword mono" id="busyword"></div>
 </div>
 
 <div class="boot" id="boot">
@@ -2086,8 +2120,10 @@ function onCredential(resp){
   var claims=jwtPeek(t);
   A.email=claims.email||'';A.name=claims.name||'';A.pic=claims.picture||'';
   gateMsg('Checking your role…');
+  busyOn('Checking you in');
   backendPost('getAll',null).then(function(r){
     if(!r||!r.ok){
+      busyClear();
       gateMsg((r&&r.error)||'The club sheet did not answer. Ask whoever runs it to redeploy the script.',true);
       A.token=null; storeGoogleToken(null); storeWho(null); showGate(true); return;
     }
@@ -2101,7 +2137,7 @@ function onCredential(resp){
     var wanted=(r.role==='master'&&!r.needsAff&&loadAff())?loadAff():null;
     if(wanted&&wanted!==r.aff)A.aff=wanted;
     setRole(r.role,claims);
-    if(A.needsAff){ showGate(true); gateMode('join'); return; }
+    if(A.needsAff){ busyClear(); showGate(true); gateMode('join'); return; }
     showGate(false);
     afterSignIn((wanted&&wanted!==r.aff)?null:r);
   });
@@ -2175,9 +2211,11 @@ function deriveForNew(password){
 /* ---- password sign-in ---- */
 function pwLogin(user,pass){
   gateMsg('Checking…');
+  busyOn('Signing you in');
   return deriveForLogin(user,pass).then(function(dk){
     return backendPost('login',{username:user,dk:dk});
   }).then(function(r){
+    if(!r||!r.ok)busyClear();
     if(!r)   {gateMsg('The club sheet did not answer. Try again in a moment.',true);return false}
     if(!r.ok){gateMsg(r.error||'That did not work.',true);return false}
     A.session=r.session; A.token=null; A.via='password';
@@ -2189,6 +2227,7 @@ function pwLogin(user,pass){
     afterSignIn();
     return true;
   }).catch(function(e){
+    busyClear();
     gateMsg(e&&e.message?e.message:'Sign-in failed.',true);
     return false;
   });
@@ -2274,12 +2313,14 @@ function doSignupSubmit(){
   if(!code){gateMsg('You need the join code from your club officers.',true);return}
   $('su-go').disabled=true;
   gateMsg('Creating your account…');
+  busyOn('Creating your account');
   deriveForNew(pw).then(function(d){
     return backendPost('signup',{firstName:first,lastName:last,email:email,
       affiliation:aff,joinCode:code,
       dk:d.dk,clientSalt:d.clientSalt,iterations:d.iterations});
   }).then(function(r){
     $('su-go').disabled=false;
+    if(!r||!r.ok)busyClear();
     if(!r){gateMsg('The club sheet did not answer. Try again in a moment.',true);return}
     if(!r.ok){gateMsg(r.error||'That did not work.',true);return}
     A.session=r.session; A.token=null; A.via='password';
@@ -2292,6 +2333,7 @@ function doSignupSubmit(){
     afterSignIn();
     offerClubForm();
   }).catch(function(e){
+    busyClear();
     $('su-go').disabled=false;
     gateMsg(e&&e.message?e.message:'Could not create that account.',true);
   });
@@ -2302,8 +2344,10 @@ function doJoinSubmit(){
   if(!code){gateMsg('You need the join code from your club officers.',true);return}
   $('jn-go').disabled=true;
   gateMsg('Checking…');
+  busyOn('Checking your join code');
   backendPost('joinAffiliation',{affiliation:aff,joinCode:code}).then(function(r){
     $('jn-go').disabled=false;
+    if(!r||!r.ok)busyClear();
     if(!r){gateMsg('The club sheet did not answer.',true);return}
     if(!r.ok){gateMsg(r.error||'That did not work.',true);return}
     A.aff=r.joined; A.affName=r.name; A.needsAff=false;
@@ -2559,9 +2603,22 @@ function backendPost(action,payload){
   var body={action:action,payload:payload};
   if(A.session)body.session=A.session; else if(A.token)body.token=A.token;
   if(A.aff)body.aff=A.aff;
+  netStart();
   return fetch(WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(body)})
-    .then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+    .then(function(r){return r.ok?r.json():null}).catch(function(){return null})
+    .then(function(v){netEnd();return v});
+}
+/* The bar only appears for a call that is still going after a quarter of a
+   second, so quick saves do not flicker it on and off. */
+var NET_N=0, NET_T=null;
+function netStart(){
+  NET_N++;
+  if(NET_N===1){clearTimeout(NET_T);NET_T=setTimeout(function(){if(NET_N)document.body.classList.add('netbusy')},250)}
+}
+function netEnd(){
+  NET_N=Math.max(0,NET_N-1);
+  if(!NET_N){clearTimeout(NET_T);document.body.classList.remove('netbusy')}
 }
 function backendGet(){return backendPost('getAll',null)}
 function findPersonByName(nm){
@@ -3315,7 +3372,7 @@ function renderFormEditor(){
     acts.style.display='none'; return;
   }
   if(!FE.loaded){
-    box.innerHTML='<p class="empty">Loading the form…</p>';
+    box.innerHTML='<p class="empty wait">Loading the form…</p>';
     acts.style.display='none';
     if(FE.reading)return;
     FE.reading=true;
@@ -3588,6 +3645,29 @@ function bootDone(){
   b.classList.add('gone');
   setTimeout(function(){b.hidden=true},280);
 }
+/* The veil. Held by a count rather than a flag, so two overlapping waits do
+   not lift it early, and it gives up on its own after 25 seconds -- the
+   backend has already answered or failed by then, and a veil that outlives
+   its reason locks somebody out of their own page. */
+var BUSY_N=0, BUSY_T=null;
+function busyOn(label){
+  var b=$('busy'); if(!b)return;
+  var m=$('busymark');
+  if(m&&!m.firstChild){
+    var src=document.querySelector('header .brandmark');
+    if(src){var c=src.cloneNode(true);c.setAttribute('width','46');c.setAttribute('height','46');m.appendChild(c)}
+  }
+  $('busyword').textContent=label||'Loading';
+  BUSY_N++; b.classList.add('on');
+  clearTimeout(BUSY_T); BUSY_T=setTimeout(function(){BUSY_N=1;busyOff()},25000);
+}
+function busyOff(){
+  BUSY_N=Math.max(0,BUSY_N-1);
+  if(BUSY_N)return;
+  clearTimeout(BUSY_T);
+  var b=$('busy'); if(b)b.classList.remove('on');
+}
+function busyClear(){BUSY_N=1;busyOff()}
 function initBoot(){
   bootMark();
   /* Nothing may hold the page hostage. */
@@ -3927,7 +4007,7 @@ function renderWork(){
       '</div>'+
       '<div class="msg hwmsg2"></div>'+
       (canEdit()?'<div class="subs" data-for="'+esc(w.id)+'"><div class="s-lbl">Handed in</div>'+
-        '<div class="subbody"><p class="empty">Loading…</p></div></div>':'')+
+        '<div class="subbody"><p class="empty wait">Loading…</p></div></div>':'')+
     '</div>';
   }).join('');
   if(canEdit())loadSubs();
@@ -3948,7 +4028,7 @@ function renderWork(){
     btn.addEventListener('click',function(){
       var file=f.files&&f.files[0]; if(!file)return;
       if(file.size>8*1024*1024){msg.textContent='That file is over 8 MB.';msg.className='msg show';return}
-      btn.disabled=true; msg.textContent='Uploading…'; msg.className='msg show info';
+      btn.disabled=true; msg.textContent='Uploading…'; msg.className='msg show info wait';
       var fr=new FileReader();
       fr.onload=function(){
         var b64=String(fr.result).split(',')[1]||'';
@@ -5340,7 +5420,7 @@ function localMemberCard(name){
 function openMemberCard(name){
   var box=$('cardbody');
   $('membercard').classList.add('on');
-  box.innerHTML='<p class="empty">Loading…</p>';
+  box.innerHTML='<p class="empty wait">Loading…</p>';
   (A.offline?Promise.resolve(null):backendPost('memberCard',{name:name})).then(function(r){
     if(!r||!r.ok)r=localMemberCard(name);
     if(!r||!r.ok){box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that member.')+'</p>';return}
@@ -5393,7 +5473,7 @@ function openMemberCard(name){
             '<input type="text" id="au-label" placeholder="Week 3 workshop"></div>'+
           '<button class="tiny" id="au-give" type="button">Give points</button>'+
         '</div>'+
-        '<div id="au-work" style="margin-top:12px"><p class="empty">Checking their work…</p></div>'+
+        '<div id="au-work" style="margin-top:12px"><p class="empty wait">Checking their work…</p></div>'+
         '<div class="msg" id="au-msg"></div>';
       box.appendChild(au);
 
@@ -5609,7 +5689,7 @@ function renderProfile(){
     box.innerHTML='<div class="panel"><h2>Your profile</h2><p class="empty">This browser is not connected to a club sheet, so there is no profile to show.</p></div>';
     return;
   }
-  box.innerHTML='<div class="panel"><p class="empty">Loading your profile…</p></div>';
+  box.innerHTML='<div class="panel"><p class="empty wait">Loading your profile…</p></div>';
   backendPost('myProfile',{name:A.name||A.email}).then(function(r){
     if(!r||!r.ok){
       box.innerHTML='<div class="panel"><h2>Your profile</h2><p class="empty">Could not load your profile.</p></div>';
@@ -6080,7 +6160,7 @@ function renderClubRoster(){
   var box=$('crtable'); if(!box)return;
   if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
   if(!canEdit()){box.innerHTML='';return}
-  box.innerHTML='<p class="empty">Loading\u2026</p>';
+  box.innerHTML='<p class="empty wait">Loading\u2026</p>';
   backendPost('clubRoster',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the roster.</p>';return}
     CROSTER=r.roster||[];
@@ -6235,7 +6315,7 @@ function renderAccess(){
   if(A.offline){box.innerHTML='<p class="empty">Roles live in the club sheet, and this browser is not connected to it.</p>';return}
   /* The club column is a picker, so the club list has to be in hand first. */
   if(isMaster()&&!AFFROWS.length){renderAffs();}
-  box.innerHTML='<p class="empty">Loading…</p>';
+  box.innerHTML='<p class="empty wait">Loading…</p>';
   backendPost('listRoles',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the roles list. Check the Apps Script deployment.</p>';return}
     var rows=r.roles||[];
@@ -6329,7 +6409,7 @@ function renderClubForm(){
     box.innerHTML='<p class="empty">No sign-up form is linked to this club yet. An officer adds it under Intake.</p>';
     $('formsubmit').style.display='none'; return;
   }
-  box.innerHTML='<p class="empty">Loading the form…</p>';
+  box.innerHTML='<p class="empty wait">Loading the form…</p>';
   backendPost('formSchema',{formUrl:S.club.formUrl}).then(function(r){
     if(!r||!r.ok){
       box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that form.')+
@@ -6372,11 +6452,42 @@ function maybeOfferForm(){
   var btn=$('navform'); if(!btn)return;
   if(!S.club||!S.club.formUrl){btn.style.display='none';return}
   if(canEdit()){btn.style.display='';return}
+  /* A member who has filled it in never needs it again: it goes, as it does
+     the moment they submit. Everyone else gets it as the FIRST tab, because
+     for a new member it is the first thing to do -- it is what puts them on
+     the roster -- and at the end of the row it read as optional. */
+  if(formDone()){btn.style.display='none';FORM_PENDING=false;return}
+  var nav=$('nav'); if(nav&&nav.firstElementChild!==btn)nav.insertBefore(btn,nav.firstElementChild);
   btn.style.display='';
-  if(FORM_PENDING){
-    FORM_PENDING=false;
-    setView('v-form');
-  }
+  if(FORM_PENDING){ FORM_PENDING=false; FORM_LANDED=true; setView('v-form'); return; }
+  checkFormDone();
+}
+/* Remembered per club and per account, so a phone that has already sent the
+   form does not ask the backend again on every visit. */
+var FORM_LANDED=false, FORM_CHECKING=false;
+function formDoneKey(){return 'orgsys-formdone:'+(A.aff||'')+':'+String(A.email||A.name||'').toLowerCase()}
+function formDone(){try{return localStorage.getItem(formDoneKey())==='1'}catch(e){return false}}
+function markFormDone(){try{localStorage.setItem(formDoneKey(),'1')}catch(e){}}
+/* Asks once per page load whether this member's answers are already on file
+   -- they may have filled the form on another device, or before this page
+   existed. Only once that is known does the page decide to open the form for
+   them, so nobody is dropped onto a form they have already sent. */
+function checkFormDone(){
+  if(FORM_CHECKING||FORM_LANDED)return;
+  FORM_CHECKING=true;
+  backendPost('myProfile',null).then(function(r){
+    FORM_CHECKING=false;
+    var a=r&&r.ok&&r.answers;
+    if(a&&(a.at||a.year||a.track||a.mbti)){ markFormDone(); $('navform').style.display='none'; return; }
+    if(!r||!r.ok)return;
+    /* Land on the form only from the page they would have landed on anyway,
+       never out from under a link they followed to somewhere specific. */
+    var cur=document.querySelector('.view.on');
+    var id=cur?cur.id:'';
+    if(!FORM_LANDED&&(!id||id==='v-teams'||id==='v-cup'||id==='v-draft')){
+      FORM_LANDED=true; setView('v-form');
+    }
+  });
 }
 function submitClubForm(){
   var m=$('formmsg');
@@ -6393,10 +6504,10 @@ function submitClubForm(){
     if(val&&val.length)answers[f.id]=val;
   });
   if(missing.length){m.textContent='Still needed: '+missing.slice(0,3).join(', ')+'.';m.className='msg show';return}
-  m.textContent='Sending…';m.className='msg show info';
+  m.textContent='Sending…';m.className='msg show info wait';
   backendPost('submitForm',{action:FORM.schema.action,answers:answers}).then(function(r){
     if(r&&r.ok){
-      m.textContent='Sent. Reading your answers back…';m.className='msg show info';
+      m.textContent='Sent. Reading your answers back…';m.className='msg show info wait';
       /* The response has just landed in the club's spreadsheet. Pulling it
          straight back is what puts it on the account, which is the whole
          point of filling the form in while signed in. */
@@ -6406,6 +6517,7 @@ function submitClubForm(){
           : 'Sent. It will appear on your profile once the club’s sheet catches up.';
         m.className='msg show good';
         FORM_PENDING=false;
+        markFormDone();
         $('navform').style.display='none';
         setTimeout(function(){setView('v-profile')},1200);
       });
@@ -6419,7 +6531,7 @@ function affSay(t,kind){var m=$('affmsg');m.textContent=t;m.className='msg show'
 function renderAffs(){
   var box=$('afftable'); if(!box)return;
   if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
-  box.innerHTML='<p class="empty">Loading…</p>';
+  box.innerHTML='<p class="empty wait">Loading…</p>';
   backendPost('listAffiliations',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the club list.</p>';return}
     var rows=(r.affiliations||[]).slice();
@@ -6585,7 +6697,7 @@ function renderSignupTable(){
 function renderSignups(){
   var box=$('sgtable'); if(!box)return;
   if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
-  box.innerHTML='<p class="empty">Loading…</p>';
+  box.innerHTML='<p class="empty wait">Loading…</p>';
   backendPost('listSignups',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the account list.</p>';return}
     SIGNUPS=r.signups||[];
@@ -6604,7 +6716,7 @@ function userSay(t,kind){var m=$('usermsg');m.textContent=t;m.className='msg sho
 function renderUsers(){
   var box=$('usertable'); if(!box)return;
   if(A.offline){box.innerHTML='<p class="empty">Accounts live in the club sheet, and this browser is not connected to it.</p>';return}
-  box.innerHTML='<p class="empty">Loading…</p>';
+  box.innerHTML='<p class="empty wait">Loading…</p>';
   backendPost('listUsers',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the account list.</p>';return}
     var rows=r.users||[];
@@ -7309,9 +7421,10 @@ $('wipe').addEventListener('click',function(){
    here. */
 function afterSignIn(pre){
   unlockNav();
-  if(A.needsAff){ showGate(true); gateMode('join'); return; }
+  if(A.needsAff){ busyClear(); showGate(true); gateMode('join'); return; }
   if($('v-intake').classList.contains('on')&&!canEdit())setView(S.orgs.length?'v-draft':'v-cup');
   (pre?Promise.resolve(pre):backendGet()).then(function(data){
+    busyClear();
     if(data&&data.ok){
       if(data.needsAff){ A.needsAff=true; showGate(true); gateMode('join'); return; }
       if(data.aff){A.aff=data.aff; A.affName=data.affName||data.aff; setRole(A.role,null)}

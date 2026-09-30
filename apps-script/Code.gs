@@ -266,8 +266,12 @@ function out(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+/* Opening the spreadsheet costs a round trip inside Google every time, and one
+   request used to open it once per tab it touched. One execution, one open. */
+var BOOK_ = null;
 function book() {
-  return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActive();
+  if (!BOOK_) BOOK_ = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActive();
+  return BOOK_;
 }
 /* The Users sheet holds credentials, so its column order is load-bearing: read
    it with the wrong layout and every login silently fails against the wrong
@@ -315,7 +319,20 @@ function ensureHeader(sh, cols, name, ss) {
   return fresh;
 }
 
+/* Per-execution memo. A request reads 'config' three or four times and each
+   read re-checked the header and re-pulled the whole tab. Reads are shared
+   for the length of one request; anything that asks for a tab through tab()
+   may be about to write to it, so that drops the cached rows for that tab. */
+var TABS_ = {}, ROWS_ = {};
 function tab(key) {
+  delete ROWS_[key];
+  return tabRead_(key);
+}
+function tabRead_(key) {
+  if (TABS_.hasOwnProperty(key)) return TABS_[key];
+  return (TABS_[key] = tabOpen_(key));
+}
+function tabOpen_(key) {
   var spec = TAB[key], ss = book(), sh = ss.getSheetByName(spec.name);
   if (!sh) {
     // The Form response tab belongs to the Form; never conjure a fake one.
@@ -340,8 +357,18 @@ function readScoped(key, aff) {
     return a === aff;
   });
 }
+/* Rows are only shared within a read-only request. A write request reads its
+   own writes back, and holding stale rows there is how a duplicate slips in. */
+var MEMO_ROWS_ = false;
 function readTab(key) {
-  var sh = tab(key);
+  if (!MEMO_ROWS_) return readTabFresh_(key);
+  if (ROWS_.hasOwnProperty(key)) return ROWS_[key].slice();
+  var rows = readTabFresh_(key);
+  ROWS_[key] = rows;
+  return rows.slice();
+}
+function readTabFresh_(key) {
+  var sh = tabRead_(key);
   if (!sh) return [];
   var values = sh.getDataRange().getValues();
   if (values.length < 2) return [];
@@ -693,6 +720,7 @@ function doPost(e) {
 
     if (!NEEDS[action]) return out({ok: false, error: 'Unknown action.'});
 
+    MEMO_ROWS_ = !!READ_ONLY[action];
     var id;
     try { id = identify(body); }
     catch (err) { return out(failRef_('identify', err)); }
@@ -705,9 +733,15 @@ function doPost(e) {
         NEEDS[action] + '.', role: role});
     }
 
+    /* Reads do not queue behind the write lock. At a meeting, forty members
+       opening the page at once were served one at a time, each waiting on
+       whoever was ahead -- a read cannot corrupt anything, so it skips the
+       line. Writes still hold the lock exactly as before. */
     var lock = null;
-    try { lock = LockService.getScriptLock(); lock.waitLock(20000); }
-    catch (err) { return out({ok: false, error: 'Sheet busy, try again.'}); }
+    if (!READ_ONLY[action]) {
+      try { lock = LockService.getScriptLock(); lock.waitLock(20000); }
+      catch (err) { return out({ok: false, error: 'Sheet busy, try again.'}); }
+    }
     try {
       return out(dispatch(action, body.payload, email, role, id));
     } catch (err) {
@@ -728,6 +762,10 @@ function failRef_(where, err) {
   try { console.error('[' + ref + '] ' + where + ': ' + (err && err.stack ? err.stack : err)); } catch (e) {}
   return {ok: false, error: 'Something went wrong on the server. Reference ' + ref + '.', ref: ref};
 }
+
+var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
+                 listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
+                 clubRoster: 1, formSchema: 1, formItems: 1};
 
 function dispatch(action, payload, email, role, id) {
   var aff = normAff((id && id.aff) || DEFAULT_AFF);
