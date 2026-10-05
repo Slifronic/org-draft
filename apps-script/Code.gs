@@ -168,7 +168,12 @@ function accountsFor(only) {
   var profs = {};
   readTab('profiles').forEach(function (r) {
     profs[String(r.Email).toLowerCase() + '|' + normAff(r.Affiliation)] =
-      {first: r.FirstName, last: r.LastName, photo: r.Photo};
+      {first: r.FirstName, last: r.LastName, photo: r.Photo,
+       /* The onboarding answers, so officers can form Orgs straight from the
+          people who signed up. Only ever returned to admin-level callers
+          (clubRoster, listSignups); memberCard picks its own fields. */
+       year: r.Year, track: r.Track, mbti: r.MBTI, avail: r.Availability,
+       notes: r.FormNotes, prefs: r.Prefs};
   });
   var out = [];
   function push(who, kind, a, pr, r, joined, how, email) {
@@ -177,7 +182,9 @@ function accountsFor(only) {
               first: r.FirstName || pr.first || '', last: r.LastName || pr.last || '',
               email: email, role: String(r.Role || 'member').toLowerCase(),
               aff: a, affName: affNames[a] || a, joined: joined || '',
-              how: how || '', photo: pr.photo || ''});
+              how: how || '', photo: pr.photo || '',
+              year: String(pr.year || ''), track: String(pr.track || ''), mbti: String(pr.mbti || ''),
+              avail: String(pr.avail || ''), notes: String(pr.notes || ''), prefs: String(pr.prefs || '')});
   }
   readTab('users').forEach(function (r) {
     if (!r.Username) return;
@@ -234,7 +241,11 @@ var SESSION_MS = 7 * 24 * 60 * 60 * 1000;
    clubs side by side; nothing is read or written without a scope. */
 var TAB = {
   roles:      {name: 'Roles',      cols: ['Email', 'Role', 'GrantedBy', 'GrantedAt', 'Affiliation']},
-  teams:      {name: 'Teams',      cols: ['MemberName', 'Org', 'Track', 'Year', 'MBTI', 'LeadInterest', 'IsLead', 'Notes', 'Affiliation']},
+  /* Availability (Fall 2026) is appended after Affiliation rather than before
+     it: ensureHeader widens a sheet in place only when the old header is a
+     prefix of the new one, so inserting would archive the live Teams tab. */
+  teams:      {name: 'Teams',      cols: ['MemberName', 'Org', 'Track', 'Year', 'MBTI', 'LeadInterest', 'IsLead', 'Notes', 'Affiliation',
+                                          'Availability']},
   pointsLog:  {name: 'PointsLog',  cols: ['Timestamp', 'MemberName', 'ActionId', 'ActionLabel', 'Points', 'Track', 'Org', 'Affiliation']},
   attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation']},
   roster:     {name: 'Form Responses 1', cols: null, readOnly: true},
@@ -253,7 +264,7 @@ var TAB = {
                                            'FirstAt']},
   profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo',
                                           'Year', 'Track', 'MBTI', 'LeadInterest', 'FormNotes', 'FormAt',
-                                          'Birthday']}
+                                          'Birthday', 'Availability', 'Prefs']}
 };
 var DEFAULT_AFF = 'default';
 /* The form every club starts from. Copied per club rather than shared, so one
@@ -787,7 +798,10 @@ function teamBoard_(aff, cfg) {
   return teams.map(function (t) {
     var members = t.members || [], pts = 0, got = 0, of = 0, works = 0;
     work.forEach(function (w) {
-      var target = w.team || (w.org && w.org !== 'all' ? 'org' : 'all');
+      /* An assignment set for one Org is that Org's business, not every
+         team's: Fall 2026 posts carry team:'all' plus an org. */
+      var target = (w.team && w.team !== 'all') ? w.team
+        : ((w.org !== undefined && w.org !== null && w.org !== '' && w.org !== 'all') ? 'org' : 'all');
       if (target !== 'all' && target !== t.id) return;
       if (!members.length) return;
       var p = String(w.due).split('-');
@@ -802,6 +816,99 @@ function teamBoard_(aff, cfg) {
     });
     return {id: t.id, pts: pts, got: got, of: of, works: works};
   });
+}
+
+/* ---- Org Cups (Fall 2026) ----
+   EBOD moved the Cup to the Org level. For each assignment with a due date
+   that was set for everyone or for one Org, this counts how many of each
+   Org's members handed it in by the end of the due day. The page turns that
+   into cups (80% or more on time); members see counts, never who. */
+function orgBoard_(aff, cfg) {
+  cfg = cfg || {};
+  var work = (cfg.work || []).filter(function (w) {
+    return w && w.id && w.due && (!w.team || w.team === 'all');
+  });
+  var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var orgs = {}, order = [];
+  readScoped('teams', aff).forEach(function (r) {
+    var o = String(r.Org || ''); if (!o || !r.MemberName) return;
+    if (!orgs[o]) { orgs[o] = []; order.push(o); }
+    orgs[o].push(flat(r.MemberName));
+  });
+  if (!order.length) return [];
+  var first = {};
+  readTab('submissions').forEach(function (r) {
+    if (normAff(r.Affiliation) !== aff) return;
+    var at = r.FirstAt || r.SubmittedAt;
+    if (at) first[String(r.WorkId) + '|' + flat(r.MemberName)] = new Date(at).getTime();
+  });
+  return order.map(function (o) {
+    return {org: o, works: work.filter(function (w) {
+      return w.org === undefined || w.org === null || w.org === '' || w.org === 'all' || String(w.orgName || '') === o;
+    }).map(function (w) {
+      var p = String(w.due).split('-');
+      var end = new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59).getTime();
+      var got = 0;
+      orgs[o].forEach(function (m) { var at = first[w.id + '|' + m]; if (at && at <= end) got++; });
+      return {id: w.id, got: got, of: orgs[o].length};
+    })};
+  });
+}
+
+/* FLC preferences arrive as JSON text from the member's own page. Parsed and
+   rebuilt here so only the known shape is stored: up to three event names,
+   one requested teammate, and whether they can attend. */
+function cleanPrefs_(raw) {
+  var o;
+  try { o = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return null; }
+  if (!o || typeof o !== 'object') return null;
+  var txt = function (v, n) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').slice(0, n); };
+  var flc = (o.flc || []).slice(0, 3).map(function (v) { return txt(v, 40); }).filter(String);
+  return JSON.stringify({flc: flc, mate: txt(o.mate, 60), attend: o.attend !== false, at: Number(o.at) || Date.now()});
+}
+
+/* A hand-in that is a link rather than a file. Same one-row-per-member rule
+   and the same first-hand-in timestamp as a file, so it counts for the Org
+   Cup exactly the same way. */
+function submitLink_(aff, id, email, swId, link) {
+  var flatW = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var myOrg = '', myName = String(id.name || email);
+  readScoped('teams', aff).forEach(function (r) {
+    if (flatW(r.MemberName) !== flatW(id.name || email)) return;
+    myOrg = String(r.Org || ''); myName = String(r.MemberName || myName);
+  });
+  if (!myOrg) myOrg = 'Not drafted yet';
+  var wKey = 'club:' + aff, wCfg = {};
+  readTab('config').forEach(function (r) {
+    if (String(r.Key) === wKey) { try { wCfg = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  var task = ((wCfg.work || []).filter(function (w) { return w.id === swId; })[0] || {}).title;
+  if (!task) return {ok: false, error: 'That assignment no longer exists.'};
+  var sh = tab('submissions'), v = sh.getDataRange().getValues();
+  var ix = {}; for (var c = 0; c < v[0].length; c++) ix[String(v[0][c])] = c;
+  var mine = -1, prevRev = 0, prevFirst = '';
+  for (var r = 1; r < v.length; r++) {
+    if (normAff(v[r][ix.Affiliation]) !== aff) continue;
+    if (String(v[r][ix.WorkId]) !== swId) continue;
+    if (flatW(v[r][ix.MemberName]) !== flatW(myName)) continue;
+    mine = r + 1; prevRev = Number(v[r][ix.Revision]) || 1;
+    prevFirst = v[r][ix.FirstAt] || v[r][ix.SubmittedAt] || '';
+    var last = v[r][ix.SubmittedAt];
+    if (last && (new Date().getTime() - new Date(last).getTime()) < 60000)
+      return {ok: false, error: 'You handed this in less than a minute ago. Give it a moment before replacing it.'};
+    if (prevRev >= 12) return {ok: false, error: 'This has been replaced too many times. Ask an officer to reset it.'};
+    break;
+  }
+  var now = new Date(), rev = prevRev ? prevRev + 1 : 1, row = [];
+  for (var k = 0; k < v[0].length; k++) row.push('');
+  row[ix.Affiliation] = aff;   row[ix.WorkId] = swId;     row[ix.WorkTitle] = task;
+  row[ix.MemberName] = myName; row[ix.Org] = myOrg;       row[ix.FileId] = '';
+  row[ix.FileName] = 'Link';   row[ix.FileUrl] = link;    row[ix.SubmittedAt] = now;
+  row[ix.Revision] = rev;      row[ix.Status] = 'submitted';
+  if (ix.FirstAt !== undefined) row[ix.FirstAt] = prevFirst || now;
+  if (mine > 0) sh.getRange(mine, 1, 1, row.length).setValues([row]);
+  else sh.appendRow(row);
+  return {ok: true, filed: task + ' / ' + myOrg + ' / ' + myName, revision: rev, replaced: rev > 1};
 }
 
 function dispatch(action, payload, email, role, id) {
@@ -884,7 +991,7 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, profile: mine, points: pts, entries: evts,
               history: hist.slice(-25), aff: aff, role: role, who: email,
               answers: prow ? {year: prow.Year, track: prow.Track, mbti: prow.MBTI,
-                               lead: prow.LeadInterest, notes: prow.FormNotes,
+                               lead: prow.LeadInterest, notes: prow.FormNotes, avail: prow.Availability || '',
                                bday: prow.Birthday ? Utilities.formatDate(
                                  new Date(prow.Birthday), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
                                at: prow.FormAt} : null};
@@ -926,6 +1033,7 @@ function dispatch(action, payload, email, role, id) {
           cTrack = findCol(/track|division|which side|lean|interest/),
           cMbti  = findCol(/mbti|personality|16 ?personalities|four letters|type/),
           cLead  = findCol(/lead|officer|leadership/),
+          cAvail = findCol(/availab|when are you|free time|schedule/),
           cNote  = findCol(/anything|note|comment|else/);
 
       var flatF = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
@@ -946,6 +1054,7 @@ function dispatch(action, payload, email, role, id) {
         track: cTrack > -1 ? String(hit[cTrack] || '') : '',
         mbti:  cMbti  > -1 ? String(hit[cMbti]  || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4) : '',
         lead:  cLead  > -1 ? String(hit[cLead]  || '') : '',
+        avail: cAvail > -1 ? String(hit[cAvail] || '').slice(0, 120) : '',
         notes: cNote  > -1 ? String(hit[cNote]  || '').slice(0, 500) : ''
       };
 
@@ -961,6 +1070,7 @@ function dispatch(action, payload, email, role, id) {
         shF.getRange(rf + 1, iF.MBTI + 1).setValue(got.mbti);
         shF.getRange(rf + 1, iF.LeadInterest + 1).setValue(got.lead);
         shF.getRange(rf + 1, iF.FormNotes + 1).setValue(got.notes);
+        if (iF.Availability !== undefined) shF.getRange(rf + 1, iF.Availability + 1).setValue(got.avail);
         shF.getRange(rf + 1, iF.FormAt + 1).setValue(when);
         wrote = true;
       }
@@ -970,6 +1080,7 @@ function dispatch(action, payload, email, role, id) {
         rowF[iF.Email] = meEmail; rowF[iF.Affiliation] = aff;
         rowF[iF.Year] = got.year; rowF[iF.Track] = got.track; rowF[iF.MBTI] = got.mbti;
         rowF[iF.LeadInterest] = got.lead; rowF[iF.FormNotes] = got.notes; rowF[iF.FormAt] = when;
+        if (iF.Availability !== undefined) rowF[iF.Availability] = got.avail;
         shF.appendRow(rowF);
       }
       got.at = when;
@@ -1110,7 +1221,15 @@ function dispatch(action, payload, email, role, id) {
       var swMime = String((payload || {}).mime || '');
       var swData = String((payload || {}).data || '');
       var swId   = String((payload || {}).workId || '');
+      var swLink = String((payload || {}).link || '').trim();
       if (!swId)   return {ok: false, error: 'No assignment was named.'};
+      /* A link instead of a file (a Google Doc, a deck). Only https, and
+         recorded as the link itself: nothing is fetched or copied. */
+      if (swLink) {
+        if (!/^https:\/\/[^\s<>"']{4,}$/.test(swLink) || swLink.length > 500)
+          return {ok: false, error: 'That does not look like a full https:// link.'};
+        return submitLink_(aff, id, email, swId, swLink);
+      }
       if (!swData) return {ok: false, error: 'No file arrived.'};
 
       /* Base64 is about a third larger than the bytes it carries, so this is
@@ -1239,7 +1358,7 @@ function dispatch(action, payload, email, role, id) {
         out.push({workId: String(r.WorkId), workTitle: String(r.WorkTitle || ''),
                   name: String(r.MemberName || ''), org: String(r.Org || ''),
                   fileName: String(r.FileName || ''), fileUrl: String(r.FileUrl || ''),
-                  at: r.SubmittedAt, revision: Number(r.Revision) || 1,
+                  at: r.SubmittedAt, first: r.FirstAt || r.SubmittedAt, revision: Number(r.Revision) || 1,
                   status: String(r.Status || 'submitted'),
                   points: r.Points === '' ? null : Number(r.Points),
                   reviewedBy: String(r.ReviewedBy || ''), comment: String(r.Comment || '')});
@@ -1371,9 +1490,31 @@ function dispatch(action, payload, email, role, id) {
           shP.getRange(i0 + 1, idxP.FormNotes + 1).setValue(String(pay.notes).slice(0, 300));
         if (pay.bday !== undefined && idxP.Birthday !== undefined)
           shP.getRange(i0 + 1, idxP.Birthday + 1).setValue(String(pay.bday).slice(0, 10));
+        if (pay.availability !== undefined && idxP.Availability !== undefined)
+          shP.getRange(i0 + 1, idxP.Availability + 1).setValue(String(pay.availability).slice(0, 120));
+        if (pay.prefs !== undefined && idxP.Prefs !== undefined) {
+          var pv = cleanPrefs_(pay.prefs);
+          if (pv === null) return {ok: false, error: 'Those preferences could not be read.'};
+          shP.getRange(i0 + 1, idxP.Prefs + 1).setValue(pv);
+        }
         return {ok: true, saved: true};
       }
-      shP.appendRow([pE, aff, pf, pl, ph]);
+      /* First save for this account. Built against the header rather than a
+         fixed five cells, so preferences sent before any other detail are not
+         silently dropped. */
+      var rowP = [];
+      for (var kP = 0; kP < vP[0].length; kP++) rowP.push('');
+      rowP[idxP.Email] = pE; rowP[idxP.Affiliation] = aff;
+      rowP[idxP.FirstName] = pf; rowP[idxP.LastName] = pl; rowP[idxP.Photo] = ph;
+      var pay0 = payload || {};
+      if (pay0.availability !== undefined && idxP.Availability !== undefined)
+        rowP[idxP.Availability] = String(pay0.availability).slice(0, 120);
+      if (pay0.prefs !== undefined && idxP.Prefs !== undefined) {
+        var pv0 = cleanPrefs_(pay0.prefs);
+        if (pv0 === null) return {ok: false, error: 'Those preferences could not be read.'};
+        rowP[idxP.Prefs] = pv0;
+      }
+      shP.appendRow(rowP);
       return {ok: true, saved: true};
     }
 
@@ -1915,6 +2056,7 @@ function dispatch(action, payload, email, role, id) {
         affiliations: id.isRoot ? allAffiliations().map(function (a) {
           return {code: a.code, name: a.name}; }) : null,
         teamBoard:  teamBoard_(aff, cfg),
+        orgBoard:   orgBoard_(aff, cfg),
         roster:     readTab('roster'),
         teams:      readScoped('teams', aff),
         pointsLog:  readScoped('pointsLog', aff),

@@ -1081,6 +1081,42 @@ nav button[aria-current=true],.tab[aria-selected=true]{color:var(--ink);border-b
 nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--slate);opacity:1}
 .selbtn{background:var(--void);border:1px solid var(--rule);border-radius:4px;color:var(--ink);text-align:left}
 .gateswitch button{color:var(--ink);text-decoration:underline}
+
+/* ---- Fall 2026: EBOD contact, year chips, team kinds, Org Cups ---- */
+.panel[hidden]{display:none}
+.lbl2{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);margin-right:8px}
+.ebodline{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:13px}
+.ebodline em{font-style:normal;color:var(--mute);font-size:12px}
+.ebodline select,.ebodline .selwrap{flex:1;min-width:140px}
+.role.yr{color:var(--mute)}
+.role.yr.y2{color:var(--ink);border-color:var(--slate)}
+tr.yrhead td{font-family:'Space Grotesk',ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);background:var(--wash);padding-top:8px;padding-bottom:8px}
+tr.mine td{background:var(--warmwash)}
+.sqsec{margin:22px 0 10px;display:flex;align-items:baseline;gap:10px}
+.sqpms{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+.sqpms select,.sqpms .selwrap{flex:1;min-width:120px}
+.sqm.me{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sqm em.ini{color:var(--accent)}
+.sqm select{font-size:11px;padding:2px 4px;min-height:0;max-width:130px}
+.sqm .selwrap{max-width:130px}
+.cupgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.cupcard{border:1px solid var(--rule);border-radius:6px;padding:14px;background:var(--paper)}
+.cupcard.mine{box-shadow:inset 3px 0 0 var(--accent)}
+.cupcard h4{margin:0 0 6px;font-size:15px}
+.cups{font-size:20px;letter-spacing:2px;color:var(--compete);min-height:26px}
+.cups .none{font-size:12px;letter-spacing:0;color:var(--mute)}
+.cupwhy{font-size:12px;color:var(--slate);margin-top:6px}
+.cupwhy li{margin:2px 0}
+.subsum{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--slate);margin:4px 0 8px}
+.subsum b{color:var(--ink)}
+.missing{font-size:12.5px;color:var(--slate);margin-top:6px}
+.missing b{color:var(--flag)}
+.hwlink{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.hwlink input{flex:1;min-width:200px}
+.demoswitch{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.demoswitch a{font-size:12px;padding:3px 10px;border:1px solid var(--rule);border-radius:999px;text-decoration:none}
+.demoswitch a.on{background:var(--fill);color:var(--onfill);border-color:var(--fill)}
 </style>
 </head>
 <body data-role="none">
@@ -1176,7 +1212,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <button data-view="v-draft" disabled data-req="admin">Draft</button>
     <button data-view="v-teams" disabled id="navorgs">Orgs</button>
     <button data-view="v-squads">Teams</button>
-    <button data-view="v-cup">Team Cup</button>
+    <button data-view="v-cup">Org Cup</button>
     <button data-view="v-assist" disabled data-req="admin">Assistant</button>
     <button data-view="v-calendar">Calendar</button>
     <button data-view="v-work">Homework</button>
@@ -1239,7 +1275,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 
 <div class="panel" data-req="admin" id="clubpanel" data-section="club-setup">
   <h2>Club setup</h2>
-  <p class="hint">Set your club’s vocabulary once — what a team is called, how the club divides, what the ranks are. It changes everywhere.</p>
+  <p class="hint">Set your club’s vocabulary once — what a team is called and how the club divides. It changes everywhere.</p>
 
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:230px"><label for="presetsel">Start from a kit</label><select id="presetsel"></select></div>
@@ -1273,12 +1309,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <div class="field"><label for="cf-new">Newer members are</label><input type="text" id="cf-new"></div>
     <div class="field"><label for="cf-old">Longer-standing members are</label><input type="text" id="cf-old"></div>
   </div>
-  <div class="setuprow">
-    <div class="field" hidden><label for="cf-rlead">Team leader title</label><input type="text" id="cf-rlead"></div>
-    <div class="field"><label for="cf-rsenior">Experienced member title</label><input type="text" id="cf-rsenior"></div>
-    <div class="field"><label for="cf-rjunior">New member title</label><input type="text" id="cf-rjunior"></div>
-    <div class="field" hidden><label for="cf-leadsper">Leaders per team</label><input type="number" id="cf-leadsper" min="1" max="6"></div>
-  </div>
+  <p class="setupsub">There are no member titles. Everyone is a Member; the only split shown next to a name is the year above.</p>
 
   <h3>Personality types</h3>
   <label class="check"><input type="checkbox" id="cf-usembti"> Collect MBTI and use it to spread types across teams</label>
@@ -1303,11 +1334,16 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 <div class="panel" data-req="admin" data-section="roster-source">
   <h2>Roster source</h2>
   <div class="tabs" role="tablist">
-    <button class="tab" role="tab" aria-selected="true" data-pane="pane-sheet">Google Sheet</button>
+    <button class="tab" role="tab" aria-selected="true" data-pane="pane-accts">Signed-up members</button>
+    <button class="tab" role="tab" aria-selected="false" data-pane="pane-sheet">Google Sheet</button>
     <button class="tab" role="tab" aria-selected="false" data-pane="pane-file">Upload CSV</button>
     <button class="tab" role="tab" aria-selected="false" data-pane="pane-paste">Paste</button>
   </div>
-  <div class="tabpane on" id="pane-sheet">
+  <div class="tabpane on" id="pane-accts">
+    <p class="hint">Everyone who signed in with Google and filled in the onboarding form — year, track, MBTI and availability come from their answers. This is the usual way to form Orgs: no export, nothing to paste.</p>
+    <div class="row"><button id="accpull" type="button">Use signed-up members</button></div>
+  </div>
+  <div class="tabpane" id="pane-sheet">
     <p class="hint">A published-CSV link or a shared Google Sheet URL. Re-pulls on demand, so late sign-ups get picked up by hitting Refresh.</p>
     <input type="text" class="mono" id="sheeturl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
     <div class="row">
@@ -1352,10 +1388,10 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <ol>
       <li><b>Name</b> — full name, one per member. Required.</li>
       <li><b>Email</b> — leave it off any published tab.</li>
-      <li><b>Year in the club</b> — first year, or second and up. Club tenure, not academic standing. Required.</li>
-      <li><b>Which division they lean toward</b> — one option per track, plus <b>either / no preference</b>. Keep that last option: undecided members are what let the sort even out lopsided groups.</li>
+      <li><b>Year</b> — 1st year or 2nd year. Required. This is the only thing shown next to a name; there are no titles.</li>
+      <li><b>Track</b> — Consulting, Case competition (FLC) or Polaris, plus <b>not sure yet</b>. Keep that last option: undecided members are what let the sort even out lopsided groups.</li>
       <li><b>MBTI type</b> — four letters. Only if you switched it on under Club setup. Make it required and link one specific free test, or leave it off entirely.</li>
-      <li><b>Leadership interest</b> — yes/no. The draft spreads volunteers across teams.</li>
+      <li><b>Availability</b> — when they are usually free. Shown to officers next to the name when forming teams.</li>
       <li><b>Anything the draft should know</b> — optional free text. Members with a note get flagged.</li>
     </ol>
     <p>Raw Google Form exports work as they are. Nothing needs reformatting.</p>
@@ -1368,7 +1404,7 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
     <p style="margin-top:0">This runs in your browser. To read a sheet directly, it has to be readable without a login.</p>
     <h4>Option A — publish just the responses</h4>
     <ol>
-      <li>In the response sheet, make a tab with only what the draft needs: name, year, track, MBTI, lead interest, notes. Leave emails out.</li>
+      <li>In the response sheet, make a tab with only what the draft needs: name, year, track, MBTI, availability, notes. Leave emails out.</li>
       <li>File → Share → Publish to web, choose that tab, format <b>CSV</b>, Publish.</li>
       <li>Paste the link below.</li>
       <li>Unpublish when the draft is done.</li>
@@ -1396,13 +1432,14 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
       <div class="field" style="flex:1;min-width:170px"><label for="nc-name">Display name</label><input type="text" id="nc-name" placeholder="De Anza PBL — Spring 26"></div>
       <div class="field" style="flex:1;min-width:150px"><label for="nc-join">Join code</label><input type="text" class="mono" id="nc-join" placeholder="at least 6 characters"></div>
     </div>
-    <p class="hint">The new club starts empty and copies this club’s setup — track names, ranks, whether MBTI is used. It does not take its form, its sheet or its accounts. The club you are viewing now is left exactly as it is.</p>
+    <p class="hint">The new club starts empty and copies this club’s setup — track names, the season dates, whether MBTI is used. It does not take its form, its sheet or its accounts. The club you are viewing now is left exactly as it is.</p>
   </div>
   <div class="row">
     <div class="field">
       <label for="orgcount" id="orgcountlbl">Number of Orgs</label>
       <input type="number" id="orgcount" value="10" min="2" max="30">
     </div>
+    <span class="savenote" id="orgsizehint" style="padding:9px 0"></span>
     <label class="check" style="padding:9px 0" id="mbtibalwrap"><input type="checkbox" id="mbtibal" checked> Spread MBTI types across teams</label>
     <button id="run">Run draft</button>
   </div>
@@ -1461,10 +1498,11 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
   <div class="legend" id="legend"></div>
   <div class="grid" id="orggrid"></div>
   <div class="row" id="draftactions">
+    <button id="ebodauto" class="ghost" data-req="admin" type="button">Assign EBOD contacts</button>
     <button id="redraw" class="ghost" data-req="admin">Reshuffle draft</button>
     <button id="export" class="ghost" data-req="admin">Export roster CSV</button>
   </div>
-  <footer id="draftfoot">Reshuffling re-runs the draft from scratch and discards manual moves. Points and the attendance log survive it — they're keyed to people, not to Orgs.</footer>
+  <footer id="draftfoot">Move people between Orgs on each Org's page. Reshuffling re-runs the draft from scratch and discards manual moves; teams, homework and the commitment log survive it — they're keyed to people, not to Orgs.</footer>
 </div>
 
 <!-- ============ TEAMS ============ -->
@@ -1479,15 +1517,19 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 <div class="view" id="v-squads">
   <div class="panel" data-req="admin" data-section="build-teams">
     <h2>Build a team</h2>
-    <p class="hint">Consulting client teams and case competition teams. Name it, pick members from the roster, and it appears for everyone. A member can be on one team.</p>
+    <p class="hint">Consulting: one team per client, two PMs, about 10–12 consultants split into initiatives. FLC: up to 4 members, up to 3 teams per event. A member can be on one consulting team and one FLC team, and sees both here.</p>
     <div class="row" style="margin-top:0">
-      <div class="field" style="flex:2;min-width:200px"><label for="sq-name">Team name</label>
-        <input type="text" id="sq-name" placeholder="Keypoint Credit Union client team"></div>
-      <div class="field" style="flex:1;min-width:160px"><label for="sq-track">Kind</label><select id="sq-track"></select></div>
+      <div class="field" style="flex:1;min-width:180px"><label for="sq-kind">Kind</label><select id="sq-kind"></select></div>
+      <div class="field" style="flex:1;min-width:180px" id="sq-sub"></div>
+      <div class="field" style="flex:2;min-width:200px"><label for="sq-name">Team name (optional)</label>
+        <input type="text" id="sq-name" placeholder="Filled in from the client or event"></div>
       <div class="field" style="width:auto"><label>&nbsp;</label><button id="sq-add" type="button">Add team</button></div>
     </div>
+    <div class="row"><button id="sq-clients" class="ghost" type="button">Set up every client team and place consulting-track members</button></div>
     <div class="msg" id="sqmsg"></div>
   </div>
+  <div class="panel" id="sqprefs" data-req="admin" hidden></div>
+  <div class="panel" id="myprefs" hidden></div>
   <div id="squadbody"></div>
 </div>
 
@@ -1517,9 +1559,18 @@ nav button:hover:not(:disabled):not([aria-current=true]),.tab:hover{color:var(--
 <div class="view" id="v-cup">
 
 <div class="panel" data-section="team-cup">
-  <h2>Team Cup</h2>
-  <p class="hint">Teams score by handing homework in on time. Each assignment is worth up to <b>100 points</b> to a team: the share of its members who handed it in through the Homework tab before the due date. Team size makes no difference.</p>
+  <h2>Org Cups</h2>
+  <p class="hint">An Org earns a cup every time at least <b>80% of its members</b> hand an assignment in on time, and EBOD awards cups for things like bootcamp turnout. There is no leaderboard: cups are something an Org collects together, not a ranking. Your own commitment points are a private record on your Profile.</p>
   <div id="teamboard"></div>
+</div>
+<div class="panel" data-req="admin" data-section="award-cup">
+  <h2>Award a cup</h2>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:1;min-width:170px"><label for="cup-org">Org</label><select id="cup-org"></select></div>
+    <div class="field" style="flex:2;min-width:220px"><label for="cup-why">For</label><input type="text" id="cup-why" placeholder="Full turnout at bootcamp 1"></div>
+    <div class="field" style="width:auto"><label>&nbsp;</label><button id="cup-give" type="button">Award</button></div>
+  </div>
+  <div class="msg" id="cupgivemsg"></div>
 </div>
 
 <!-- The per-member points system, kept out of sight rather than torn out:
@@ -1707,12 +1758,13 @@ Marcus Lee"></textarea>
       <div class="field"><label for="hw-due">Due</label><input type="date" id="hw-due"></div>
     </div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label for="hw-for">Which team</label>
+      <div class="field" style="flex:1;min-width:150px"><label for="hw-for">Who it is for</label>
         <select id="hw-for"><option value="all">Everyone</option></select></div>
       <div class="field" style="flex:1;min-width:150px"><label for="hw-kind">Hand in as</label>
         <select id="hw-kind">
-          <option value="file">A file</option>
           <option value="any">A file or a link</option>
+          <option value="file">A file</option>
+          <option value="link">A link (Google Doc, Slides…)</option>
         </select></div>
       <div class="field" style="flex:2;min-width:220px"><label for="hw-note">What to hand in</label>
         <input type="text" id="hw-note" placeholder="One PDF, two pages, named after your Org"></div>
@@ -1721,7 +1773,7 @@ Marcus Lee"></textarea>
       <textarea id="hw-brief" style="height:110px" placeholder="What they are being asked to do, and what a good one looks like."></textarea></div>
     <div class="row"><button id="hw-add">Set it</button>
       <button class="ghost" id="hw-clear" type="button">Clear</button></div>
-    <p class="hint">Give it a due date and every on-time hand-in counts toward that member&rsquo;s team in the Team Cup.</p>
+    <p class="hint">Give it a due date: an Org earns a cup when 80% of its members hand it in on time. Below each assignment you see who has handed in, who was late and who has not yet.</p>
     <div class="msg" id="hwmsg"></div>
   </div>
   <div class="panel" data-section="your-work">
@@ -1879,11 +1931,15 @@ var DEFAULT_CLUB={
   clubName:'The Org System',
   unit:'Org', units:'Orgs',
   useTracks:true, trackWord:'Track',
-  tracks:[{id:'c',label:'Consulting'},{id:'k',label:'Case competitions'}],
-  flexLabel:'Either / not sure yet',
-  useYear:true, newWord:'new member', oldWord:'returning member',
+  tracks:[{id:'c',label:'Consulting'},{id:'k',label:'Case competition (FLC)'},{id:'t3',label:'Polaris'}],
+  flexLabel:'Not sure yet',
+  useYear:true, newWord:'1st year', oldWord:'2nd year',
   useMbti:true, mbtiRequired:true,
-  roleLead:'Org Lead', roleSenior:'Associate', roleJunior:'Analyst',
+  /* No titles. EBOD retired Associate / Analyst / Org Lead for Fall 2026:
+     everyone is a Member, and the only split that is shown is 1st year /
+     2nd year. The three fields stay so an old save still loads, but nothing
+     reads them for display any more -- see personRole(). */
+  roleLead:'Member', roleSenior:'Member', roleJunior:'Member',
   leadsPer:2,
   formUrl:'', sheetUrl:'', formEmbed:true
 };
@@ -1902,6 +1958,12 @@ function safeUrl(v){
   var u=String(v==null?'':v).trim();
   return /^https?:\/\//i.test(u)?u:'';
 }
+/* Longer free text (an assignment brief, a note). Same stripping as
+   cleanLabel, but cleanLabel also cuts at 60 characters, which was silently
+   truncating every brief an officer wrote. */
+function cleanText(v,n){
+  return String(v==null?'':v).replace(/[<>]/g,'').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g,'').slice(0,n||300);
+}
 function cloneClub(c){
   c=c||DEFAULT_CLUB;
   return {clubName:cleanLabel(c.clubName), unit:cleanLabel(c.unit), units:cleanLabel(c.units),
@@ -1919,10 +1981,74 @@ function cloneClub(c){
        they ride through cloneClub rather than being reset by "Load the kit". */
     board:(c.board||[]).slice(), recognitions:c.recognitions||{},
     events:(c.events||[]).slice(), work:(c.work||[]).slice(),
-    teams:(c.teams||[]).map(function(t){return {id:t.id,name:cleanLabel(t.name),track:t.track||'',
-      members:(t.members||[]).slice()}}),
+    teams:(c.teams||[]).map(cloneTeam),
+    /* Fall 2026: who on EBOD looks after which Org, the season's clients and
+       FLC events, and the Org Cups awarded by hand. Club record, like the
+       teams, so every officer sees the same thing. */
+    ebod:(c.ebod||[]).map(function(e){return {name:cleanLabel(e.name),pos:cleanLabel(e.pos)}}),
+    orgEbod:(c.orgEbod||[]).map(function(x){return cleanLabel(x)}),
+    clients:(c.clients||[]).map(function(x){return cleanLabel(x)}),
+    flcEvents:(c.flcEvents||[]).map(function(x){return cleanLabel(x)}),
+    cups:(c.cups||[]).slice(), seasonOff:(c.seasonOff||[]).slice(),
     gcalId:cleanLabel(c.gcalId), gcalUrl:safeUrl(c.gcalUrl), theme:cleanLabel(c.theme),
     formEmbed:c.formEmbed!==false};
+}
+
+/* A working team. Consulting teams carry a client, two PMs and the
+   initiatives their consultants split into; FLC teams carry the event they
+   compete in. Everything else about a team is the same as before. */
+function cloneTeam(t){
+  t=t||{};
+  return {id:t.id,name:cleanLabel(t.name),track:t.track||'',kind:cleanLabel(t.kind),
+    members:(t.members||[]).slice(),
+    client:cleanLabel(t.client), event:cleanLabel(t.event),
+    pms:(t.pms||[]).map(function(x){return cleanLabel(x)}).slice(0,2),
+    initiatives:(t.initiatives||[]).map(function(x){return cleanLabel(x)}).slice(0,8),
+    assign:(function(a){var o={};if(a)Object.keys(a).forEach(function(k){o[k]=cleanLabel(a[k])});return o})(t.assign)};
+}
+
+/* ================= FALL 2026 SEASON =================
+   What EBOD decided at the start of the quarter, written down once so the
+   app can offer it instead of every officer retyping it. */
+var F26={
+  ebod:[{name:'Derick',pos:'President'},{name:'Rameesha',pos:'VP'},{name:'Arin',pos:'VP Strategy & Dev'},
+        {name:'William',pos:'VP Finance'},{name:'Jayden',pos:'VP Ops'},{name:'Ruirui',pos:'VP Marketing'},
+        {name:'Bryant',pos:'VP Comms'},{name:'Elena',pos:'Director'},{name:'Angelo',pos:'Director'},
+        {name:'Lehem',pos:'Director'},{name:'Emmanuel',pos:'Director'},{name:'Timothy',pos:'Director'}],
+  clients:['Chroma Aromatics','Habitat for Humanity','City Year Bay Area','Stanford Reach Lab',
+           'SJ Camera & Video','Sky Campus','Figma (tentative)'],
+  flcEvents:['Finance','Marketing','Management','Accounting','Business Ethics'],
+  /* Built into the calendar for everyone. An officer can hide one; nobody has
+     to import them. Times and rooms are left for EBOD to add. */
+  season:[
+    {id:'f26-orient', title:'IM orientation',                         date:'2026-10-15', cat:'meet'},
+    {id:'f26-boot1',  title:'Bootcamp 1 + team formation',            date:'2026-10-20', cat:'meet'},
+    {id:'f26-boot2',  title:'Bootcamp 2 — FLC / consulting split rooms', date:'2026-10-22', cat:'meet'},
+    {id:'f26-mock',   title:'Mock case stations (week of Oct 27)',    date:'2026-10-27', cat:'comp'},
+    {id:'f26-flc1',   title:'FLC — Emeryville (day 1)',               date:'2026-11-13', cat:'comp', where:'Emeryville'},
+    {id:'f26-flc2',   title:'FLC — Emeryville (day 2)',               date:'2026-11-14', cat:'comp', where:'Emeryville'},
+    {id:'f26-flc3',   title:'FLC — Emeryville (day 3)',               date:'2026-11-15', cat:'comp', where:'Emeryville'},
+    {id:'f26-final',  title:'Consulting finals',                      date:'2026-11-19', cat:'comp'}
+  ],
+  /* FLC limits from the EBOD notes. */
+  flcMax:4, flcTeamsPerEvent:3,
+  /* Orgs of 8 to 10, so the draft suggests a count that lands there. */
+  orgMin:8, orgMax:10
+};
+function ebodList(){return (S.club.ebod&&S.club.ebod.length)?S.club.ebod:F26.ebod}
+function clientList(){return (S.club.clients&&S.club.clients.length)?S.club.clients:F26.clients}
+function flcEventList(){return (S.club.flcEvents&&S.club.flcEvents.length)?S.club.flcEvents:F26.flcEvents}
+function orgContact(i){return (S.club.orgEbod||[])[i]||''}
+function ebodPos(name){var e=ebodList().filter(function(x){return x.name===name})[0];return e?e.pos:''}
+/* Year is the only thing shown next to a name now. */
+function yearLabel(p){return (p&&p.year===2)?'2nd year':'1st year'}
+/* How many Orgs a roster of n should be drafted into so each lands at 8-10. */
+function suggestOrgCount(n){
+  if(n<F26.orgMin*2)return Math.max(2,Math.round(n/F26.orgMin));
+  var k=Math.round(n/9);
+  while(k>2&&n/k<F26.orgMin)k--;
+  while(n/k>F26.orgMax)k++;
+  return Math.max(2,k);
 }
 
 /* Starter kits. Each one is only a starting point -- every field stays
@@ -1931,9 +2057,8 @@ var PRESETS={
   business:{
     label:'Business / PBL / DECA',
     club:{unit:'Org',units:'Orgs',useTracks:true,trackWord:'Track',
-      tracks:[{id:'c',label:'Consulting'},{id:'k',label:'Case competitions'}],
-      flexLabel:'Either / not sure yet',
-      roleLead:'Org Lead',roleSenior:'Associate',roleJunior:'Analyst'},
+      tracks:[{id:'c',label:'Consulting'},{id:'k',label:'Case competition (FLC)'},{id:'t3',label:'Polaris'}],
+      flexLabel:'Not sure yet',newWord:'1st year',oldWord:'2nd year'},
     actions:[
       ['Consulting workshop attendance',1,'c'],['Case competition prep',1,'k'],
       ['General meeting attendance',1,'x'],['Org social attendance',2,'s'],
@@ -1945,8 +2070,7 @@ var PRESETS={
     label:'Robotics / Engineering',
     club:{unit:'Team',units:'Teams',useTracks:true,trackWord:'Sub-team',
       tracks:[{id:'c',label:'Build / mechanical'},{id:'k',label:'Programming / electrical'}],
-      flexLabel:'Either / wherever I am needed',
-      roleLead:'Team Captain',roleSenior:'Veteran',roleJunior:'Rookie'},
+      flexLabel:'Either / wherever I am needed'},
     actions:[
       ['Build session attendance',1,'c'],['Programming session attendance',1,'k'],
       ['General meeting attendance',1,'x'],['Team social attendance',2,'s'],
@@ -1958,8 +2082,7 @@ var PRESETS={
     label:'Debate / Speech / Mock Trial',
     club:{unit:'Squad',units:'Squads',useTracks:true,trackWord:'Event type',
       tracks:[{id:'c',label:'Debate'},{id:'k',label:'Speech / interp'}],
-      flexLabel:'Either / still deciding',
-      roleLead:'Squad Captain',roleSenior:'Varsity',roleJunior:'Novice'},
+      flexLabel:'Either / still deciding'},
     actions:[
       ['Debate practice attendance',1,'c'],['Speech practice attendance',1,'k'],
       ['General meeting attendance',1,'x'],['Squad social attendance',2,'s'],
@@ -1971,8 +2094,7 @@ var PRESETS={
     label:'Service / Volunteering',
     club:{unit:'Crew',units:'Crews',useTracks:true,trackWord:'Focus',
       tracks:[{id:'c',label:'Events'},{id:'k',label:'Fundraising'}],
-      flexLabel:'Either / happy to help anywhere',
-      roleLead:'Crew Lead',roleSenior:'Returning volunteer',roleJunior:'New volunteer'},
+      flexLabel:'Either / happy to help anywhere'},
     actions:[
       ['Service event attendance',1,'c'],['Fundraiser attendance',1,'k'],
       ['General meeting attendance',1,'x'],['Crew social attendance',2,'s'],
@@ -1983,8 +2105,7 @@ var PRESETS={
   general:{
     label:'General club (no tracks)',
     club:{unit:'Group',units:'Groups',useTracks:false,trackWord:'Track',
-      tracks:[],flexLabel:'Member',
-      roleLead:'Group Lead',roleSenior:'Returning member',roleJunior:'New member'},
+      tracks:[],flexLabel:'Member'},
     actions:[
       ['General meeting attendance',1,'x'],['Workshop attendance',1,'x'],
       ['Social attendance',2,'s'],['Volunteered at an event',3,'x'],
@@ -2151,7 +2272,7 @@ function setRole(role,claims){
   $('wrole').className='rolebadge'+(A.role==='master'?' master':'');
   var pic=$('wpic');
   if(pic){ if(A.pic){pic.src=A.pic;pic.style.display=''} else pic.style.display='none' }
-  if(!A.offline&&!PROVISIONAL&&A.role!=='none')
+  if(!A.offline&&!PROVISIONAL&&A.role!=='none'&&!DEMO_ON)
     storeWho({role:A.role,email:A.email,name:A.name,pic:A.pic,aff:A.aff,affName:A.affName,via:A.via});
   applyRole();
 }
@@ -2417,6 +2538,12 @@ function doJoinSubmit(){
   });
 }
 function initGate(){
+  wireGateForms();
+  gateMode('signin');
+  resumeSession().then(function(resumed){ if(!resumed){initGsi();bootDone()} });
+  initGateTimeout();
+}
+function wireGateForms(){
   var f=$('pwform');
   if(f&&!f.dataset.wired){
     f.dataset.wired='1';
@@ -2433,8 +2560,8 @@ function initGate(){
       gateMode($('suform').style.display==='none'?'signup':'signin');
     });
   }
-  gateMode('signin');
-  resumeSession().then(function(resumed){ if(!resumed){initGsi();bootDone()} });
+}
+function initGateTimeout(){
   /* A restored screen that never gets confirmed is worse than a sign-in card:
      the page looks live and every write fails. If nothing has authenticated by
      now, put the card back. */
@@ -2493,6 +2620,9 @@ function mergeClub(base,over){
   var out=cloneClub(base);
   if(over)for(var k in over)if(Object.prototype.hasOwnProperty.call(over,k)){
     if(k==='tracks')out[k]=over[k].map(function(t){return {id:t.id,label:cleanLabel(t.label)}});
+    else if(k==='teams')out[k]=(over[k]||[]).map(cloneTeam);
+    else if(k==='ebod')out[k]=(over[k]||[]).map(function(e){return {name:cleanLabel(e&&e.name),pos:cleanLabel(e&&e.pos)}});
+    else if(k==='orgEbod'||k==='clients'||k==='flcEvents')out[k]=(over[k]||[]).map(function(x){return cleanLabel(x)});
     else if(CLUB_LABELS[k])out[k]=cleanLabel(over[k]);
     else if(CLUB_URLS[k])out[k]=safeUrl(over[k]);
     else out[k]=over[k];
@@ -2525,6 +2655,7 @@ function applyPreset(key){
    export below is the real handoff mechanism between officers. */
 function save(){
   histPush();
+  if(DEMO_ON)demoStore();
   try{
     localStorage.setItem(saveKey(),JSON.stringify(serialize()));
     var el=$('savestamp'); if(el)el.textContent='saved '+new Date().toLocaleTimeString();
@@ -2533,7 +2664,7 @@ function save(){
 function serialize(){
   return {
     v:1,
-    people:S.people.map(function(p){return {name:p.name,year:p.year,track:p.track,mbti:p.mbti,lead:p.lead,note:p.note,org:p.org}}),
+    people:S.people.map(function(p){return {name:p.name,year:p.year,track:p.track,mbti:p.mbti,lead:false,note:p.note,org:p.org,avail:p.avail||''}}),
     orgNames:S.orgNames, actions:S.actions, log:S.log, seq:S.seq, rules:S.rules,
     club:S.club, preset:S.preset
   };
@@ -2542,7 +2673,7 @@ function restore(d){
   if(!d||!d.people||!d.people.length)return false;
   S.people=d.people.map(function(p){
     return {name:p.name,year:p.year,track:p.track,mbti:p.mbti||null,lead:false,
-            note:p.note||'',org:p.org|0,pts:0,evts:0,cross:0,hist:[]};
+            note:p.note||'',org:p.org|0,avail:p.avail||'',pts:0,evts:0,cross:0,hist:[]};
   });
   var n=0; S.people.forEach(function(p){if(p.org+1>n)n=p.org+1});
   S.orgs=[]; for(var i=0;i<n;i++)S.orgs.push([]);
@@ -2655,6 +2786,8 @@ function syncTeamsSoon(){
   teamSyncTimer=setTimeout(function(){teamSyncTimer=null;syncTeams()},900);
 }
 function backendPost(action,payload){
+  /* The demo never talks to the sheet: every call is answered in memory. */
+  if(DEMO_ON)return Promise.resolve(demoBackend(action,payload));
   if(!WEBAPP_URL||A.offline)return Promise.resolve(null);
   var signedIn=!!(A.session||A.token);
   if(!NO_AUTH[action]&&!signedIn)return Promise.resolve(null);
@@ -2688,7 +2821,7 @@ function findPersonByName(nm){
 function syncTeams(){
   var rows=S.people.map(function(p){
     return {MemberName:p.name,Org:orgLabel(p.org),Track:p.track,Year:p.year,
-      MBTI:p.mbti||'',LeadInterest:p.lead?'yes':'no',IsLead:p.lead?'yes':'no',Notes:p.note||''};
+      MBTI:p.mbti||'',LeadInterest:'no',IsLead:'no',Notes:p.note||'',Availability:p.avail||''};
   });
   backendPost('setTeams',rows);
 }
@@ -2745,7 +2878,7 @@ function mergeBackendData(data){
       return r.MemberName&&String(r.MemberName).trim()&&String(r.MemberName)!=='MemberName';
     }).map(function(r){
       return {name:r.MemberName,year:parseInt(r.Year,10)||1,track:r.Track||FLEX_ID,
-        mbti:r.MBTI||null,lead:false,
+        mbti:r.MBTI||null,lead:false,avail:String(r.Availability||''),
         note:r.Notes||'',org:orgIdx[r.Org||(S.club.unit+' 01')]||0,pts:0,evts:0,cross:0,hist:[]};
     });
     if(people.length){
@@ -2757,6 +2890,7 @@ function mergeBackendData(data){
     }
   }
   if(data.ok&&data.teamBoard)TEAMBOARD=data.teamBoard;
+  if(data.ok&&data.orgBoard)ORGBOARD=data.orgBoard;
   if(data.pointsLog&&data.pointsLog.length){
     S.log=data.pointsLog.map(function(r){
       return {id:S.seq++,name:r.MemberName,norm:normName(r.MemberName||''),
@@ -3017,9 +3151,9 @@ var FIELDS=[
    exact:['mbti','type','personality type','16 personalities'],
    pats:[/mbti/i,/myers.?briggs/i,/16\s*person/i,/personality/i,/\btype\b/i],
    no:[/what type of/i,/type of work/i]},
-  {key:'lead', label:'Lead interest', req:false,
-   exact:['lead','leadership'],
-   pats:[/org lead/i,/interested in (being|leading)/i,/leadership/i,/\blead\b/i]},
+  {key:'avail', label:'Availability', req:false,
+   exact:['availability','available','when are you free'],
+   pats:[/availab/i,/when (are|can) you/i,/free (time|on)/i,/schedule/i]},
   {key:'note', label:'Notes (optional)', req:false,
    exact:['notes','note','comments','anything else'],
    pats:[/anything.*(know|else|add)/i,/\bnotes?\b/i,/comment/i,/request/i]}
@@ -3177,11 +3311,53 @@ function buildPeople(){
     if(!mbti)noType.push(name);
     people.push({name:name,year:year,track:track,mbti:mbti,
       email:ci.email>=0?String(r[ci.email]||'').trim().toLowerCase():'',
-      lead:false,
+      lead:false, avail:ci.avail>=0?String(r[ci.avail]||'').trim().slice(0,120):'',
       note:ci.note>=0?(r[ci.note]||'').trim():'',
       org:0,pts:0,evts:0,cross:0,hist:[]});
   });
   return {people:people,skipped:skipped,unknownTrack:unknownTrack,unknownYear:unknownYear,noType:noType};
+}
+
+/* Orgs of 8-10. The count is suggested from the roster each time one is read,
+   until an officer types their own number. */
+var ORGCOUNT_TOUCHED=false;
+function orgSizeHint(n){
+  var el=$('orgsizehint'), oc=$('orgcount'); if(!el||!oc)return;
+  if(n==null){var r=buildPeople(); n=r.people?r.people.length:0}
+  var k=parseInt(oc.value,10)||0;
+  if(!n||!k){el.textContent='';return}
+  var lo=Math.floor(n/k), hi=Math.ceil(n/k);
+  el.textContent=n+' members \u2192 '+k+' '+unitsWord()+' of '+(lo===hi?lo:lo+'\u2013'+hi)+
+    ((lo<F26.orgMin||hi>F26.orgMax)?' (EBOD asked for 8\u201310)':'');
+}
+/* The onboarding form's answers are already on each account, so the usual
+   source for a draft is the club's own sign-ups. Turned into the same CSV
+   shape a sheet export has, so the mapper, the checks and the draft are
+   exactly the ones every other source goes through. */
+function loadFromAccounts(){
+  say('Reading the club\u2019s sign-ups\u2026','info');
+  var src=DEMO_ON?Promise.resolve({ok:true,roster:demoAccounts()}):backendPost('clubRoster',null);
+  src.then(function(r){
+    if(!r||!r.ok){say((r&&r.error)||'The club sheet did not answer. Try the Google Sheet tab instead.');return}
+    ingestAccounts(r.roster||[]);
+  });
+}
+function ingestAccounts(roster){
+  {
+    var rows=roster.filter(function(u){
+      return String(u.role||'member')==='member'&&!u.isMaster;
+    });
+    if(!rows.length){say('Nobody has signed up as a member yet.');return}
+    var head=['Name','Email','Year','Track','MBTI','Availability','Notes'];
+    var out=[head.map(csvCell).join(',')];
+    rows.forEach(function(u){
+      var nm=((u.first||'')+' '+(u.last||'')).trim()||u.who;
+      out.push([nm,u.email||'',u.year||'',u.track||'',u.mbti||'',u.avail||'',u.notes||''].map(csvCell).join(','));
+    });
+    var noAns=rows.filter(function(u){return !u.year&&!u.track}).length;
+    if(ingest(out.join('\n'),'signed-up members')&&noAns)
+      say('Loaded '+rows.length+' signed-up members. '+noAns+' have not filled in the onboarding form yet, so they default to 1st year / not sure.','info');
+  }
 }
 
 // Live gate: MBTI is required, so show exactly who is missing one before the
@@ -3207,6 +3383,8 @@ function checkMapping(){
   var warn=[];
   if(r.unknownYear)warn.push(r.unknownYear+' unreadable year value'+(r.unknownYear>1?'s':'')+' will default to new member');
   if(r.unknownTrack)warn.push(r.unknownTrack+' unreadable track value'+(r.unknownTrack>1?'s':'')+' will default to Either');
+  if(!ORGCOUNT_TOUCHED&&$('orgcount'))$('orgcount').value=suggestOrgCount(r.people.length);
+  orgSizeHint(r.people.length);
   box.innerHTML='<div class="msg show good">'+r.people.length+' members ready'+
     (S.club.useMbti&&!r.noType.length?', all typed':'')+
     (warn.length?' \u2014 '+esc(warn.join('; ')):'')+'.</div>'+matchNote(r.people);
@@ -3638,20 +3816,22 @@ function wireRecKills(scope,name){
 var TOUR_KEY='orgsystem.tour';
 var TOUR=[
   {v:'v-teams',    h:'This is your Org',
-   p:'A small mix of returning and new members, so you know some faces from day one. Nothing is required — meet up once or twice if you like.'},
-  {v:'v-squads',   h:'Your Team is who you work with',
-   p:'Your consulting or case competition team. Officers set these up; yours is highlighted.'},
+   p:'Eight to ten members, a mix of 1st and 2nd years, plus one EBOD point of contact. It is your family in the chapter and your breakout group at bootcamps. There are no titles: everyone is a Member, and the 2nd years look out for the 1st years.'},
+  {v:'v-squads',   h:'Your teams',
+   p:'Your consulting client team (two PMs, split into initiatives) and, if you compete, your FLC team. Competing at FLC? Send your event choices here so EBOD can form the teams.'},
   {v:'v-work',     h:'Hand work in here',
-   p:'Upload against the assignment before it is due. Every on-time hand-in counts for your team.'},
-  {v:'v-cup',      h:'The Team Cup',
-   p:'Teams are ranked on how much of their homework came in on time. Size does not matter — every assignment is worth up to 100.'},
+   p:'Upload a file or paste a link before the due date. EBOD sees what is in, and your Org earns a cup when most of it arrives on time.'},
+  {v:'v-calendar', h:'The season',
+   p:'Orientation Oct 15, bootcamps Oct 20 and 22, mock case stations the week of Oct 27, FLC Nov 13–15 in Emeryville, consulting finals Nov 19. Add any of them to your own calendar.'},
+  {v:'v-cup',      h:'Org Cups, not a leaderboard',
+   p:'Cups are earned together by your whole Org. Nobody is ranked, and your own commitment points stay private on your profile.'},
   {v:'v-profile',  h:'Your page',
-   p:'Your Org, your Team, your sign-up answers and any recognitions. That is the tour — go and look around.'}
+   p:'Your Org, your teams, your year and track, and your commitment log. That is the tour — go and look around.'}
 ];
 var TOURAT=0;
 function tourSeen(){try{return localStorage.getItem(TOUR_KEY)==='1'}catch(e){return true}}
 function tourDone(){
-  try{localStorage.setItem(TOUR_KEY,'1')}catch(e){}
+  try{if(!DEMO_ON)localStorage.setItem(TOUR_KEY,'1')}catch(e){}
   var t=$('tour'); if(t)t.hidden=true;
 }
 function paintTour(){
@@ -3671,7 +3851,7 @@ function startTour(){
 }
 function maybeTour(){
   /* Members only, once, and only when there is something to look at. */
-  if(A.offline||tourSeen())return;
+  if((A.offline&&!DEMO.as)||tourSeen())return;
   if(A.role!=='member')return;
   if(!S.orgs.length)return;
   setTimeout(startTour,700);
@@ -3738,8 +3918,17 @@ function initBoot(){
    Dates live on the club record beside the notices, so every member sees the
    same list without anything being imported. Kinds reuse the Cup's colours,
    because "what is this" and "what is it worth" are the same question. */
+/* The Fall 2026 season's dates are built in, so every member sees them the
+   moment this page is deployed, without anybody importing anything. An
+   officer can hide one (seasonOff); one that has been synced to Google comes
+   back in S.club.events under the same id and is not shown twice. */
 function calList(){
-  return ((S.club&&S.club.events)||[]).slice().sort(function(a,b){
+  var own=((S.club&&S.club.events)||[]), have={}, off={};
+  own.forEach(function(e){have[e.id]=1});
+  ((S.club&&S.club.seasonOff)||[]).forEach(function(id){off[id]=1});
+  var season=F26.season.filter(function(e){return !have[e.id]&&!off[e.id]})
+    .map(function(e){var c={};for(var k in e)c[k]=e[k];c.season=true;return c});
+  return own.filter(function(e){return !off[e.id]}).concat(season).sort(function(a,b){
     return String(a.date||'').localeCompare(String(b.date||''));
   });
 }
@@ -3861,7 +4050,8 @@ function evRow(e){
     '<span class="evbar" style="background:'+c.color+'"></span>'+
     '<span class="evname">'+esc(e.title)+
       (e.where?'<em> · '+esc(e.where)+'</em>':'')+
-      (e.time?'<em> · '+esc(e.time)+'</em>':'')+'</span>'+
+      (e.time?'<em> · '+esc(e.time)+'</em>':'')+
+      (e.season?'<em> · Fall 2026 season</em>':'')+'</span>'+
     '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>'+
     (link?'<a class="evadd" href="'+esc(link)+'" target="_blank" rel="noopener" title="Add to your own Google Calendar">+ Calendar</a>':'')+
     (canEdit()?'<button class="evkill" type="button" title="Remove">×</button>':'')+
@@ -3873,6 +4063,7 @@ function wireEvRows(box){
       ev.stopPropagation();
       var id=b.parentNode.dataset.id;
       S.club.events=(S.club.events||[]).filter(function(e){return e.id!==id});
+      if(/^f26-/.test(id))S.club.seasonOff=(S.club.seasonOff||[]).concat([id]);
       save(); syncClub(); renderCalendar();
     });
   });
@@ -4009,7 +4200,7 @@ function initCalendar(){
       m.textContent='Still going. Creating a calendar for the first time can take a minute.';
       m.className='msg show info';
     },12000);
-    backendPost('calendarSync',{events:S.club.events||[]}).then(function(r){
+    backendPost('calendarSync',{events:calList().map(function(e){var c={};for(var k in e)if(k!=='season')c[k]=e[k];return c})}).then(function(r){
       clearTimeout(late);
       sync.disabled=false;
       if(r&&r.ok){
@@ -4039,37 +4230,64 @@ function initCalendar(){
    one member's own file -- the backend decides where it lands. */
 function hwList(){
   return ((S.club&&S.club.work)||[]).slice().sort(function(a,b){
-    return String(b.due||'').localeCompare(String(a.due||''));
+    /* Soonest first: what a member needs is the next thing due. */
+    return String(a.due||'9999').localeCompare(String(b.due||'9999'));
   });
 }
+/* Who an assignment was set for, as names: everyone, one Org, or one team. */
+function hwTargets(w){
+  if(w.team&&w.team!=='all'){var t=teamById(w.team);return t?(t.members||[]).slice():[]}
+  if(w.org!=null&&w.org!==''&&w.org!=='all'){
+    var oi=w.orgName?orgIndexByLabel(w.orgName):-1; if(oi<0)oi=+w.org;
+    return (S.orgs[oi]||[]).map(function(p){return p.name});
+  }
+  return S.people.map(function(p){return p.name});
+}
+function hwForLabel(w){
+  if(w.team&&w.team!=='all')return (teamById(w.team)||{name:'A removed team'}).name+' only';
+  if(w.org!=null&&w.org!==''&&w.org!=='all')return (w.orgName||orgLabel(+w.org))+' only';
+  return '';
+}
+function hwMine(w,me){
+  if(w.team&&w.team!=='all')return myTeams().some(function(t){return t.id===w.team});
+  if(w.org==null||w.org===''||w.org==='all')return true;
+  if(!me)return false;
+  if(w.orgName)return orgLabel(me.org)===w.orgName;
+  return String(me.org)===String(w.org);
+}
+/* A member's own record that they handed something in, kept in this browser
+   so the card can say so. The officers' view comes from the sheet. */
+function hwDoneKey(id){return 'orgsys-hw:'+(A.aff||'')+':'+String(A.email||A.name||'').toLowerCase()+':'+id}
+function hwDoneAt(id){
+  if(DEMO_ON){var d=DEMO.subs.filter(function(x){return x.workId===id&&normName(x.name)===normName(A.name)})[0];return d?d.at:''}
+  try{return localStorage.getItem(hwDoneKey(id))||''}catch(e){return ''}
+}
+function hwMarkDone(id){try{localStorage.setItem(hwDoneKey(id),new Date().toISOString())}catch(e){}}
 function renderWork(){
   var box=$('hwbody'); if(!box)return;
-  var me=null, mt=myTeam();
+  var me=null;
   for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
   fillHwFor();
-  var items=hwList().filter(function(w){
-    if(canEdit())return true;
-    if(w.team&&w.team!=='all')return !!(mt&&mt.id===w.team);
-    if(!w.org||w.org==='all')return true;
-    return me&&String(me.org)===String(w.org);
-  });
+  var items=hwList().filter(function(w){return canEdit()||hwMine(w,me)});
   if(!items.length){box.innerHTML='<p class="empty">Nothing set for you yet.</p>';return}
   box.innerHTML=items.map(function(w){
-    var late=w.due&&isPast(w.due);
-    return '<div class="hwcard" data-id="'+esc(w.id)+'">'+
+    var late=w.due&&isPast(w.due), kind=w.kind||'file', done=!canEdit()&&hwDoneAt(w.id);
+    var forL=hwForLabel(w);
+    return '<div class="hwcard" data-id="'+esc(w.id)+'" data-kind="'+esc(kind)+'">'+
       '<div class="hwhead"><span class="hwtitle">'+esc(w.title)+'</span>'+
-        (w.due?'<span class="hwdue mono'+(late?' late':'')+'">'+(late?'Closed ':'Due ')+esc(calDate(w.due))+'</span>':'')+
+        (w.due?'<span class="hwdue mono'+(late?' late':'')+'">'+(late?'Was due ':'Due ')+esc(calDate(w.due))+'</span>':'')+
         (canEdit()?'<button class="hwkill" type="button" title="Remove">×</button>':'')+'</div>'+
-      (w.team&&w.team!=='all'?'<span class="hwfor mono">'+esc((teamById(w.team)||{name:'A removed team'}).name)+' only</span>'
-        :(w.org&&w.org!=='all'?'<span class="hwfor mono">'+esc(orgLabel(+w.org))+' only</span>':''))+
-      (w.due&&mt&&!late&&!canEdit()?'<span class="hwfor mono">Counts for '+esc(mt.name)+'</span>':'')+
+      (forL?'<span class="hwfor mono">'+esc(forL)+'</span>':'<span class="hwfor mono">Everyone</span>')+
+      (done?'<span class="hwfor mono" style="color:var(--accent)">Handed in '+esc(String(done).slice(0,10))+'</span>':'')+
       (w.brief?'<p class="hwbrief">'+esc(w.brief)+'</p>':'')+
       (w.note?'<p class="hint" style="margin:6px 0 0">'+esc(w.note)+'</p>':'')+
-      '<div class="hwup">'+
+      (kind!=='link'?'<div class="hwup">'+
         '<input type="file" class="hwfile" id="hwf_'+esc(w.id)+'">'+
         '<label class="linkbtn" for="hwf_'+esc(w.id)+'"><b>File</b> <span class="hwname">Choose a file</span></label>'+
         '<button class="tiny hwsend" type="button" disabled>Hand it in</button>'+
-      '</div>'+
+      '</div>':'')+
+      (kind!=='file'?'<div class="hwlink"><input type="url" class="hwurl mono" placeholder="https://docs.google.com/… (shared so EBOD can open it)" aria-label="Link to your work">'+
+        '<button class="tiny hwsendlink" type="button">Hand in link</button></div>':'')+
       '<div class="msg hwmsg2"></div>'+
       (canEdit()?'<div class="subs" data-for="'+esc(w.id)+'"><div class="s-lbl">Handed in</div>'+
         '<div class="subbody"><p class="empty wait">Loading…</p></div></div>':'')+
@@ -4082,9 +4300,34 @@ function renderWork(){
         nm=cardEl.querySelector('.hwname'), msg=cardEl.querySelector('.hwmsg2');
     var k=cardEl.querySelector('.hwkill');
     if(k)k.addEventListener('click',function(){
-      S.club.work=(S.club.work||[]).filter(function(w){return w.id!==id});
-      save(); syncClub(); renderWork();
+      uiConfirm('Remove this assignment?','Work already handed in stays in the club Drive and on the Submissions tab.','Remove',true).then(function(ok){
+        if(!ok)return;
+        S.club.work=(S.club.work||[]).filter(function(w){return w.id!==id});
+        save(); syncClub(); renderWork();
+      });
     });
+    var handed=function(r){
+      if(r&&r.ok){
+        hwMarkDone(id);
+        msg.textContent=(r.replaced?'Replaced — version '+r.revision+'. ':'Handed in. ')+(r.filed?r.filed+'.':'');
+        msg.className='msg hwmsg2 show good';
+        if(canEdit())loadSubs(true);
+        else{
+          var txt=msg.textContent; renderWork();
+          var c2=document.querySelector('.hwcard[data-id="'+id+'"] .hwmsg2');
+          if(c2){c2.textContent=txt;c2.className='msg hwmsg2 show good'}
+        }
+      }
+      else {msg.textContent=(r&&r.error)||'That did not go through.';msg.className='msg hwmsg2 show'}
+    };
+    var lb=cardEl.querySelector('.hwsendlink'), li=cardEl.querySelector('.hwurl');
+    if(lb)lb.addEventListener('click',function(){
+      var u=safeUrl(li.value);
+      if(!u){msg.textContent='Paste a full link starting with https://';msg.className='msg hwmsg2 show';return}
+      lb.disabled=true; msg.textContent='Handing it in…'; msg.className='msg hwmsg2 show info wait';
+      backendPost('submitWork',{workId:id,link:u}).then(function(r){lb.disabled=false;handed(r)});
+    });
+    if(!f)return;
     f.addEventListener('change',function(){
       var file=f.files&&f.files[0];
       nm.textContent=file?file.name:'Choose a file';
@@ -4092,23 +4335,15 @@ function renderWork(){
     });
     btn.addEventListener('click',function(){
       var file=f.files&&f.files[0]; if(!file)return;
-      if(file.size>8*1024*1024){msg.textContent='That file is over 8 MB.';msg.className='msg show';return}
-      btn.disabled=true; msg.textContent='Uploading…'; msg.className='msg show info wait';
+      if(file.size>8*1024*1024){msg.textContent='That file is over 8 MB.';msg.className='msg hwmsg2 show';return}
+      btn.disabled=true; msg.textContent='Uploading…'; msg.className='msg hwmsg2 show info wait';
       var fr=new FileReader();
       fr.onload=function(){
         var b64=String(fr.result).split(',')[1]||'';
         backendPost('submitWork',{workId:id,name:file.name,mime:file.type||'application/octet-stream',data:b64})
-          .then(function(r){
-            btn.disabled=false;
-            if(r&&r.ok){
-              msg.textContent=(r.replaced?'Replaced — version '+r.revision+'. ':'Handed in. ')+r.filed+'.';
-              msg.className='msg show good';
-              if(canEdit())loadSubs(true);
-            }
-            else {msg.textContent=(r&&r.error)||'That did not upload.';msg.className='msg show'}
-          });
+          .then(function(r){btn.disabled=false;handed(r)});
       };
-      fr.onerror=function(){btn.disabled=false;msg.textContent='Could not read that file.';msg.className='msg show'};
+      fr.onerror=function(){btn.disabled=false;msg.textContent='Could not read that file.';msg.className='msg hwmsg2 show'};
       fr.readAsDataURL(file);
     });
   });
@@ -4145,17 +4380,29 @@ function paintSubs(){
     var wid=box.dataset.for;
     var rows=(SUBS.rows||[]).filter(function(x){return x.workId===wid});
     var body=box.querySelector('.subbody');
-    if(!rows.length){body.innerHTML='<p class="empty">Nobody has handed this in yet.</p>';return}
+    var w=((S.club&&S.club.work)||[]).filter(function(x){return x.id===wid})[0]||{};
+    var targets=hwTargets(w), got={};
+    rows.forEach(function(x){got[normName(x.name)]=x});
+    var end=null;
+    if(w.due){var dp=String(w.due).split('-');end=new Date(+dp[0],+dp[1]-1,+dp[2],23,59,59).getTime()}
+    var onTime=rows.filter(function(x){var t=new Date(x.first||x.at).getTime();return !end||(t&&t<=end)}).length;
+    var missing=targets.filter(function(n){return !got[normName(n)]});
+    var sum='<div class="subsum"><span><b>'+rows.length+'</b> of '+targets.length+' handed in</span>'+
+      (w.due?'<span><b>'+onTime+'</b> on time</span><span><b>'+(rows.length-onTime)+'</b> late</span>':'')+
+      '<span><b>'+missing.length+'</b> still to come</span></div>'+
+      (missing.length?'<div class="missing"><b>Not in yet:</b> '+esc(missing.slice(0,24).join(', '))+(missing.length>24?', and '+(missing.length-24)+' more':'')+'</div>':'');
+    if(!rows.length){body.innerHTML=sum+'<p class="empty">Nobody has handed this in yet.</p>';return}
     rows.sort(function(a,b){return String(a.name).localeCompare(String(b.name))});
-    body.innerHTML=rows.map(function(x){
+    body.innerHTML=sum+rows.map(function(x){
       var done=x.status==='checked';
       return '<div class="subrow'+(done?' done':'')+'" data-w="'+esc(x.workId)+'" data-n="'+esc(x.name)+'">'+
         '<span class="subname">'+esc(x.name)+'<em> · '+esc(x.org)+'</em></span>'+
         (x.fileUrl?'<a class="subfile" href="'+esc(safeUrl(x.fileUrl))+'" target="_blank" rel="noopener">'+
           esc(x.fileName||'file')+'</a>':'<span class="subfile">—</span>')+
         '<span class="subwhen mono">'+esc(String(x.at||'').slice(0,10))+
-          (x.revision>1?' · v'+x.revision:'')+'</span>'+
-        '<input type="number" class="subpts" min="0" max="999" placeholder="pts" value="'+
+          (x.revision>1?' · v'+x.revision:'')+
+          (end&&new Date(x.first||x.at).getTime()>end?' · late':'')+'</span>'+
+        '<input type="number" class="subpts" min="0" max="999" placeholder="pts" title="Commitment points (optional, never ranked)" value="'+
           (x.points==null?'':esc(String(x.points)))+'">'+
         '<button class="tiny subok" type="button">'+(done?'Checked':'Check off')+'</button>'+
       '</div>';
@@ -4198,11 +4445,14 @@ function initWork(){
   add.addEventListener('click',function(){
     var t=($('hw-title').value||'').trim(), m=$('hwmsg');
     if(!t){m.textContent='It needs a name.';m.className='msg show';return}
+    var forV=($('hw-for')||{}).value||'all';
+    var forOrg=forV.indexOf('org:')===0?forV.slice(4):'', forTeam=forOrg!==''?'all':forV;
     S.club.work=S.club.work||[];
-    S.club.work.push({id:'w'+Date.now().toString(36),title:cleanLabel(t).slice(0,80),
-      due:$('hw-due').value||'',note:cleanLabel($('hw-note').value).slice(0,160),
-      brief:cleanLabel($('hw-brief').value).slice(0,900),
-      team:($('hw-for')||{}).value||'all', kind:($('hw-kind')||{}).value||'file'});
+    S.club.work.push({id:'w'+Date.now().toString(36),title:cleanText(t,80),
+      due:$('hw-due').value||'',note:cleanText($('hw-note').value,160),
+      brief:cleanText($('hw-brief').value,900),
+      team:forTeam, org:forOrg, orgName:forOrg===''?'':orgLabel(+forOrg),
+      kind:($('hw-kind')||{}).value||'file'});
     ['hw-title','hw-note','hw-brief'].forEach(function(id){var e=$(id); if(e)e.value=''});
     if(tpl)tpl.value='';
     m.textContent='Set.'; m.className='msg show good';
@@ -4611,12 +4861,12 @@ function renderStandings(){
     ranked.forEach(function(r,i){r.rank=i+1});
     var n=ranked.length;
     var shown=ranked.filter(function(r){return !q||orgLabel(r.i).toLowerCase().indexOf(q)>-1});
-    h+='<div class="tablewrap"><table><thead><tr><th class="l">#</th><th class="l">'+esc(unitWord())+'</th>'+
+    h+='<div class="tablewrap"><table><thead><tr><th class="l">'+esc(unitWord())+'</th>'+
       '<th>Pts / member</th><th>Total</th><th>Entries</th><th>Turnout</th>'+
       (tracksOf().length?'<th>Cross-'+esc(S.club.trackWord.toLowerCase())+'</th>':'')+'</tr></thead><tbody>';
     shown.forEach(function(r){
       var cls=r.rank===1?'top':(r.rank>n-Math.max(1,Math.floor(n/3))?'bottom':'');
-      h+='<tr class="'+cls+'"><td class="l rank">'+r.rank+'</td>'+
+      h+='<tr>'+
         '<td class="l name">'+esc(orgLabel(r.i))+'</td>'+
         '<td>'+r.per.toFixed(1)+'</td><td>'+r.pts+'</td>'+
         '<td>'+r.evts+'</td><td>'+Math.round(r.rate)+'%</td>'+
@@ -4636,11 +4886,11 @@ function renderStandings(){
       if(STV.track&&p.track!==STV.track)return false;
       return true;
     });
-    h+='<div class="tablewrap scrollcard"><table><thead><tr><th class="l">#</th><th class="l">Member</th>'+
+    h+='<div class="tablewrap scrollcard"><table><thead><tr><th class="l">Member</th>'+
       '<th class="l">'+esc(unitWord())+'</th>'+(tracksOf().length?'<th class="l">'+esc(S.club.trackWord)+'</th>':'')+
       '<th>Points</th><th>Entries</th></tr></thead><tbody>';
     mm.forEach(function(p){
-      h+='<tr><td class="l rank">'+p.mrank+'</td>'+
+      h+='<tr>'+
         '<td class="l name"><span class="nm linked" data-person="'+esc(p.name)+'">'+esc(p.name)+'</span></td>'+
         '<td class="l">'+esc(orgLabel(p.org))+'</td>'+
         (tracksOf().length?'<td class="l">'+esc(trackLabel(p.track)||'')+'</td>':'')+
@@ -5045,7 +5295,7 @@ function renderSwaps(){
       '<div class="swapwhy">'+esc(orgLabel(c.a))+' \u2194 '+esc(orgLabel(c.b))+' \u2014 '+esc(c.why)+
       ' Both are '+(S.club.useYear?(c.p.year===2?S.club.oldWord:S.club.newWord)+' ':'')+
       esc(trackLabel(c.p.track).toLowerCase())+
-      ' members'+(c.p.lead?' and both volunteered to lead':'')+', so nothing else about the draft moves.</div>'+
+      ' members, so nothing else about the draft moves.</div>'+
       '<span class="gain">balance gain '+c.gain.toFixed(1)+'</span></div>'+
       '<div><button class="tiny swapbtn" data-i="'+i+'"'+(c.done?' disabled':'')+'>'+(c.done?'Applied':'Apply swap')+'</button></div>'+
     '</div>';
@@ -5062,51 +5312,12 @@ var AXIS_ADVICE={
   I:'This Org leans inward. Conversation will not start itself, and silence will get read as disinterest when it is not. Bring a prepared opener to any meetup and run written brainstorms before verbal ones.',
   S:'Concrete and detail-strong, lighter on abstraction. In case prep this group reaches for the spreadsheet first. Force the opening twenty minutes onto framing before anyone touches data.',
   N:'Heavy on big-picture thinkers. Frameworks arrive fast and the numbers lag behind them. Name one person to own the data and hold the group to it.',
-  T:'Analytically strong, thin on social glue \u2014 and the Cup runs on turnout, not on being right. Name a social lead out loud, because it will not happen by default.',
+  T:'Analytically strong, thin on social glue. Ask one of the 2nd years to own getting people together \u2014 no title, just the job \u2014 because it will not happen by default.',
   F:'Socially cohesive, which is exactly what makes honest critique harder. Run one anonymous feedback round before the next big competition so the real notes surface.',
   J:'Very structured. Deadlines hold; spontaneity does not. Schedule one deliberately unstructured social block a month or this team will only ever meet on business.',
   P:'Flexible and improvisational. Deadlines will slip, cheerfully. Their teams should set internal deadlines a few days ahead of the real ones.'
 };
-/* Jobs worth naming inside a team. The titles and the reasons follow the
-   club's own vocabulary, and the tenure job disappears for a club that does
-   not track how long people have been around. */
-function rolesList(){
-  var hasTracks=tracksOf().length>0;
-  var r=[
-    {title:'Attendance Captain',why:'logs '+unitWord()+' Cup points after every event',
-     fit:function(t){return (t[1]==='S'&&t[3]==='J')?3:(t[3]==='J'?2:1)},prefY2:true},
-    {title:'Prep Lead',why:'owns preparation for the big events',
-     fit:function(t){return (t[1]==='N'&&t[2]==='T')?3:(t[1]==='N'?2:1)},prefY2:true},
-    {title:'Social Lead',
-     why:hasTracks?('drives cross-'+S.club.trackWord.toLowerCase()+' turnout'):'drives turnout',
-     fit:function(t){return (t[0]==='E'&&t[2]==='F')?3:(t[0]==='E'?2:1)},prefY2:false}
-  ];
-  if(S.club.useYear)
-    r.push({title:capFirst(S.club.newWord)+' Anchor',
-      why:'checks in on the newest members',
-      fit:function(t){return (t[2]==='F'&&t[3]==='J')?3:(t[2]==='F'?2:1)},prefY2:true});
-  return r;
-}
 function capFirst(w){w=String(w||'');return w.charAt(0).toUpperCase()+w.slice(1)}
-function pickRoles(g){
-  var taken={},out=[];
-  rolesList().forEach(function(role){
-    var best=null,bestScore=-1;
-    g.forEach(function(p){
-      if(taken[p.name])return;
-      if(S.club.useMbti&&!p.mbti)return;
-      /* Without types every candidate starts level, so the pick falls back to
-         the things that are true regardless: tenure and turning up. */
-      var s=(S.club.useMbti&&p.mbti)?role.fit(p.mbti)*10:10;
-      if(p.lead)s-=6;
-      if(role.prefY2&&p.year===2)s+=2;
-      if(p.evts)s+=Math.min(p.evts,5)*0.5;
-      if(s>bestScore){bestScore=s;best=p}
-    });
-    if(best){taken[best.name]=true;out.push({role:role,person:best})}
-  });
-  return out;
-}
 /* The track this team is heaviest in, and the one it should go visit. With
    more than two tracks the suggestion is the lightest track, which is the
    one the team is least likely to show up to on its own. */
@@ -5145,14 +5356,12 @@ function orgAdvice(g,i){
     });
     if(!flagged)recs.push({sev:'good',text:'Spread evenly across all four axes. No structural intervention needed \u2014 nothing to do.'});
   }
-  var leads=S.club.useMbti?g.filter(function(p){return p.lead&&p.mbti}):[];
-  if(leads.length===2){
-    if(leads[0].mbti===leads[1].mbti){
-      recs.push({sev:'warn',text:'Both Leads are '+leads[0].mbti+'. They will agree on everything, which reads as harmony and is actually a blind spot. Give an opposite-axis Associate the standing job of disagreeing first.'});
-    } else {
-      var diff=0;for(var a=0;a<4;a++)if(leads[0].mbti[a]!==leads[1].mbti[a])diff++;
-      if(diff>=2)recs.push({sev:'good',text:'Lead pairing is well matched \u2014 '+leads[0].mbti+' and '+leads[1].mbti+' differ on '+diff+' axes, so they cover each other\u2019s gaps without being told to.'});
-    }
+  /* No leads any more. What matters instead is that the 2nd years, who
+     mentor inside the Org without a title, are actually there. */
+  if(S.club.useYear){
+    var c2=g.filter(function(p){return p.year===2}).length;
+    if(!c2)recs.push({sev:'warn',text:'No 2nd years in this Org, so there is nobody to mentor the 1st years. Move one in from an Org that has three or more.'});
+    else if(c2>=Math.ceil(g.length*0.7))recs.push({sev:'info',text:'Mostly 2nd years ('+c2+' of '+g.length+'). Fine for mentoring, but the 1st years here will be outnumbered.'});
   }
   if(false){
     var s=S.standings[i],crossFlagged=false;
@@ -5253,10 +5462,10 @@ function counts(members){
   });
   return c;
 }
+/* Everyone is a Member. What used to be a rank (Associate, Analyst, Org Lead)
+   is now just which year somebody is in, and that is what is shown. */
 function personRole(p){
-  if(p.lead)return S.club.roleLead;
-  if(!S.club.useYear)return S.club.roleSenior;
-  return p.year===2?S.club.roleSenior:S.club.roleJunior;
+  return S.club.useYear?yearLabel(p):'Member';
 }
 function stat(n,l,cls){return '<div class="stat"><div class="n'+(cls?' '+cls:'')+'">'+n+'</div><div class="l">'+l+'</div></div>'}
 function orgFlags(g){
@@ -5266,6 +5475,46 @@ function orgFlags(g){
   else empty.forEach(function(t){flags.push('No '+t.label.toLowerCase()+' members')});
   if(S.club.useYear&&c.y1===0)flags.push('No '+S.club.newWord+'s');
   return flags;
+}
+/* ---- EBOD point of contact ----
+   One officer per Org: supervisory and low lift, there to be asked. Kept on
+   the club record by Org position, so renaming an Org keeps its contact. */
+function ebodLine(i){
+  var who=orgContact(i);
+  if(canEdit()){
+    return '<div class="ebodline"><span class="lbl2">EBOD contact</span><select class="ebodpick" data-org="'+i+'">'+
+      '<option value="">Not assigned</option>'+
+      ebodList().map(function(e){
+        return '<option value="'+esc(e.name)+'"'+(e.name===who?' selected':'')+'>'+esc(e.name)+(e.pos?' \u00b7 '+esc(e.pos):'')+'</option>';
+      }).join('')+'</select></div>';
+  }
+  return who?'<div class="ebodline"><span class="lbl2">EBOD contact</span><b>'+esc(who)+'</b>'+
+    (ebodPos(who)?' <em>'+esc(ebodPos(who))+'</em>':'')+'</div>':'';
+}
+function setOrgContact(i,name){
+  S.club.orgEbod=(S.club.orgEbod||[]).slice();
+  while(S.club.orgEbod.length<S.orgs.length)S.club.orgEbod.push('');
+  S.club.orgEbod[i]=cleanLabel(name);
+  save(); syncClub();
+}
+function wireEbodPicks(root){
+  if(!root)return;
+  Array.prototype.forEach.call(root.querySelectorAll('.ebodpick'),function(sel){
+    sel.addEventListener('change',function(){
+      if(!canEdit())return;
+      setOrgContact(parseInt(sel.dataset.org,10),sel.value);
+      renderDraft(); if($('v-teams').classList.contains('on'))renderTeam();
+    });
+  });
+}
+/* Round-robin, so nobody on EBOD looks after more than one Org more than
+   anyone else does. Existing picks are replaced; a manual change afterwards
+   is one dropdown away. */
+function autoAssignEbod(){
+  var e=ebodList(); if(!e.length||!S.orgs.length)return;
+  S.club.orgEbod=S.orgs.map(function(_,i){return e[i%e.length].name});
+  save(); syncClub(); renderDraft();
+  if($('v-teams').classList.contains('on'))renderTeam();
 }
 var DRAFTBOXES=['draftstats','draftnotes','draftfilters','legend','orggrid'];
 function renderDraft(){
@@ -5315,7 +5564,7 @@ function renderDraft(){
       return '<span><i class="dot" style="background:'+b.color+'"></i>'+esc(b.label)+'</span>';
     }).join('')+
     '<span style="color:var(--flag)">Red border = needs a manual fix</span>'+
-    (canEdit()?'<span style="margin-left:auto">Click a '+esc(unitWord())+' name to rename it</span>':'');
+    (canEdit()?'<span style="margin-left:auto">Click '+esc(chatA(unitWord()))+' name to rename it</span>':'');
 
   var html='';
   S.orgs.forEach(function(g,i){
@@ -5323,8 +5572,8 @@ function renderDraft(){
     var c=counts(g),n=g.length||1,flags=orgFlags(g),ac=axisCount(g);
     html+='<div class="org'+(flags.length?' flagged':'')+'">'+
       '<div class="orghead">'+
-        '<div class="orgno"><span>Org '+pad(i)+' \u00B7 '+g.length+' members</span>'+
-          (S.log.length&&S.standings[i]?'<span>#'+S.standings[i].rank+' \u00B7 '+S.standings[i].pts+'pts</span>':'')+'</div>'+
+        '<div class="orgno"><span>'+esc(unitWord())+' '+pad(i)+' \u00B7 '+g.length+' members</span>'+
+          (cupCount(i)?'<span title="Org Cups earned">'+cupIcons(cupCount(i))+'</span>':'')+'</div>'+
         '<div class="orgname'+(canRenameOrg(i)?' canrename':'')+'" data-org="'+i+'"'+
           (canRenameOrg(i)?' title="Click to rename"':'')+'>'+esc(orgLabel(i))+'</div>'+
         '<div class="bar">'+allBuckets().map(function(b){
@@ -5335,7 +5584,8 @@ function renderDraft(){
         }).map(function(b){
           return esc(String(c.byTrack[b.id]))+' '+esc(b.label);
         }).join(' \u00B7 ')+'</span>'+
-        (S.club.useYear?'<span>'+c.y2+' / '+c.y1+'</span>':'')+'</div>'+
+        (S.club.useYear?'<span>'+c.y2+' 2nd / '+c.y1+' 1st</span>':'')+'</div>'+
+        ebodLine(i)+
         '<div class="axis">';
     if(canEdit())AXES.forEach(function(pair){
       var a=ac.c[pair[0]],b=ac.c[pair[1]];
@@ -5354,15 +5604,15 @@ function renderDraft(){
         '<span class="nm linked" data-person="'+esc(p.name)+'" title="Open this member">'+esc(p.name)+'</span>'+
         (showNote?'<span class="note" title="'+esc(p.note)+'">\u25CF</span>':'')+
         (S.club.useMbti&&canSeePersonal(p)?'<span class="mbti'+(p.mbti?'':' none')+'">'+(p.mbti||'\u2014')+'</span>':'')+
-        (S.log.length&&canSeePersonal(p)?'<span class="pts'+(p.evts?'':' zero')+'" title="'+p.evts+' entries, '+p.cross+' cross-track">'+p.pts+'</span>':'')+
-        '<span class="role'+(p.lead?' lead':'')+'">'+role+'</span></li>';
+        '<span class="role yr'+(p.year===2?' y2':'')+'">'+esc(role)+'</span></li>';
     });
     if(!shown.length)html+='<li style="color:var(--slate)">'+(g.length?'No one matches the filter':'Empty')+'</li>';
-    html+='</ul><div class="orgfoot"><button class="tiny ghost openteam" data-org="'+i+'">Open team page</button></div></div>';
+    html+='</ul><div class="orgfoot"><button class="tiny ghost openteam" data-org="'+i+'">Open '+esc(unitWord())+' page</button></div></div>';
   });
   $('orggrid').innerHTML=html;
 
   wireMemberLinks($('orggrid'));
+  wireEbodPicks($('orggrid'));
   Array.prototype.forEach.call($('orggrid').querySelectorAll('.openteam'),function(b){
     b.addEventListener('click',function(){S.team=parseInt(b.dataset.org,10);setView('v-teams')});
   });
@@ -5436,10 +5686,9 @@ function renderDraftFilters(){
   h+='<div><span class="lbl">'+esc(unitWord())+'</span><select id="fl-unit"><option value="">All</option>'+
     S.orgs.map(function(_,i){return '<option value="'+i+'"'+(FILT.unit===String(i)?' selected':'')+'>'+esc(orgLabel(i))+'</option>'}).join('')+
     '</select></div>';
-  h+='<div><span class="lbl">Standing</span><select id="fl-role"><option value="">All</option>'+
-
-    (S.club.useYear?'<option value="returning"'+(FILT.role==='returning'?' selected':'')+'>'+esc(capFirst(S.club.oldWord))+'s</option>'+
-      '<option value="new"'+(FILT.role==='new'?' selected':'')+'>'+esc(capFirst(S.club.newWord))+'s</option>':'')+
+  if(S.club.useYear)h+='<div><span class="lbl">Year</span><select id="fl-role"><option value="">All</option>'+
+    '<option value="returning"'+(FILT.role==='returning'?' selected':'')+'>2nd years</option>'+
+    '<option value="new"'+(FILT.role==='new'?' selected':'')+'>1st years</option>'+
     '</select></div>';
   if(filtersActive())h+='<div><button class="tiny ghost" id="fl-clear">Clear</button></div>';
   box.innerHTML=h;
@@ -5485,10 +5734,10 @@ function openMemberCard(name){
       esc(String(m.org||''))+(m.track?' · '+esc(trackLabel(String(m.track))||String(m.track)):'')+
       '</div></div></div>';
     if(r.full){
-      h+='<div class="profgrid">'+stat(m.points,'Points')+stat(m.entries,'Entries')+
+      h+='<div class="profgrid">'+stat(m.points,'Commitment')+stat(m.entries,'Entries')+
          (m.mbti?stat(esc(String(m.mbti)),'Type'):'')+'</div>';
     } else {
-      h+='<p class="hint" style="margin-top:16px">Their personality type and points are their own. Officers and the member themselves can see them.</p>';
+      h+='<p class="hint" style="margin-top:16px">Their personality type and commitment log are their own. EBOD and the member themselves can see them.</p>';
     }
     /* Signed up but not drafted: show what the account actually knows rather
        than an empty card, because this is exactly who an officer clicks on
@@ -5588,12 +5837,17 @@ function wireMemberLinks(root){
 }
 
 /* ================= TEAM VIEW ================= */
+var TEAM_AUTO=false;
+function myOrgIndex(){for(var q=0;q<S.people.length;q++)if(isMe(S.people[q]))return S.people[q].org;return -1}
 function renderTeam(){
   if(!S.orgs.length){$('teampick').innerHTML='';waitingForDraft('teambody');return}
   var tw=$('draftwait'); if(tw)tw.remove();
+  /* A member opening Orgs wants their own, not whichever was first. */
+  if(!TEAM_AUTO){TEAM_AUTO=true; var mo=myOrgIndex(); if(mo>-1&&!canEdit())S.team=mo;}
+  var mine=myOrgIndex();
   $('teampick').innerHTML=S.orgs.map(function(g,i){
     return '<button data-org="'+i+'" aria-current="'+(i===S.team?'true':'false')+'">'+esc(orgLabel(i))+
-      ' <span style="opacity:.6">'+g.length+'</span></button>';
+      (i===mine?' <span class="youchip">yours</span>':' <span style="opacity:.6">'+g.length+'</span>')+'</button>';
   }).join('');
   Array.prototype.forEach.call($('teampick').querySelectorAll('button'),function(b){
     b.addEventListener('click',function(){S.team=parseInt(b.dataset.org,10);renderTeam()});
@@ -5603,11 +5857,15 @@ function renderTeam(){
   /* After the leadership call: an Org is a group to know, not a unit that
      scores. No leads, no points, no required hangouts -- the Cup belongs to
      Teams now. What is left is who is in it, and a nudge to meet once. */
-  var h='<div class="panel"><input class="bigname" id="teamname" value="'+esc(orgLabel(i))+'" aria-label="Org name"'+(canEdit()?'':' readonly')+'>'+
+  var h=(!canEdit()&&mine<0)?'<div class="panel"><h2>You are not in an '+esc(unitWord())+' yet</h2><p class="hint">EBOD forms '+
+      esc(unitsWord())+' from everyone who has onboarded, at bootcamp 1 (Oct 20). Yours appears here as soon as it is formed. Meanwhile, here is what one looks like.</p></div>':'';
+  h+='<div class="panel"><input class="bigname" id="teamname" value="'+esc(orgLabel(i))+'" aria-label="Org name"'+(canEdit()?'':' readonly')+'>'+
     '<p class="hint" style="margin-top:6px">'+esc(unitWord())+' '+pad(i)+' · '+g.length+' members, '+
     (S.club.useYear?c.y2+' '+esc(S.club.oldWord.toLowerCase())+(c.y2===1?'':'s')+' and '+c.y1+' '+esc(S.club.newWord.toLowerCase())+(c.y1===1?'':'s'):'')+'</p>'+
-    '<div class="note-soft">Nothing here is required. One or two optional meetups early in the quarter are plenty '+
-    '— grab food after a meeting, study together, say hi at the next event.</div></div>';
+    ebodLine(i)+
+    '<div class="note-soft">Your '+esc(unitWord())+' is your family in the chapter and your breakout group at bootcamps. '+
+    '2nd years look out for the 1st years — no titles, just people who have done this before. '+
+    'Beyond bootcamps nothing is required: grab food after a meeting, study together, say hi at the next event.</div></div>';
 
   h+='<div class="stats">'+
     stat(g.length,'Members')+
@@ -5620,19 +5878,26 @@ function renderTeam(){
 
   h+='<div class="'+(canEdit()?'teamgrid':'')+'"><div>';
   h+='<div class="panel"><h2>Members</h2><div class="tablewrap"><table><thead><tr>'+
-    '<th class="l">Member</th><th class="l">'+(S.club.useYear?'Year':'Role')+'</th>'+
+    '<th class="l">Member</th><th class="l">'+(S.club.useYear?'Year':'')+'</th>'+
     (tracksOf().length?'<th class="l">'+esc(S.club.trackWord)+'</th>':'')+
     '<th class="l">Team</th>'+
+    (canEdit()?'<th class="l">Availability</th>':'')+
     (canEdit()&&S.club.useMbti?'<th class="l">Type</th>':'')+
     (canEdit()?'<th class="l">Move</th>':'')+'</tr></thead><tbody>';
+  var lastYear=null, ncol=3+(tracksOf().length?1:0)+(canEdit()?2:0)+(canEdit()&&S.club.useMbti?1:0);
   g.slice().sort(function(x,y){return (y.year||0)-(x.year||0)||String(x.name).localeCompare(String(y.name))}).forEach(function(p){
-    var sn=p.note&&canSeeNotes(), tm=teamOf(p.name);
-    h+='<tr'+(sn?' class="rowflag"':'')+'>'+
+    var sn=p.note&&canSeeNotes(), tm=teamsOf(p.name).map(function(t){return t.name}).join(', ');
+    if(S.club.useYear&&p.year!==lastYear){
+      lastYear=p.year;
+      h+='<tr class="yrhead"><td class="l" colspan="'+ncol+'">'+(p.year===2?'2nd years \u2014 they have done this before; ask them anything':'1st years')+'</td></tr>';
+    }
+    h+='<tr class="'+(sn?'rowflag':'')+(isMe(p)?' mine':'')+'">'+
       '<td class="l name"><span class="nm linked" data-person="'+esc(p.name)+'">'+esc(p.name)+'</span>'+
       (sn?' <span class="note" title="'+esc(p.note)+'">●</span>':'')+'</td>'+
-      '<td class="l">'+esc(S.club.useYear?(p.year===2?S.club.oldWord:S.club.newWord):personRole(p))+'</td>'+
+      '<td class="l">'+esc(S.club.useYear?yearLabel(p):'')+'</td>'+
       (tracksOf().length?'<td class="l">'+esc(trackLabel(p.track))+'</td>':'')+
-      '<td class="l">'+(tm?esc(tm.name):'<span style="color:var(--mute)">—</span>')+'</td>'+
+      '<td class="l">'+(tm?esc(tm):'<span style="color:var(--mute)">—</span>')+'</td>'+
+      (canEdit()?'<td class="l" style="font-size:12px;color:var(--slate)">'+esc(p.avail||'—')+'</td>':'')+
       (canEdit()&&S.club.useMbti?'<td class="l"><span class="mbti">'+(p.mbti||'—')+'</span></td>':'')+
       (canEdit()?'<td class="l"><select class="movesel" data-name="'+esc(p.name)+'">'+
         S.orgs.map(function(_,j){return '<option value="'+j+'"'+(j===i?' selected':'')+'>'+esc(orgLabel(j))+'</option>'}).join('')+
@@ -5689,6 +5954,7 @@ function renderTeam(){
   });
 
   wireMemberLinks($('teambody'));
+  wireEbodPicks($('teambody'));
   $('teamname').addEventListener('change',function(e){
     if(!canEdit()){e.target.value=orgLabel(i);return}
     S.orgNames[i]=e.target.value.trim()||('Org '+pad(i));
@@ -5698,120 +5964,288 @@ function renderTeam(){
 }
 
 /* ================= TEAMS =================
-   The groups that actually do the work -- a consulting client team, a case
-   competition team -- and the only thing the Cup scores now. Kept on the club
-   record (S.club.teams) so every member sees the same list, and saved through
-   the same setConfig call as the rest of the club's settings. Members are
-   stored by name, the same key the roster, the Orgs and the submissions use. */
+   The groups that actually do the work. Two kinds this season:
+   - Consulting: one client, two PMs, ~10-12 consultants split into
+     initiatives.
+   - FLC: up to 4 members, up to 3 teams per event, formed from what members
+     asked for.
+   A member can be on one team of each kind -- a consultant can also compete.
+   Kept on the club record (S.club.teams) so every member sees the same list,
+   saved through the same setConfig call as the rest of the club. Members are
+   stored by name, the key the roster, the Orgs and the submissions all use. */
 var TEAMBOARD=null;
+var TEAM_KINDS=[['consulting','Consulting client team'],['flc','FLC competition team'],['other','Other team']];
 function teamsList(){return (S.club&&S.club.teams)||[]}
 function teamById(id){var t=teamsList();for(var i=0;i<t.length;i++)if(t[i].id===id)return t[i];return null}
-function teamOf(name){
-  var n=normName(name||''); if(!n)return null;
-  var t=teamsList();
-  for(var i=0;i<t.length;i++)
-    for(var j=0;j<(t[i].members||[]).length;j++)if(normName(t[i].members[j])===n)return t[i];
-  return null;
+/* Older teams have no kind; their track says which side they were on. */
+function kindOf(t){
+  if(!t)return 'other';
+  if(t.kind)return t.kind;
+  if(t.track==='c')return 'consulting';
+  if(t.track==='k')return 'flc';
+  return 'other';
 }
-function myTeam(){
-  var t=teamsList();
-  for(var i=0;i<t.length;i++)
-    for(var j=0;j<(t[i].members||[]).length;j++)if(isMe({name:t[i].members[j]}))return t[i];
-  return null;
+function kindLabel(k){var r=TEAM_KINDS.filter(function(x){return x[0]===k})[0];return r?r[1]:'Team'}
+function onTeam(t,name){
+  var n=normName(name||''); if(!n||!t)return false;
+  return (t.members||[]).some(function(m){return normName(m)===n});
 }
-/* The board comes from the backend, which is the only place that can see
-   everybody's hand-in times. Ranked here so a team that has not scored yet
-   still appears, at the bottom, rather than being missing. */
+function teamsOf(name){return teamsList().filter(function(t){return onTeam(t,name)})}
+function teamOf(name){return teamsOf(name)[0]||null}
+function myTeams(){return teamsList().filter(function(t){return (t.members||[]).some(function(m){return isMe({name:m})})})}
+function myTeam(){return myTeams()[0]||null}
+function isMyTeam(t){return myTeams().some(function(x){return x.id===t.id})}
+function boardRow(id){var b=null;(TEAMBOARD||[]).forEach(function(r){if(r.id===id)b=r});return b}
 function rankedBoard(){
-  var rows=teamsList().map(function(t){
-    var b=null;(TEAMBOARD||[]).forEach(function(r){if(r.id===t.id)b=r});
+  /* Kept for the Assistant. No ranks any more: alphabetical, with the
+     on-time share as information rather than a placing. */
+  return teamsList().map(function(t){
+    var b=boardRow(t.id)||{};
     return {id:t.id,name:t.name,track:t.track,size:(t.members||[]).length,
-            pts:b?b.pts:0,got:b?b.got:0,of:b?b.of:0,works:b?b.works:0};
-  });
-  rows.sort(function(a,b){return b.pts-a.pts||String(a.name).localeCompare(String(b.name))});
-  var last=null,rank=0;
-  rows.forEach(function(r,i){if(r.pts!==last){rank=i+1;last=r.pts}r.rank=rank});
-  return rows;
+            pts:b.pts||0,got:b.got||0,of:b.of||0,works:b.works||0};
+  }).sort(function(a,b){return String(a.name).localeCompare(String(b.name))});
 }
-function boardRow(id){var r=rankedBoard();for(var i=0;i<r.length;i++)if(r[i].id===id)return r[i];return null}
 function teamKindLabel(k){return k?(trackLabel(k)||k):'Mixed'}
+function onTimeLine(t){
+  var b=boardRow(t.id);
+  if(!b||!b.of)return '';
+  return Math.round(b.got/b.of*100)+'% of homework on time';
+}
 
-function renderTeamBoard(){
-  var box=$('teamboard'); if(!box)return;
-  var rows=rankedBoard(), mine=myTeam();
-  if(!rows.length){
-    box.innerHTML='<p class="empty">No teams yet. '+(canEdit()?'Build them on the Teams tab.':'Officers set them up on the Teams tab.')+'</p>';
-    return;
-  }
-  if(TEAMBOARD===null&&!A.offline&&canEdit()){
-    box.innerHTML='<p class="empty">Scores have not come back from the club sheet. If this stays empty, the Apps Script backend needs its latest version deployed.</p>';
-  }
-  var h='<div class="tablewrap"><table><thead><tr><th class="l">#</th><th class="l">Team</th>'+
-    '<th>Points</th><th>On time</th><th>Assignments</th></tr></thead><tbody>';
-  rows.forEach(function(r){
-    var pct=r.of?Math.round(r.got/r.of*100):0;
-    h+='<tr class="'+(r.rank===1&&r.pts>0?'top':'')+(mine&&mine.id===r.id?' mine':'')+'">'+
-      '<td class="l rank">'+r.rank+'</td>'+
-      '<td class="l name">'+esc(r.name)+(mine&&mine.id===r.id?' <span class="youchip">your team</span>':'')+
-        '<div class="sub mono">'+esc(teamKindLabel(r.track))+' · '+r.size+' member'+(r.size===1?'':'s')+'</div></td>'+
-      '<td><b>'+r.pts+'</b></td>'+
-      '<td>'+(r.of?pct+'%':'—')+'</td>'+
-      '<td>'+r.works+'</td></tr>';
+/* ---- FLC preferences ----
+   Members say which events they want, in order, and who they would like to
+   compete with. Stored on their own profile (saveProfile), read back by
+   officers through the club roster. */
+var PREFS={loaded:false,byName:{}};
+function prefsFor(name){return PREFS.byName[normName(name)]||null}
+function loadPrefs(force){
+  if(PREFS.loaded&&!force)return Promise.resolve(PREFS);
+  var src=DEMO_ON?Promise.resolve({ok:true,roster:demoAccounts()}):
+    (canEdit()?backendPost('clubRoster',null):Promise.resolve(null));
+  return src.then(function(r){prefsFromRoster((r&&r.ok&&r.roster)||[]);return PREFS});
+}
+function prefsFromRoster(roster){
+  PREFS={loaded:true,byName:{}};
+  roster.forEach(function(u){
+    var nm=((u.first||'')+' '+(u.last||'')).trim()||u.who;
+    var pr=u.prefs; if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
+    if(pr&&pr.flc&&pr.flc.length)PREFS.byName[normName(nm)]=pr;
   });
-  box.innerHTML=h+'</tbody></table></div>'+
-    '<p class="hint" style="margin-top:10px">An assignment counts once it has a due date. Handing in again after the deadline does not lose the on-time credit from the first hand-in.</p>';
+}
+function flcTeamsFor(ev){return teamsList().filter(function(t){return kindOf(t)==='flc'&&t.event===ev})}
+function nextTeamLetter(ev){
+  var used={};flcTeamsFor(ev).forEach(function(t){var m=String(t.name).match(/ ([A-Z])$/);if(m)used[m[1]]=1});
+  for(var i=0;i<26;i++){var L=String.fromCharCode(65+i);if(!used[L])return L}
+  return String(Date.now()%100);
+}
+/* Fills each event's teams from members' ranked choices: everyone's first
+   choice first, then second, then third, until an event's three teams of
+   four are full. Within an event, members are dealt round-robin with the
+   2nd years first so each team gets one. Requested teammates who picked the
+   same event are kept together where there is room. What it cannot place is
+   listed, not dropped. */
+function formFlcTeams(){
+  var evs=flcEventList(), cap=F26.flcMax*F26.flcTeamsPerEvent;
+  var cands=Object.keys(PREFS.byName).map(function(k){
+    var pr=PREFS.byName[k], p=null;
+    S.people.forEach(function(x){if(normName(x.name)===k)p=x});
+    return p&&pr.attend!==false?{p:p,pr:pr}:null;
+  }).filter(Boolean);
+  var into={}; evs.forEach(function(e){into[e]=[]});
+  var placed={};
+  for(var round=0;round<3;round++){
+    shuffle(cands.slice()).sort(function(a,b){return b.p.year-a.p.year}).forEach(function(c){
+      if(placed[c.p.name])return;
+      var ev=(c.pr.flc||[])[round];
+      if(!ev||!into[ev]||into[ev].length>=cap)return;
+      into[ev].push(c);placed[c.p.name]=1;
+    });
+  }
+  var made=[];
+  evs.forEach(function(ev){
+    var list=into[ev]; if(!list.length)return;
+    var n=Math.min(F26.flcTeamsPerEvent,Math.ceil(list.length/F26.flcMax));
+    var groups=[];for(var i=0;i<n;i++)groups.push([]);
+    list.sort(function(a,b){return b.p.year-a.p.year});
+    var where={};
+    list.forEach(function(c){
+      if(where[c.p.name]!=null)return;
+      var best=0;groups.forEach(function(g,i){if(g.length<groups[best].length)best=i});
+      groups[best].push(c.p.name);where[c.p.name]=best;
+      var mate=c.pr.mate&&list.filter(function(x){return normName(x.p.name)===normName(c.pr.mate)})[0];
+      if(mate&&where[mate.p.name]==null&&groups[best].length<F26.flcMax){
+        groups[best].push(mate.p.name);where[mate.p.name]=best;
+      }
+    });
+    groups.forEach(function(g,i){
+      made.push(cloneTeam({id:'t'+Date.now().toString(36)+ev.slice(0,2)+i,name:'FLC '+ev+' '+String.fromCharCode(65+i),
+        kind:'flc',track:'k',event:ev,members:g}));
+    });
+  });
+  var left=cands.filter(function(c){return !placed[c.p.name]}).map(function(c){return c.p.name});
+  return {teams:made,left:left};
+}
+/* One team per client that does not have one yet. */
+function makeClientTeams(){
+  var have={};teamsList().forEach(function(t){if(kindOf(t)==='consulting')have[String(t.client||t.name).toLowerCase()]=1});
+  var add=clientList().filter(function(c){return !have[c.toLowerCase()]}).map(function(c,i){
+    return cloneTeam({id:'t'+Date.now().toString(36)+i,name:c,kind:'consulting',track:'c',client:c,
+      members:[],pms:[],initiatives:[]});
+  });
+  S.club.teams=teamsList().concat(add);
+  return add.length;
+}
+/* Consulting-track members who are not on a client team yet, dealt across
+   the client teams so each gets a mix of years. */
+function fillClientTeams(){
+  var cts=teamsList().filter(function(t){return kindOf(t)==='consulting'});
+  if(!cts.length)return 0;
+  var free=S.people.filter(function(p){
+    return p.track==='c'&&!teamsOf(p.name).some(function(t){return kindOf(t)==='consulting'});
+  }).sort(function(a,b){return b.year-a.year});
+  free.forEach(function(p){
+    var best=cts[0];cts.forEach(function(t){if((t.members||[]).length<(best.members||[]).length)best=t});
+    best.members=(best.members||[]).concat([p.name]);
+  });
+  return free.length;
 }
 
 function sqSay(t,kind){var m=$('sqmsg'); if(!m)return; m.textContent=t; m.className='msg show'+(kind?' '+kind:'')}
 function saveTeams(){ save(); syncClub(); renderSquads(); renderTeamBoard(); if($('v-teams').classList.contains('on'))renderTeam(); }
+function personOrg(name){var o=null;S.people.forEach(function(p){if(normName(p.name)===normName(name))o=p.org});return o}
+function rosterNames(){return S.people.map(function(p){return p.name}).sort()}
+
+function squadCard(t){
+  var k=kindOf(t), mine=isMyTeam(t), edit=canEdit(), mem=t.members||[];
+  var h='<div class="panel squad'+(mine?' mine':'')+'" data-id="'+esc(t.id)+'">'+
+    '<div class="sqhead">'+
+      (edit?'<input class="sqname" value="'+esc(t.name)+'" aria-label="Team name">'
+           :'<h2 style="margin:0">'+esc(t.name)+'</h2>')+
+      (mine?'<span class="youchip">your team</span>':'')+
+    '</div>'+
+    '<div class="sqmeta mono">'+esc(k==='flc'?('FLC · '+(t.event||'event not set')):
+        (k==='consulting'?('Client · '+(t.client||t.name)):teamKindLabel(t.track)))+
+      ' · '+mem.length+(k==='flc'?' / '+F26.flcMax:'')+' member'+(mem.length===1?'':'s')+
+      (onTimeLine(t)?' · '+esc(onTimeLine(t)):'')+'</div>';
+  if(k==='consulting'){
+    var pms=t.pms||[];
+    h+='<div class="sqpms"><span class="lbl2">PMs</span>';
+    if(edit){
+      for(var i=0;i<2;i++){
+        h+='<select class="sqpm" data-i="'+i+'"><option value="">PM '+(i+1)+'…</option>'+
+          ebodList().map(function(e){return e.name}).concat(rosterNames()).filter(function(v,j,a){return a.indexOf(v)===j})
+            .map(function(nm){return '<option value="'+esc(nm)+'"'+(pms[i]===nm?' selected':'')+'>'+esc(nm)+'</option>'}).join('')+
+          '</select>';
+      }
+    } else h+=pms.filter(String).length?pms.filter(String).map(function(x){return '<b>'+esc(x)+'</b>'}).join(' & '):'<em>to be named</em>';
+    h+='</div>';
+    if(edit)h+='<div class="field" style="margin-top:8px"><label>Initiatives (comma-separated)</label>'+
+      '<input type="text" class="sqinit" value="'+esc((t.initiatives||[]).join(', '))+'" placeholder="Market research, Brand, Operations"></div>';
+    else if((t.initiatives||[]).length)h+='<div class="sqmeta" style="margin-top:6px">Initiatives: '+esc(t.initiatives.join(' · '))+'</div>';
+    if(edit&&mem.length&&(mem.length<10||mem.length>12))
+      h+='<p class="hint" style="margin:6px 0 0">EBOD aimed for about 10–12 consultants per client.</p>';
+  }
+  h+='<div class="sqmembers">'+
+    (mem.length?mem.map(function(m){
+      var org=personOrg(m), ini=(t.assign||{})[normName(m)]||'';
+      return '<span class="sqm'+(isMe({name:m})?' me':'')+'"><span class="nm linked" data-person="'+esc(m)+'">'+esc(m)+'</span>'+
+        (org!=null&&S.orgs.length?'<em>'+esc(orgLabel(org))+'</em>':'')+
+        (k==='consulting'&&(t.initiatives||[]).length?(edit
+          ?'<select class="sqini" data-name="'+esc(m)+'"><option value="">initiative…</option>'+
+            t.initiatives.map(function(x){return '<option'+(x===ini?' selected':'')+'>'+esc(x)+'</option>'}).join('')+'</select>'
+          :(ini?'<em class="ini">'+esc(ini)+'</em>':'')):'')+
+        (edit?'<button type="button" class="sqout" data-name="'+esc(m)+'" aria-label="Take '+esc(m)+' off this team">×</button>':'')+
+      '</span>';
+    }).join(''):'<p class="empty" style="padding:6px 0">Nobody on it yet.</p>')+
+  '</div>';
+  if(edit){
+    var full=k==='flc'&&mem.length>=F26.flcMax;
+    var free=S.people.filter(function(p){return !teamsOf(p.name).some(function(x){return kindOf(x)===k})})
+      .sort(function(a,b){return String(a.name).localeCompare(String(b.name))});
+    h+='<div class="row sqtools">'+
+      (full?'<span class="savenote">Full — FLC teams are capped at '+F26.flcMax+'.</span>':
+      '<select class="sqpick"><option value="">Add a member…</option>'+
+        free.map(function(p){var pr=k==='flc'&&prefsFor(p.name);
+          return '<option value="'+esc(p.name)+'">'+esc(p.name)+' · '+esc(yearLabel(p))+
+            (tracksOf().length?' · '+esc(trackLabel(p.track)):'')+
+            (pr?' · wants '+esc(pr.flc.join(' > ')):'')+'</option>'}).join('')+'</select>')+
+      '<button type="button" class="tiny danger sqkill">Delete team</button></div>';
+  }
+  return h+'</div>';
+}
+
+function renderPrefsPanel(){
+  var box=$('sqprefs'); if(!box)return;
+  if(!canEdit()){box.innerHTML='';box.hidden=true;return}
+  box.hidden=false;
+  if(!PREFS.loaded){box.innerHTML='<h2>FLC preferences</h2><p class="empty wait">Reading what members asked for…</p>';
+    loadPrefs().then(function(){renderPrefsPanel();renderSquads()});return}
+  var names=Object.keys(PREFS.byName);
+  var h='<h2>FLC preferences</h2><p class="hint">'+names.length+' member'+(names.length===1?' has':'s have')+
+    ' sent their event choices from the Teams tab. Forming teams fills each event’s '+F26.flcTeamsPerEvent+' teams of up to '+F26.flcMax+
+    ' from first choices, then second, then third, keeps requested teammates together where it can, and lists anyone it could not place. '+
+    'Selection criteria are still EBOD’s call — adjust by hand afterwards.</p>';
+  if(names.length){
+    h+='<div class="tablewrap scrollcard" style="max-height:260px"><table><thead><tr><th class="l">Member</th><th class="l">Year</th>'+
+      '<th class="l">1st</th><th class="l">2nd</th><th class="l">3rd</th><th class="l">Teammate</th><th class="l">Nov 13–15</th><th class="l">On</th></tr></thead><tbody>';
+    names.sort().forEach(function(k){
+      var pr=PREFS.byName[k], p=findPersonByName(k)||{name:k}, on=teamsOf(p.name).filter(function(t){return kindOf(t)==='flc'})[0];
+      h+='<tr><td class="l name">'+esc(p.name)+'</td><td class="l">'+esc(p.year?yearLabel(p):'')+'</td>'+
+        [0,1,2].map(function(i){return '<td class="l">'+esc((pr.flc||[])[i]||'—')+'</td>'}).join('')+
+        '<td class="l">'+esc(pr.mate||'—')+'</td><td class="l">'+(pr.attend===false?'<span style="color:var(--flag)">can’t go</span>':'yes')+'</td>'+
+        '<td class="l">'+(on?esc(on.name):'<span style="color:var(--mute)">—</span>')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='<div class="row"><button type="button" id="flcform"'+(names.length?'':' disabled')+'>Form FLC teams from preferences</button>'+
+     '<button type="button" class="ghost" id="flcreload">Refresh</button></div><div class="msg" id="flcmsg"></div>';
+  box.innerHTML=h;
+  $('flcreload').addEventListener('click',function(){PREFS.loaded=false;renderPrefsPanel()});
+  $('flcform').addEventListener('click',function(){
+    var had=teamsList().filter(function(t){return kindOf(t)==='flc'}).length;
+    (had?uiConfirm('Re-form the FLC teams?','The '+had+' FLC team'+(had===1?'':'s')+' there now are replaced. Consulting teams are not touched.','Re-form',true):Promise.resolve(true)).then(function(ok){
+      if(!ok)return;
+      var r=formFlcTeams();
+      S.club.teams=teamsList().filter(function(t){return kindOf(t)!=='flc'}).concat(r.teams);
+      saveTeams();
+      var m=$('flcmsg');
+      if(m){m.textContent='Formed '+r.teams.length+' FLC team'+(r.teams.length===1?'':'s')+'.'+
+        (r.left.length?' Could not place '+r.left.length+' (their events were full): '+r.left.join(', ')+'.':' Everyone who asked was placed.');
+        m.className='msg show '+(r.left.length?'info':'good');}
+    });
+  });
+}
+
 function renderSquads(){
   var box=$('squadbody'); if(!box)return;
-  var sel=$('sq-track');
-  if(sel&&!sel.dataset.built){
-    sel.dataset.built='1';
-    sel.innerHTML=tracksOf().map(function(t){return '<option value="'+esc(t.id)+'">'+esc(t.label)+'</option>'}).join('')+
-      '<option value="">Mixed</option>';
+  var ks=$('sq-kind');
+  if(ks&&!ks.dataset.built){
+    ks.dataset.built='1';
+    ks.innerHTML=TEAM_KINDS.map(function(k){return '<option value="'+k[0]+'">'+esc(k[1])+'</option>'}).join('');
   }
-  var teams=teamsList().slice(), mine=myTeam();
-  if(mine)teams.sort(function(a,b){return (b.id===mine.id?1:0)-(a.id===mine.id?1:0)});
+  paintSqKind();
+  renderPrefsPanel();
+  renderMyPrefs();
+  var teams=teamsList().slice();
   if(!teams.length){
-    box.innerHTML='<div class="panel"><p class="empty">No teams yet.'+(canEdit()?' Build the first one above.':' Officers will set them up once projects and competitions are assigned.')+'</p></div>';
+    box.innerHTML='<div class="panel"><p class="empty">No teams yet.'+(canEdit()?' Set up the client teams or form FLC teams above.':' Consulting teams are announced at bootcamp 1 (Oct 20); FLC teams once EBOD has your preferences.')+'</p></div>';
     return;
   }
-  var free=S.people.filter(function(p){return !teamOf(p.name)})
-    .sort(function(a,b){return String(a.name).localeCompare(String(b.name))});
+  if(!canEdit())teams.sort(function(a,b){return (isMyTeam(b)?1:0)-(isMyTeam(a)?1:0)});
   var h='';
-  if(canEdit())h+='<p class="hint" style="margin:0 0 12px">'+(free.length
-    ?free.length+' member'+(free.length===1?' is':'s are')+' not on a team yet.'
-    :'Everyone on the roster is on a team.')+'</p>';
-  h+='<div class="squadgrid">';
-  teams.forEach(function(t){
-    var b=boardRow(t.id), isMine=mine&&mine.id===t.id;
-    h+='<div class="panel squad'+(isMine?' mine':'')+'" data-id="'+esc(t.id)+'">'+
-      '<div class="sqhead">'+
-        (canEdit()?'<input class="sqname" value="'+esc(t.name)+'" aria-label="Team name">'
-                  :'<h2 style="margin:0">'+esc(t.name)+'</h2>')+
-        (isMine?'<span class="youchip">your team</span>':'')+
-      '</div>'+
-      '<div class="sqmeta mono">'+esc(teamKindLabel(t.track))+
-        (b?' · '+b.pts+' pts · #'+b.rank+' in the Cup':'')+'</div>'+
-      '<div class="sqmembers">'+
-        ((t.members||[]).length?(t.members||[]).map(function(m){
-          var org=null;S.people.forEach(function(p){if(normName(p.name)===normName(m))org=p.org});
-          return '<span class="sqm"><span class="nm linked" data-person="'+esc(m)+'">'+esc(m)+'</span>'+
-            (org!=null&&S.orgs.length?'<em>'+esc(orgLabel(org))+'</em>':'')+
-            (canEdit()?'<button type="button" class="sqout" data-name="'+esc(m)+'" aria-label="Take '+esc(m)+' off this team">×</button>':'')+
-          '</span>';
-        }).join(''):'<p class="empty" style="padding:6px 0">Nobody on it yet.</p>')+
-      '</div>'+
-      (canEdit()?'<div class="row sqtools">'+
-        '<select class="sqpick"><option value="">Add a member…</option>'+
-          free.map(function(p){return '<option value="'+esc(p.name)+'">'+esc(p.name)+
-            (tracksOf().length?' · '+esc(trackLabel(p.track)):'')+'</option>'}).join('')+'</select>'+
-        '<button type="button" class="tiny danger sqkill">Delete team</button></div>':'')+
-    '</div>';
+  if(canEdit()){
+    var free=S.people.filter(function(p){return !teamOf(p.name)});
+    h+='<p class="hint" style="margin:0 0 12px">'+(free.length
+      ?free.length+' member'+(free.length===1?' is':'s are')+' not on any team yet.'
+      :'Everyone on the roster is on a team.')+'</p>';
+  }
+  [['consulting','Consulting'],['flc','FLC (case competition)'],['other','Other teams']].forEach(function(sec){
+    var list=teams.filter(function(t){return kindOf(t)===sec[0]});
+    if(!list.length)return;
+    h+='<h3 class="sqsec">'+esc(sec[1])+' <span class="savenote">'+list.length+' team'+(list.length===1?'':'s')+'</span></h3>';
+    h+='<div class="squadgrid">'+list.map(squadCard).join('')+'</div>';
   });
-  box.innerHTML=h+'</div>';
+  box.innerHTML=h;
   wireMemberLinks(box);
   if(!canEdit())return;
   Array.prototype.forEach.call(box.querySelectorAll('.squad'),function(card){
@@ -5824,12 +6258,31 @@ function renderSquads(){
     var pick=card.querySelector('.sqpick');
     if(pick)pick.addEventListener('change',function(){
       if(!pick.value)return;
+      if(kindOf(t)==='flc'&&(t.members||[]).length>=F26.flcMax){sqSay('FLC teams are capped at '+F26.flcMax+'.');return}
       t.members=(t.members||[]).concat([pick.value]); saveTeams();
+    });
+    Array.prototype.forEach.call(card.querySelectorAll('.sqpm'),function(sel){
+      sel.addEventListener('change',function(){
+        t.pms=(t.pms||[]).slice(); while(t.pms.length<2)t.pms.push('');
+        t.pms[parseInt(sel.dataset.i,10)]=cleanLabel(sel.value); saveTeams();
+      });
+    });
+    var ini=card.querySelector('.sqinit');
+    if(ini)ini.addEventListener('change',function(){
+      t.initiatives=ini.value.split(',').map(function(x){return cleanLabel(x).trim()}).filter(String).slice(0,8);
+      saveTeams();
+    });
+    Array.prototype.forEach.call(card.querySelectorAll('.sqini'),function(sel){
+      sel.addEventListener('change',function(){
+        t.assign=t.assign||{}; t.assign[normName(sel.dataset.name)]=cleanLabel(sel.value); saveTeams();
+      });
     });
     Array.prototype.forEach.call(card.querySelectorAll('.sqout'),function(x){
       x.addEventListener('click',function(){
         var n=normName(x.dataset.name);
-        t.members=(t.members||[]).filter(function(m){return normName(m)!==n}); saveTeams();
+        t.members=(t.members||[]).filter(function(m){return normName(m)!==n});
+        if(t.assign)delete t.assign[n];
+        saveTeams();
       });
     });
     var k=card.querySelector('.sqkill');
@@ -5842,27 +6295,166 @@ function renderSquads(){
     });
   });
 }
+/* The build form changes with the kind of team: a client for consulting, an
+   event for FLC, just a name otherwise. */
+function paintSqKind(){
+  var k=($('sq-kind')||{}).value||'consulting', box=$('sq-sub'); if(!box)return;
+  if(box.dataset.k===k)return; box.dataset.k=k;
+  if(k==='consulting')box.innerHTML='<label for="sq-client">Client</label><select id="sq-client">'+
+    clientList().map(function(c){return '<option>'+esc(c)+'</option>'}).join('')+'</select>';
+  else if(k==='flc')box.innerHTML='<label for="sq-event">Event</label><select id="sq-event">'+
+    flcEventList().map(function(c){return '<option>'+esc(c)+'</option>'}).join('')+'</select>';
+  else box.innerHTML='<label>&nbsp;</label><span class="savenote">A team with no client or event.</span>';
+}
 function initSquads(){
   var add=$('sq-add'); if(!add)return;
+  if($('sq-kind'))$('sq-kind').addEventListener('change',paintSqKind);
   add.addEventListener('click',function(){
-    var nm=cleanLabel(($('sq-name').value||'')).slice(0,60);
+    var kind=($('sq-kind')||{}).value||'other', nm=cleanLabel(($('sq-name').value||'')).slice(0,60);
+    var client='',ev='';
+    if(kind==='consulting'){client=($('sq-client')||{}).value||'';if(!nm)nm=client}
+    if(kind==='flc'){
+      ev=($('sq-event')||{}).value||'';
+      if(flcTeamsFor(ev).length>=F26.flcTeamsPerEvent){sqSay('Up to '+F26.flcTeamsPerEvent+' teams per FLC event — '+ev+' already has them.');return}
+      if(!nm)nm='FLC '+ev+' '+nextTeamLetter(ev);
+    }
     if(!nm){sqSay('It needs a name.');return}
     if(teamsList().some(function(t){return t.name.toLowerCase()===nm.toLowerCase()})){sqSay('There is already a team called that.');return}
-    S.club.teams=teamsList().concat([{id:'t'+Date.now().toString(36),name:nm,track:($('sq-track')||{}).value||'',members:[]}]);
+    S.club.teams=teamsList().concat([cloneTeam({id:'t'+Date.now().toString(36),name:nm,kind:kind,
+      track:kind==='consulting'?'c':(kind==='flc'?'k':''),client:client,event:ev,members:[],pms:[],initiatives:[]})]);
     $('sq-name').value='';
     sqSay('Added '+nm+'. Pick its members below.','good');
     saveTeams();
   });
+  var mc=$('sq-clients');
+  if(mc)mc.addEventListener('click',function(){
+    var n=makeClientTeams();
+    var f=fillClientTeams();
+    sqSay(n?('Set up '+n+' client team'+(n===1?'':'s')+(f?' and placed '+f+' consulting-track members across them':'')+'. Name two PMs on each.'):
+            (f?'Placed '+f+' consulting-track members across the client teams.':'Every client already has a team, and every consulting-track member is on one.'),'good');
+    saveTeams();
+  });
 }
-/* The homework picker lists teams, so it is rebuilt whenever it is shown --
-   teams change long after the page first loads. */
+
+/* ---- a member's own FLC choices ---- */
+function renderMyPrefs(){
+  var box=$('myprefs'); if(!box)return;
+  if(canEdit()){box.hidden=true;box.innerHTML='';return}
+  box.hidden=false;
+  var evs=flcEventList();
+  var cur=MYPREFS||{flc:[],mate:'',attend:true};
+  var sel=function(i){
+    return '<div class="field" style="flex:1;min-width:140px"><label for="mp-flc'+i+'">'+['1st','2nd','3rd'][i]+' choice</label>'+
+      '<select id="mp-flc'+i+'"><option value="">—</option>'+evs.map(function(e){
+        return '<option'+((cur.flc||[])[i]===e?' selected':'')+'>'+esc(e)+'</option>'}).join('')+'</select></div>';
+  };
+  box.innerHTML='<h2>Your FLC preferences</h2>'+
+    '<p class="hint">Competing at FLC (Nov 13–15, Emeryville)? Rank the events you want. EBOD forms teams of up to '+F26.flcMax+
+    ', up to '+F26.flcTeamsPerEvent+' per event, from these. Skip it if you are only doing consulting or Polaris.</p>'+
+    '<div class="row" style="margin-top:0">'+sel(0)+sel(1)+sel(2)+'</div>'+
+    '<div class="row"><div class="field" style="flex:2;min-width:200px"><label for="mp-mate">Someone you would like on your team (optional)</label>'+
+      '<input type="text" id="mp-mate" value="'+esc(cur.mate||'')+'" placeholder="Their name"></div>'+
+      '<label class="check" style="padding:9px 0"><input type="checkbox" id="mp-attend"'+(cur.attend===false?'':' checked')+'> I can be there Nov 13–15</label></div>'+
+    '<div class="row"><button type="button" id="mp-save">Send my choices</button></div><div class="msg" id="mp-msg"></div>';
+  $('mp-save').addEventListener('click',function(){
+    var flc=[0,1,2].map(function(i){return $('mp-flc'+i).value}).filter(String)
+      .filter(function(v,i,a){return a.indexOf(v)===i});
+    var m=$('mp-msg');
+    if(!flc.length){m.textContent='Pick at least a first choice.';m.className='msg show';return}
+    var pr={flc:flc,mate:cleanLabel($('mp-mate').value).slice(0,60),attend:$('mp-attend').checked,at:Date.now()};
+    m.textContent='Sending…';m.className='msg show info wait';
+    backendPost('saveProfile',{prefs:JSON.stringify(pr)}).then(function(r){
+      if(r&&r.ok){MYPREFS=pr;m.textContent='Sent. EBOD will see your choices when they form the FLC teams.';m.className='msg show good';PREFS.loaded=false}
+      else{m.textContent=(r&&r.error)||'That did not send. If this keeps happening, the backend needs its latest version.';m.className='msg show'}
+    });
+  });
+  if(!MYPREFS_ASKED&&!A.offline){
+    MYPREFS_ASKED=true;
+    backendPost('getProfile',null).then(function(r){
+      var pr=r&&r.ok&&r.profile&&r.profile.Prefs;
+      if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
+      if(pr&&pr.flc){MYPREFS=pr;renderMyPrefs()}
+    });
+  }
+}
+var MYPREFS=null, MYPREFS_ASKED=false;
+
+/* The homework picker lists Orgs and teams, so it is rebuilt whenever it is
+   shown -- both change long after the page first loads. */
 function fillHwFor(){
   var who=$('hw-for'); if(!who||!canEdit())return;
   var cur=who.value;
   who.innerHTML='<option value="all">Everyone</option>'+
-    teamsList().map(function(t){return '<option value="'+esc(t.id)+'">'+esc(t.name)+' only</option>'}).join('');
+    (S.orgs.length?'<optgroup label="'+esc(unitsWord())+'">'+S.orgs.map(function(_,i){
+      return '<option value="org:'+i+'">'+esc(orgLabel(i))+' only</option>'}).join('')+'</optgroup>':'')+
+    (teamsList().length?'<optgroup label="Teams">'+teamsList().map(function(t){
+      return '<option value="'+esc(t.id)+'">'+esc(t.name)+' only</option>'}).join('')+'</optgroup>':'');
   if(cur)who.value=cur;
   if(who.value!==cur&&cur)who.value='all';
+}
+
+/* ================= ORG CUPS =================
+   EBOD kept points only as a private record and asked for cups at the Org
+   level instead of a leaderboard. An Org earns a cup each time at least 80%
+   of its members hand an assignment in on time, and EBOD can award one by
+   hand (bootcamp turnout, a mock case win). Cups are counted, never ranked:
+   the board is in Org order and nobody is "first". The on-time numbers come
+   from the backend, the only place that can see everybody's hand-in times. */
+var ORGBOARD=null, CUP_RULE=0.8;
+function orgIndexByLabel(lbl){for(var i=0;i<S.orgs.length;i++)if(orgLabel(i)===lbl)return i;return -1}
+function autoCups(i){
+  var row=null;((DEMO_ON?demoOrgBoard():ORGBOARD)||[]).forEach(function(r){if(r.org===orgLabel(i))row=r});
+  if(!row)return [];
+  return (row.works||[]).filter(function(w){return w.of&&w.got/w.of>=CUP_RULE});
+}
+function handCups(i){return (S.club.cups||[]).filter(function(c){return +c.org===i})}
+function cupCount(i){return autoCups(i).length+handCups(i).length}
+var CUP_SVG='<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="vertical-align:-2px"><path fill="currentColor" d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 14.9V17h3v3H8v-3h3v-2.1A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V5h3V3zm0 4H6v1a2 2 0 0 0 1 1.7V7zm10 0v2.7A2 2 0 0 0 18 8V7h-1z"/></svg>';
+function cupIcons(n){var h='';for(var k=0;k<Math.min(n,8);k++)h+=CUP_SVG;return h+(n>8?' ×'+n:'')}
+function workTitle(id){var w=((S.club&&S.club.work)||[]).filter(function(x){return x.id===id})[0];return w?w.title:'An assignment'}
+function renderTeamBoard(){
+  var box=$('teamboard'); if(!box)return;
+  if(!S.orgs.length){box.innerHTML='<p class="empty">Cups start once the '+esc(unitsWord())+' are formed.</p>';return}
+  var mine=myOrgIndex();
+  var h='';
+  if(ORGBOARD===null&&!A.offline&&canEdit())
+    h+='<p class="hint">On-time numbers have not come back from the club sheet yet. If this stays, the Apps Script backend needs its latest version deployed; hand-awarded cups still show.</p>';
+  h+='<div class="cupgrid">';
+  S.orgs.forEach(function(g,i){
+    var au=autoCups(i), hc=handCups(i), n=au.length+hc.length;
+    h+='<div class="cupcard'+(i===mine?' mine':'')+'"><h4>'+esc(orgLabel(i))+(i===mine?' <span class="youchip">yours</span>':'')+'</h4>'+
+      '<div class="cups">'+(n?cupIcons(n):'<span class="none">No cups yet</span>')+'</div>'+
+      ((au.length||hc.length)?'<ul class="cupwhy">'+
+        au.map(function(w){return '<li>'+esc(workTitle(w.id))+' — '+w.got+' of '+w.of+' on time</li>'}).join('')+
+        hc.map(function(c){return '<li>'+esc(c.label)+(canEdit()?' <button class="tiny ghost cupkill" data-id="'+esc(c.id)+'" type="button" title="Remove">×</button>':'')+'</li>'}).join('')+
+      '</ul>':'')+
+      (orgContact(i)?'<div class="cupwhy">EBOD contact: '+esc(orgContact(i))+'</div>':'')+
+    '</div>';
+  });
+  h+='</div>';
+  box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll('.cupkill'),function(b){
+    b.addEventListener('click',function(){
+      S.club.cups=(S.club.cups||[]).filter(function(c){return c.id!==b.dataset.id});
+      save(); syncClub(); renderTeamBoard(); renderDraft();
+    });
+  });
+  var sel=$('cup-org');
+  if(sel){var keep=sel.value;
+    sel.innerHTML=S.orgs.map(function(_,i){return '<option value="'+i+'">'+esc(orgLabel(i))+'</option>'}).join('');
+    if(keep)sel.value=keep;}
+}
+function initCups(){
+  var b=$('cup-give'); if(!b)return;
+  b.addEventListener('click',function(){
+    var i=parseInt(($('cup-org')||{}).value,10), why=cleanLabel(($('cup-why')||{}).value).trim().slice(0,80);
+    var m=$('cupgivemsg');
+    if(isNaN(i)||!why){m.textContent='Pick an '+unitWord()+' and say what it is for.';m.className='msg show';return}
+    S.club.cups=(S.club.cups||[]).concat([{id:'c'+Date.now().toString(36),org:i,label:why,at:Date.now(),by:A.name||'EBOD'}]);
+    $('cup-why').value='';
+    m.textContent='Cup awarded to '+orgLabel(i)+'.';m.className='msg show good';
+    save(); syncClub(); renderTeamBoard(); renderDraft();
+  });
 }
 
 /* ================= MEMBER PROFILE =================
@@ -5893,15 +6485,18 @@ function renderProfile(){
       (p&&p.Org?' · '+esc(p.Org):'')+'</div></div></div>';
 
     if(!p){
-      h+='<p class="hint" style="margin-top:18px">You are signed in, but no one on the roster matches this account yet. '+
-         'That is normal before the draft has run, or if your roster name is spelled differently from your username '+
-         '— ask an officer to line them up.</p>';
+      h+='<p class="hint" style="margin-top:18px">You are signed in and your onboarding answers are with EBOD. '+
+         'You are not in an '+esc(unitWord())+' yet: EBOD forms them from everyone who has onboarded at bootcamp 1 (Oct 20), '+
+         'and your teams follow. Until then, look at the season on the Calendar, and if you want to compete at FLC, send your event choices on the Teams tab. '+
+         'If Orgs have already been formed and you are still not on one, your roster name may be spelled differently — tell your EBOD contact.</p>';
     } else {
-      var myT=myTeam(), myB=myT&&boardRow(myT.id);
+      var myTs=myTeams(), oi=orgIndexByLabel(String(p.Org||''));
       h+='<div class="profgrid">'+
         (p.Org?stat(esc(String(p.Org)),unitWord()):'')+
-        stat(myT?esc(myT.name):'—','Team')+
-        (myB?stat(myB.pts+(myB.rank?' · #'+myB.rank:''),'Team Cup'):'')+
+        stat(myTs.length?esc(myTs.map(function(t){return t.name}).join(', ')):'—',myTs.length>1?'Teams':'Team')+
+        (S.club.useYear&&p.Year?stat(esc(yearLabel({year:parseInt(p.Year,10)||1})),'Year'):'')+
+        (oi>-1&&orgContact(oi)?stat(esc(orgContact(oi)),'EBOD contact'):'')+
+        (oi>-1?stat(String(cupCount(oi)),unitWord()+' Cups'):'')+
         (p.Track?stat(esc(trackLabel(String(p.Track))||String(p.Track)),S.club.trackWord):'')+
         (p.MBTI?stat(esc(String(p.MBTI)),'Type'):'')+
       '</div>';
@@ -5914,6 +6509,17 @@ function renderProfile(){
       if(rb)h+='<h3 style="margin-top:20px">Recognitions</h3>'+rb;
     }
     h+='</div>';
+
+    /* Points stay, but only as the member's own record of what they put in.
+       Nothing compares one member's number with another's. */
+    var hist=(r.history||[]).slice().reverse();
+    h+='<div class="panel"><h2>Your commitment log</h2>'+
+      '<p class="hint">A record of what you have put in this quarter, for your own reflection. It is not ranked and nobody else is compared with it.</p>'+
+      (hist.length?'<div class="profgrid">'+stat(String(r.points||0),'Commitment points')+stat(String(r.entries||hist.length),'Entries')+'</div>'+
+        '<ul class="cupwhy" style="margin-top:10px">'+hist.slice(0,10).map(function(e){
+          return '<li>'+esc(e.label||'Entry')+(e.when?' <span class="mono" style="color:var(--mute)">'+esc(String(e.when).slice(0,10))+'</span>':'')+'</li>'}).join('')+'</ul>'
+        :'<p class="empty">Nothing logged yet. Bootcamps, handed-in work and events show up here.</p>')+
+      '</div>';
 
     /* Trophies before points, because a recognition is the thing somebody
        actually wants to look at when they open their own page. */
@@ -5959,7 +6565,7 @@ function renderProfile(){
       '</div>'+
       '<div class="profmeta" style="margin-top:6px">'+
         (ans.year?'Year in the club: '+esc(String(ans.year))+' · ':'')+
-        (ans.lead?'Leadership interest: '+esc(String(ans.lead)):'')+
+        (ans.avail?'Availability: '+esc(String(ans.avail)):'')+
       '</div>'+
       '<div class="row"><button id="me-save">Save my details</button></div>'+
       (S.club.useMbti&&!ans.mbti&&mbtiTestUrl()?'<p class="hint">No type recorded. '+mbtiTestLink()+'</p>':'')+
@@ -5980,7 +6586,7 @@ function renderProfile(){
     }
 
     h+='<div class="panel"><h2>What others can see</h2>'+
-       '<p class="hint" style="margin-bottom:0">Your name, team and points appear to your club’s officers and in the standings. '+
+       '<p class="hint" style="margin-bottom:0">Your name, '+esc(unitWord())+' and teams are visible to the club. Your commitment log and personality type are visible to EBOD and you only. '+
        'Anything you wrote in the sign-up form’s free-text box is visible to officers only, never to other members. '+
        'You are in <b>'+esc(A.affName||A.aff||'no club')+'</b>, and nothing you do here is visible to any other club.</p></div>';
     box.innerHTML=h;
@@ -6094,7 +6700,7 @@ function applyClubChrome(){
   var h=$('h1title'); if(h)h.textContent=nm;
   var oc=$('orgcountlbl'); if(oc)oc.textContent='Number of '+unitsWord();
   var nav=document.querySelector('#nav button[data-view="v-cup"]');
-  if(nav)nav.textContent='Team Cup';
+  if(nav)nav.textContent=unitWord()+' Cup';
   var ta=$('input');
   if(ta){
     var ts=tracksOf();
@@ -6365,8 +6971,7 @@ function renderClubSetup(){
   if(sel)sel.value=S.preset;
   var v={'cf-club':'clubName','cf-unit':'unit','cf-units':'units','cf-trackword':'trackWord',
          'cf-form':'formUrl','cf-sheet':'sheetUrl',
-         'cf-flex':'flexLabel','cf-new':'newWord','cf-old':'oldWord','cf-rlead':'roleLead',
-         'cf-rsenior':'roleSenior','cf-rjunior':'roleJunior','cf-leadsper':'leadsPer'};
+         'cf-flex':'flexLabel','cf-new':'newWord','cf-old':'oldWord'};
   Object.keys(v).forEach(function(id){var el=$(id); if(el)el.value=S.club[v[id]]});
   var t=$('cf-usetracks'); if(t)t.checked=!!S.club.useTracks;
   var y=$('cf-useyear');   if(y)y.checked=!!S.club.useYear;
@@ -6389,8 +6994,7 @@ function wireClubSetup(){
   var text={'cf-club':'clubName','cf-unit':'unit','cf-units':'units','cf-trackword':'trackWord',
             'cf-form':'formUrl','cf-sheet':'sheetUrl','cf-owner':'ownerEmail',
             'cf-mbtiurl':'mbtiTestUrl',
-            'cf-flex':'flexLabel','cf-new':'newWord','cf-old':'oldWord','cf-rlead':'roleLead',
-            'cf-rsenior':'roleSenior','cf-rjunior':'roleJunior'};
+            'cf-flex':'flexLabel','cf-new':'newWord','cf-old':'oldWord'};
   Object.keys(text).forEach(function(id){
     $(id).addEventListener('input',function(e){
       var f=text[id];
@@ -6403,9 +7007,6 @@ function wireClubSetup(){
   var th=$('cf-theme');
   if(th)th.addEventListener('change',function(e){
     S.club.theme=e.target.value; applyTheme(readTheme()); clubChanged();
-  });
-  $('cf-leadsper').addEventListener('input',function(e){
-    S.club.leadsPer=Math.max(1,parseInt(e.target.value,10)||1); clubChanged();
   });
   $('cf-usetracks').addEventListener('change',function(e){
     S.club.useTracks=e.target.checked;
@@ -6970,9 +7571,9 @@ function chatChips(list){
   });
 }
 function chatSuggestions(){
-  if(!S.orgs.length&&!teamsList().length)return ['What can you do?','How do I start?','How does the Team Cup work?'];
-  if(!canEdit())return ['How is the Team Cup?','How is my team doing?','How does the Team Cup work?'];
-  var list=['How is the Team Cup?','Which team is behind?','Who is not on a team?'];
+  if(!S.orgs.length&&!teamsList().length)return ['What can you do?','How do I start?','How do Org Cups work?'];
+  if(!canEdit())return ['How are the Org Cups?','What is my team?','How do Org Cups work?'];
+  var list=['How are the Org Cups?','Which Orgs have no cup yet?','Who is not on a team?'];
   if(S.club.useMbti)list.push('Any swaps worth making?');
   list.push('What can you do?');
   /* On a phone the chips push the conversation off screen, so offer fewer. */
@@ -7018,36 +7619,32 @@ function chatFindPerson(q){
 
 /* ---- the answers ---- */
 function chatStandings(){
-  var r=rankedBoard();
-  if(!r.length)return 'There are no teams yet, so there is no Team Cup. '+(canEdit()?'Build them on the <b>Teams</b> tab.':'Officers set them up.');
-  if(!r.some(function(x){return x.works}))return 'No assignment with a due date has been set yet, so every team is on zero. Scores start with the first one.';
-  var mine=myTeam();
-  var lines=r.slice(0,5).map(function(x){
-    return '<b>'+x.rank+'. '+esc(x.name)+'</b> — '+chatNum(x.pts)+' points, '+chatNum((x.of?Math.round(x.got/x.of*100):0)+'%')+' on time'+
-      (mine&&mine.id===x.id?' (your team)':'');
+  if(!S.orgs.length)return 'The '+esc(unitsWord())+' have not been formed yet, so there are no cups.';
+  var lines=S.orgs.map(function(_,i){
+    var n=cupCount(i);
+    return '<b>'+esc(orgLabel(i))+'</b> — '+chatNum(n)+' cup'+(n===1?'':'s')+(i===myOrgIndex()?' (yours)':'');
   });
-  var out='Each assignment is worth up to 100 to a team: the share of it that handed in on time.'+chatList(lines);
-  if(r.length>5)out+='<div style="margin-top:8px;color:var(--slate)">'+(r.length-5)+' more on the Team Cup tab.</div>';
-  return out;
+  return 'Cups are counted, not ranked — in '+esc(unitWord())+' order:'+chatList(lines.slice(0,12))+
+    (lines.length>12?'<div style="margin-top:8px;color:var(--slate)">'+(lines.length-12)+' more on the Cup tab.</div>':'');
 }
 function chatWorst(){
-  var r=rankedBoard().filter(function(x){return x.works});
-  if(!r.length)return 'Nothing has been scored yet, so no team is behind.';
-  var last=r[r.length-1], pct=last.of?Math.round(last.got/last.of*100):0;
-  return '<b>'+esc(last.name)+'</b> is last with '+chatNum(last.pts)+' points — '+chatNum(pct+'%')+
-    ' of what was due came in on time. The fix is a reminder a day before the next due date, not more assignments.';
+  if(!S.orgs.length)return 'No '+esc(unitsWord())+' yet.';
+  var none=S.orgs.map(function(_,i){return i}).filter(function(i){return !cupCount(i)});
+  if(!none.length)return 'Every '+esc(unitWord())+' has at least one cup.';
+  return 'Nobody is ranked, but these have not earned a cup yet: '+esc(none.map(orgLabel).join(', '))+
+    '. A reminder from their EBOD contact the day before the next due date usually does it.';
 }
 function chatZero(){
   if(!canEdit())return 'That is a roster-wide question. Ask an officer.';
   var z=S.people.filter(function(p){return !teamOf(p.name)});
   if(!S.people.length)return chatNoData();
   if(!z.length)return 'Everyone on the roster is on a team.';
-  return chatNum(z.length)+' of '+chatNum(S.people.length)+' members are not on a team yet, so their homework does not count toward the Cup:'+
+  return chatNum(z.length)+' of '+chatNum(S.people.length)+' members are not on a team yet:'+
     '<div style="margin-top:8px">'+esc(z.slice(0,12).map(function(p){return p.name}).join(', '))+(z.length>12?', and '+(z.length-12)+' more':'')+'.</div>'+
     '<div style="margin-top:8px;color:var(--slate)">Add them on the Teams tab.</div>';
 }
 function chatCross(){
-  return 'The Cup no longer tracks attendance or cross-'+S.club.trackWord.toLowerCase()+' points — leadership kept it to on-time homework, scored per team. '+
+  return 'The Cup no longer tracks attendance or cross-'+S.club.trackWord.toLowerCase()+' points — EBOD kept it to Org Cups for on-time homework and hand-awarded cups. '+
     esc(unitsWord())+' mix both '+S.club.trackWord.toLowerCase()+'s by design; that is where the crossing happens now.';
 }
 function chatOrg(i){
@@ -7056,8 +7653,9 @@ function chatOrg(i){
   var bits=[chatNum(g.length)+' members'];
   if(tracksOf().length)bits.push(allBuckets().filter(function(b){return c.byTrack[b.id]}).map(function(b){
     return chatNum(c.byTrack[b.id])+' '+esc(b.label.toLowerCase())}).join(', '));
-  if(S.club.useYear)bits.push(chatNum(c.y2)+' '+S.club.oldWord+', '+chatNum(c.y1)+' '+S.club.newWord);
+  if(S.club.useYear)bits.push(chatNum(c.y2)+' 2nd years, '+chatNum(c.y1)+' 1st years');
   var out='<b>'+esc(orgLabel(i))+'</b> — '+bits.join(' · ')+'.';
+  if(orgContact(i))out+='<div style="margin-top:8px">EBOD contact: <b>'+esc(orgContact(i))+'</b>. '+chatNum(cupCount(i))+' cup'+(cupCount(i)===1?'':'s')+'.</div>';
   var flags=orgFlags(g);
   if(flags.length&&canEdit())out+='<div style="margin-top:8px;color:var(--flag)">Needs a look: '+esc(flags.join('; '))+'.</div>';
   return out;
@@ -7069,7 +7667,7 @@ function chatSwaps(){
   if(!S.swaps.length)return 'None worth making. Either the spread is already good, or the only fixes available would trade people across different '+
     (S.club.useYear?'tenures or ':'')+S.club.trackWord.toLowerCase()+'s — which the draft is deliberately protecting.';
   return 'I found '+chatNum(S.swaps.length)+' worth considering. Every one trades two people of the same '+
-    (S.club.useYear?'tenure, ':'')+S.club.trackWord.toLowerCase()+' and leader status, so applying them cannot unbalance the draft.'+
+    (S.club.useYear?'year and ':'')+S.club.trackWord.toLowerCase()+', so applying them cannot unbalance the draft.'+
     chatList(S.swaps.slice(0,3).map(function(c){
       return '<b>'+esc(c.p.name)+'</b> ⇄ <b>'+esc(c.q.name)+'</b> ('+esc(orgLabel(c.a))+' ↔ '+esc(orgLabel(c.b))+') — '+esc(c.why);
     }))+'<div style="margin-top:8px;color:var(--slate)">Apply them on the Assistant tab.</div>';
@@ -7080,9 +7678,9 @@ function chatPerson(p){
   var bits=[personRole(p)];
   if(tracksOf().length)bits.push(esc(trackLabel(p.track)));
   if(S.club.useMbti&&p.mbti&&canEdit())bits.push(p.mbti);
-  var t=teamOf(p.name), b=t&&boardRow(t.id);
+  var ts=teamsOf(p.name);
   var out='<b>'+esc(p.name)+'</b> — '+esc(orgLabel(p.org))+' · '+bits.join(' · ')+'.';
-  out+='<div style="margin-top:8px">'+(t?'On <b>'+esc(t.name)+'</b>'+(b&&b.works?', #'+b.rank+' in the Team Cup with '+chatNum(b.pts)+' points':'')+'.'
+  out+='<div style="margin-top:8px">'+(ts.length?'On <b>'+esc(ts.map(function(t){return t.name}).join('</b> and <b>'))+'</b>.'
                                         :'Not on a team yet.')+'</div>';
   if(p.note&&canSeeNotes())out+='<div style="margin-top:8px;color:var(--compete)">Their note: '+esc(p.note)+'</div>';
   return out;
@@ -7097,34 +7695,33 @@ function chatOverview(){
       ' and '+chatNum(teamsList().length)+' team'+(teamsList().length===1?'':'s')+'.';
   var free=S.people.filter(function(p){return !teamOf(p.name)}).length;
   if(free)out+='<div style="margin-top:8px">'+chatNum(free)+' not on a team yet.</div>';
-  var r=rankedBoard().filter(function(x){return x.works});
-  out+='<div style="margin-top:8px">'+(r.length?'Leading the Team Cup: <b>'+esc(r[0].name)+'</b> with '+chatNum(r[0].pts)+'.'
-                                              :'Nothing scored in the Team Cup yet.')+'</div>';
+  var cups=S.orgs.reduce(function(n,_,i){return n+cupCount(i)},0);
+  out+='<div style="margin-top:8px">'+chatNum(cups)+' Org Cup'+(cups===1?'':'s')+' earned so far.</div>';
   return out;
 }
 function chatHelp(){
   var u=unitWord().toLowerCase();
   return 'I read this club’s actual roster, teams and Cup — I do not guess. Things I can answer:'+
     chatList([
-      'How the Team Cup looks, and which team is behind',
+      'How many cups each '+u+' has',
       'Anything about one '+u+' — try “how is '+esc(S.orgs.length?orgLabel(0):unitWord()+' 01')+'”',
       'A single member’s record'+(canEdit()?'':' (your own)'),
-      canEdit()?'Who is not on a team yet':'How the Team Cup is scored',
+      canEdit()?'Who is not on a team yet':'How Org Cups are earned',
       S.club.useMbti&&canEdit()?'Swaps worth making between '+esc(unitsWord().toLowerCase()):'What your '+u+' is for'
     ])+
     '<div style="margin-top:8px;color:var(--slate)">I am not a language model and I have no internet access — everything above is computed from what is on this page right now.</div>';
 }
 function chatScoring(){
-  return 'How the Team Cup works:'+chatList([
-    'Only teams score. '+esc(unitsWord())+' and individual members do not have points.',
-    'Every assignment with a due date is worth up to '+chatNum(100)+' to each team it was set for.',
-    'A team gets the share of its members who handed it in on the Homework tab by the end of the due day — 4 of 5 on time is '+chatNum(80)+'.',
-    'Team size makes no difference, and replacing a file after the deadline keeps the on-time credit from the first hand-in.'
+  return 'How Org Cups work:'+chatList([
+    'Cups belong to an '+esc(unitWord())+', never to one person, and they are counted rather than ranked.',
+    'An '+esc(unitWord())+' earns a cup each time at least '+chatNum('80%')+' of its members hand an assignment in on time.',
+    'EBOD can also award a cup by hand — full turnout at a bootcamp, a strong mock case.',
+    'Your own commitment points are a private record on your profile, for reflection. Nobody is compared with them.'
   ]);
 }
 function chatRoles(){
-  return esc(unitsWord())+' no longer have leads or jobs — leadership kept them as low-commitment groups of returning and new members. '+
-    'Anything with responsibility belongs to a team now.';
+  return 'There are no titles this season — no Associates, Analysts or Org Leads. Everyone is a Member. '+
+    'Within each '+esc(unitWord())+' the 2nd years mentor the 1st years, and each '+esc(unitWord())+' has one EBOD point of contact.';
 }
 
 /* ---- intent matching ---- */
@@ -7136,15 +7733,15 @@ function chatAnswer(qRaw){
   if(has('how do points','how does scoring','how do i score','scoring work','points work','how are points','cup work','team cup work'))return chatScoring();
 
   if(!S.orgs.length&&!teamsList().length)return chatNoData();
-  if(has('my team'))return (function(){var t=myTeam();if(!t)return 'You are not on a team yet. Officers add people on the Teams tab.';
-    var b=boardRow(t.id);return 'You are on <b>'+esc(t.name)+'</b>'+(b&&b.works?', #'+b.rank+' in the Team Cup with '+chatNum(b.pts)+' points.':'. Nothing scored yet.')})();
+  if(has('my team'))return (function(){var ts=myTeams();if(!ts.length)return 'You are not on a team yet. EBOD forms them at bootcamp 1 (Oct 20).';
+    return 'You are on <b>'+esc(ts.map(function(t){return t.name}).join('</b> and <b>'))+'</b>.'})();
 
-  if(has('worst','last place','bottom','behind','struggling','needs help','losing'))return chatWorst();
+  if(has('no cup','worst','last place','bottom','behind','struggling','needs help','losing'))return chatWorst();
   if(has('standing','ranking','leaderboard','cup','who is winning','whos winning','who won','top','best','first place','how are we doing'))return chatStandings();
   if(has('not on a team','no team','unassigned','not scored','no points','zero','missing'))return chatZero();
   if(has('cross track','cross-track','crossing','other side','cross'))return chatCross();
   if(has('swap','trade','rebalance','balance types','move people'))return chatSwaps();
-  if(has('captain','job','role','who should','appoint','assign','lead'))return chatRoles();
+  if(has('captain','job','role','title','who should','appoint','lead','associate','analyst'))return chatRoles();
 
   var oi=chatFindOrg(q);
   if(oi>=0)return chatOrg(oi);
@@ -7206,21 +7803,20 @@ function wireChat(){
 
 /* ================= EXPORTS ================= */
 function exportRoster(){
-  var rows=[['Org','Name','Role','Year','Track','MBTI','Points','Entries','Cross-track','Note'].join(',')];
+  var rows=[['Org','EBOD contact','Name','Year','Track','MBTI','Availability','Teams','Note'].join(',')];
   S.orgs.forEach(function(g,i){
     g.forEach(function(p){
-      rows.push([csvCell(orgLabel(i)),csvCell(p.name),
-        csvCell(personRole(p)),
-        p.year,csvCell(trackLabel(p.track)),csvCell(p.mbti||''),
-        p.pts,p.evts,p.cross,csvCell(p.note)].join(','));
+      rows.push([csvCell(orgLabel(i)),csvCell(orgContact(i)),csvCell(p.name),
+        csvCell(yearLabel(p)),csvCell(trackLabel(p.track)),csvCell(p.mbti||''),csvCell(p.avail||''),
+        csvCell(teamsOf(p.name).map(function(t){return t.name}).join('; ')),csvCell(p.note)].join(','));
     });
   });
   download(rows.join('\n'),'org-roster.csv');
 }
 function exportStandings(){
-  var rows=[['Rank','Org','Points per member','Total','Full-Org bonuses','Entries','Turnout %','Cross-track %','Zero-scorers'].join(',')];
-  S.standings.slice().sort(function(a,b){return b.per-a.per}).forEach(function(s){
-    rows.push([s.rank,csvCell(orgLabel(s.i)),s.per.toFixed(2),s.pts,s.bonusHits,s.evts,
+  var rows=[['Org','Points per member','Total','Full-Org bonuses','Entries','Turnout %','Cross-track %','Zero-scorers'].join(',')];
+  S.standings.forEach(function(s){
+    rows.push([csvCell(orgLabel(s.i)),s.per.toFixed(2),s.pts,s.bonusHits,s.evts,
       Math.round(s.rate),Math.round(s.crossRate),s.zero.length].join(','));
   });
   download(rows.join('\n'),'org-cup-standings.csv');
@@ -7254,7 +7850,7 @@ function sampleRoster(){
     'What year are you in the club?',
     'Which '+S.club.trackWord.toLowerCase()+' are you most interested in?',
     'MBTI type',
-    'Are you interested in being an Org Lead?',
+    'When are you usually available?',
     'Anything the draft should know?'].map(csvCell).join(',')];
   var used={};
   for(var i=0;i<100;i++){
@@ -7266,7 +7862,7 @@ function sampleRoster(){
     var track=(Math.random()<.16||!buckets.length)
       ? buckets[buckets.length-1].label
       : buckets[Math.floor(Math.random()*Math.max(1,buckets.length-1))].label;
-    var lead=(i<26)?'Yes \u2014 tell me more':'No / I\'m new';
+    var lead=['Mon/Wed evenings','Tue/Thu afternoons','Weekends','Fri afternoons','Most evenings'][i%5];
     var note=(i%37===5)?notes[i%notes.length]:'';
     // business-club skew: E, N, T, J heavy
     var mb=(Math.random()<.62?'E':'I')+(Math.random()<.60?'N':'S')+
@@ -7326,7 +7922,13 @@ $('redraw').addEventListener('click',function(){
   S.orgs=draft(S.people,S.orgs.length,$('mbtibal').checked);
   S.orgs.forEach(function(g,i){g.forEach(function(p){p.org=i})});
   S.applied={};scoreAll();renderDraft();save();
+  /* Without this the reshuffle only ever existed in this browser, and every
+     member kept seeing the previous Orgs. */
+  syncTeams();
 });
+if($('ebodauto'))$('ebodauto').addEventListener('click',autoAssignEbod);
+if($('accpull'))$('accpull').addEventListener('click',loadFromAccounts);
+if($('orgcount'))$('orgcount').addEventListener('input',function(){ORGCOUNT_TOUCHED=true;orgSizeHint()});
 $('export').addEventListener('click',exportRoster);
 wireDrop('drop','file',readRosterFile);
 wireDrop('cupdrop','cupfile',function(f){
@@ -7413,7 +8015,10 @@ $('swapall').addEventListener('click',function(){
 });
 
 /* access control */
-$('signout').addEventListener('click',signOut);
+$('signout').addEventListener('click',function(){
+  if(DEMO_ON){location.href=demoUrl('new');return}
+  signOut();
+});
 $('accrefresh').addEventListener('click',renderAccess);
 $('userrefresh').addEventListener('click',renderUsers);
 $('affrefresh').addEventListener('click',renderAffs);
@@ -7555,15 +8160,34 @@ function afterSignIn(pre){
 
 /* ================= DEMO =================
    A link anyone can open without an account, to see the thing running on a
-   roster instead of an empty page. Two things keep it harmless. It sets the
-   same offline flag a failed sign-in sets, and backendPost() refuses to send
-   anything while that flag is up -- so the sample semester it generates never
-   reaches a real sheet. And it files its working copy under its own club
-   code, so opening the demo cannot overwrite a draft an officer has saved in
-   this browser. */
+   roster instead of an empty page. Three things keep it harmless. Every call
+   backendPost() would make is answered by demoBackend() below instead, so
+   nothing ever leaves the browser. It files its working copy under its own
+   club code, so opening the demo cannot overwrite a draft an officer has
+   saved in this browser. And it is seeded, so everybody sees the same club.
+
+   /demo                  EBOD view of a club mid-season
+   /demo?as=member        the same club through one member's eyes
+   /demo?as=new           a new member signing up and onboarding
+   add &fresh=1           start before Orgs and teams have been formed
+   The demo keeps its state for the browser tab (sessionStorage), so a story
+   can move between those views: onboard a member, form the Orgs as EBOD,
+   then come back as that member. "Reset" starts it again. */
+var DEMO_ON=false;
+var DEMO={as:'',fresh:false,subs:[],prefs:{},profiles:{},newbie:null,onboarded:false};
+var DEMO_KEY='orgsystem.demo.v2';
+var NEWBIE={first:'Jordan',last:'Rivera',email:'jordan.rivera@demo.example'};
 function isDemo(){
   return /(^|[?&])demo(=|&|$)/.test(location.search)||/^\/demo\/?$/.test(location.pathname);
 }
+function demoParam(k){var m=location.search.match(new RegExp('[?&]'+k+'=([^&]*)'));return m?decodeURIComponent(m[1]):''}
+function demoUrl(as,extra){return '/demo?as='+as+(extra||'')}
+function demoStore(){
+  if(!DEMO_ON)return;
+  try{sessionStorage.setItem(DEMO_KEY,JSON.stringify({state:serialize(),demo:{subs:DEMO.subs,prefs:DEMO.prefs,
+    profiles:DEMO.profiles,newbie:DEMO.newbie,onboarded:DEMO.onboarded,fresh:DEMO.fresh}}))}catch(e){}
+}
+function demoLoad(){try{return JSON.parse(sessionStorage.getItem(DEMO_KEY)||'null')}catch(e){return null}}
 /* The sample generators lean on Math.random. Seeding it for the length of the
    build means every visitor gets the same roster, so the link shows the same
    club to whoever opens it and a screenshot still matches next week. */
@@ -7572,49 +8196,276 @@ function seedRandom(seed){
   Math.random=function(){s=(s*1664525+1013904223)>>>0;return s/4294967296};
   return function(){Math.random=real};
 }
-function goDemo(){
-  A.offline=true;A.role='master';A.token=null;A.session=null;
-  A.aff='demo';A.affName='Demo club';
-  document.body.dataset.role='master';
-  setRole('master',null);
-  showGate(false);
-  var w=$('whoami'); if(w)w.style.display='none';
-  var bar=$('demobar'); if(bar)bar.style.display='';
+/* Ninety-odd made-up members who have signed in and filled in the
+   onboarding form, plus Jordan once Jordan has. */
+var DEMO_PEOPLE=null;
+function demoPeople(){
+  if(DEMO_PEOPLE)return DEMO_PEOPLE;
+  var unseed=seedRandom(20261015);
+  try{
+    var first='Alex,Priya,Marcus,Jenna,Diego,Amara,Kevin,Sofia,Tuan,Rachel,Omar,Lila,Ethan,Nina,Carlos,Maya,Ravi,Grace,Malik,Leah,Jonah,Ivy,Andre,Bella,Hugo,Zara,Felix,Nora,Kai,Rosa,Simon,Talia,Victor,Wren,Xander,Yara,Zane,Anya,Bo,Cleo,Dev,Esme,Finn,Gia,Hana,Ike,Juno,Kira,Leo,Mila,Nash,Opal,Pia,Quinn,Rex,Sage,Theo,Uma,Vera,Wes,Xiu,Yuki,Zoe,Abel,Brie,Cyrus,Dara,Emil,Faye,Gus,Hope,Ines,Jude,Kaya,Lars,Moss,Neve,Otto,Pearl,Rune,Suki,Tess,Umar,Vance,Willa,Ada,Beck,Cora,Drew,Eve,Ford,Gwen,Hal,Iris,Jax'.split(',');
+    var last='Nguyen,Shah,Lee,Alvarez,Kim,Patel,Okafor,Torres,Vu,Brooks,Haddad,Chen,Romero,Silva,Mendez,Osei,Park,Diaz,Kaur,Wolfe,Bianchi,Ali,Novak,Reyes,Sato,Kelly,Ibarra,Moreau,Duarte,Tran'.split(',');
+    var tracks=[['c',.46],['k',.28],['t3',.14],[FLEX_ID,.12]];
+    var avail=['Mon/Wed evenings','Tue/Thu afternoons','Weekends','Fri afternoons','Most evenings','Tue/Thu evenings'];
+    var used={}, out=[];
+    for(var i=0;i<95;i++){
+      var nm;do{nm=first[i%first.length]+' '+last[Math.floor(Math.random()*last.length)]}while(used[nm]);
+      used[nm]=1;
+      var r=Math.random(),acc=0,tr=FLEX_ID;
+      for(var t=0;t<tracks.length;t++){acc+=tracks[t][1];if(r<acc){tr=tracks[t][0];break}}
+      var mb=(Math.random()<.6?'E':'I')+(Math.random()<.58?'N':'S')+(Math.random()<.56?'T':'F')+(Math.random()<.62?'J':'P');
+      var p={name:nm,year:i<40?2:1,track:tr,mbti:mb,avail:avail[i%avail.length],note:i===17?'Thursday night class this quarter':''};
+      if(tr==='k'||(tr===FLEX_ID&&Math.random()<.4)){
+        var evs=shuffle(F26.flcEvents.slice());
+        p.prefs={flc:evs.slice(0,3),mate:'',attend:Math.random()>.06};
+      }
+      out.push(p);
+    }
+    /* A few teammate requests, so forming the teams has something to honour. */
+    var flc=out.filter(function(p){return p.prefs});
+    for(var j=0;j+1<flc.length&&j<10;j+=2){flc[j].prefs.mate=flc[j+1].name;flc[j+1].prefs.flc=flc[j].prefs.flc.slice()}
+  } finally { unseed(); }
+  return (DEMO_PEOPLE=out);
 }
-/* Four teams drawn from the demo roster, and a board as the backend would
-   return it -- there is no sheet behind the demo to compute one from. */
-function demoTeams(){
-  var byTrack={c:[],k:[]};
-  S.people.forEach(function(p){(byTrack[p.track]||byTrack.c).push(p.name)});
-  var names=[['Keypoint Credit Union','c'],['Destination: Home','c'],['SFBLC case team A','k'],['SFBLC case team B','k']];
-  S.club.teams=names.map(function(n,i){
-    var pool=byTrack[n[1]], take=pool.splice(0,5+(i%2));
-    return {id:'demo'+i,name:n[0]+(n[1]==='c'?' client team':''),track:n[1],members:take};
+function trackText(id){var b=bucketById(id);return b?b.label:''}
+function demoAccounts(){
+  var list=demoPeople().map(function(p){
+    var bits=p.name.split(' ');
+    return {who:p.name.toLowerCase().replace(/\s+/g,'.')+'@demo.example',kind:'google',first:bits[0],last:bits.slice(1).join(' '),
+      email:p.name.toLowerCase().replace(/\s+/g,'.')+'@demo.example',role:'member',aff:'demo',
+      year:p.year===2?'2nd year':'1st year',track:trackText(p.track),mbti:p.mbti,avail:p.avail,notes:p.note,
+      prefs:DEMO.prefs[normName(p.name)]||p.prefs||null};
   });
-  S.club.work=[{id:'dw1',title:'Case brief — round one',due:'2026-09-24',team:'all',note:'One PDF, two pages maximum.'},
-               {id:'dw2',title:'Client discovery notes',due:'2026-10-08',team:'demo0',note:'Shared doc link.'}];
-  TEAMBOARD=[{id:'demo0',pts:180,got:10,of:12,works:2},{id:'demo1',pts:83,got:5,of:6,works:1},
-             {id:'demo2',pts:100,got:5,of:5,works:1},{id:'demo3',pts:50,got:3,of:6,works:1}];
+  if(DEMO.onboarded&&DEMO.newbie){
+    var n=DEMO.newbie;
+    list.push({who:NEWBIE.email,kind:'google',first:NEWBIE.first,last:NEWBIE.last,email:NEWBIE.email,role:'member',aff:'demo',
+      year:n.year,track:n.track,mbti:n.mbti,avail:n.avail,notes:n.notes||'',
+      prefs:DEMO.prefs[normName(NEWBIE.first+' '+NEWBIE.last)]||null});
+  }
+  return list;
 }
-function buildDemo(){
+/* The demo club's own sign-up form, shaped like formSchema's answer. */
+var DEMO_FORM={ok:true,title:'De Anza PBL — member onboarding',action:'demo',fields:[
+  {id:'entry.1',label:'Full name',type:0,required:true,options:[]},
+  {id:'entry.2',label:'School email',type:0,required:true,options:[]},
+  {id:'entry.3',label:'Year in PBL',type:2,required:true,options:['1st year','2nd year']},
+  {id:'entry.4',label:'Which track are you most interested in?',type:2,required:true,
+   options:['Consulting','Case competition (FLC)','Polaris','Not sure yet']},
+  {id:'entry.5',label:'MBTI type (four letters)',type:0,required:true,options:[]},
+  {id:'entry.6',label:'When are you usually available?',type:4,required:false,
+   options:['Mon/Wed evenings','Tue/Thu afternoons','Tue/Thu evenings','Fri afternoons','Weekends']},
+  {id:'entry.7',label:'Anything EBOD should know?',type:1,required:false,options:[]}]};
+function demoMe(){return findPersonByName(A.name)}
+/* Answers every call the page would send to the Apps Script, in memory. */
+function demoBackend(action,pl){
+  pl=pl||{};
+  var me=demoMe(), now=new Date();
+  switch(action){
+    case 'listAffiliations': return {ok:true,affiliations:[{code:'demo',name:'De Anza PBL (demo)'}]};
+    case 'joinAffiliation': return {ok:true,joined:'demo',name:'De Anza PBL (demo)'};
+    case 'clubRoster': case 'listSignups': return {ok:true,roster:demoAccounts(),signups:demoAccounts()};
+    case 'formSchema': return DEMO_FORM;
+    case 'submitForm': {
+      var a=pl.answers||{}, av=a['entry.6'];
+      DEMO.newbie={year:a['entry.3']||'1st year',track:a['entry.4']||'',mbti:String(a['entry.5']||'').toUpperCase().slice(0,4),
+        avail:Array.isArray(av)?av.join(', '):(av||''),notes:a['entry.7']||'',at:now.toISOString()};
+      DEMO.onboarded=true; demoStore();
+      return {ok:true,submitted:true};
+    }
+    case 'myFormAnswers': return DEMO.newbie?{ok:true,answers:DEMO.newbie}:{ok:false,error:'No response yet.'};
+    case 'myProfile': {
+      var hist=me?(me.hist||[]).map(function(h){return {label:h.label,points:h.pts,when:h.date}}):[];
+      var ans=isMe({name:NEWBIE.first+' '+NEWBIE.last})&&DEMO.newbie?DEMO.newbie:
+        (me?{year:yearLabel(me),track:me.track,mbti:me.mbti,avail:me.avail,at:'x'}:null);
+      return {ok:true,profile:me?{MemberName:me.name,Org:orgLabel(me.org),Track:me.track,Year:me.year,MBTI:me.mbti}:null,
+        points:me?me.pts:0,entries:me?me.evts:0,history:hist,answers:ans};
+    }
+    case 'getProfile': {
+      var pr=DEMO.prefs[normName(A.name)]||((demoPeople().filter(function(p){return isMe(p)})[0]||{}).prefs)||null;
+      var bits=String(A.name||'').split(' ');
+      return {ok:true,profile:{FirstName:bits[0],LastName:bits.slice(1).join(' '),Prefs:pr?JSON.stringify(pr):''}};
+    }
+    case 'saveProfile': {
+      if(pl.prefs){try{DEMO.prefs[normName(A.name)]=JSON.parse(pl.prefs)}catch(e){}}
+      demoStore(); return {ok:true,saved:true};
+    }
+    case 'submitWork': {
+      var w=((S.club&&S.club.work)||[]).filter(function(x){return x.id===pl.workId})[0];
+      if(!w)return {ok:false,error:'That assignment no longer exists.'};
+      var old=DEMO.subs.filter(function(x){return x.workId===w.id&&normName(x.name)===normName(A.name)})[0];
+      var row={workId:w.id,workTitle:w.title,name:A.name,org:me?orgLabel(me.org):'Not drafted yet',
+        fileName:pl.link?'Link':(pl.name||'file'),fileUrl:pl.link||'#',at:now.toISOString(),
+        first:old?old.first:now.toISOString(),revision:old?old.revision+1:1,status:'submitted',points:null};
+      DEMO.subs=DEMO.subs.filter(function(x){return x!==old}).concat([row]);
+      demoStore();
+      return {ok:true,filed:w.title+' / '+row.org+' / '+A.name,revision:row.revision,replaced:!!old};
+    }
+    case 'listSubmissions': return {ok:true,submissions:DEMO.subs.slice()};
+    case 'reviewSubmission': {
+      DEMO.subs.forEach(function(x){if(x.workId===pl.workId&&normName(x.name)===normName(pl.name)){x.status='checked';x.points=pl.points===''?null:+pl.points}});
+      demoStore(); return {ok:true,status:'checked',points:+pl.points||0};
+    }
+    case 'calendarSync': return {ok:false,error:'The demo is not connected to Google Calendar. In the real app this pushes the season to the chapter calendar.'};
+    case 'memberCard': case 'getAll': case 'whoami': return null;
+    default: return {ok:true};
+  }
+}
+/* What the backend's orgBoard would say, worked out from the demo's own
+   hand-ins: per Org, per assignment with a due date, how many of its members
+   handed in by the end of the due day. */
+function demoOrgBoard(){
+  var work=((S.club&&S.club.work)||[]).filter(function(w){return w.due&&(!w.team||w.team==='all')});
+  return S.orgs.map(function(g,i){
+    return {org:orgLabel(i),works:work.filter(function(w){
+      return w.org==null||w.org===''||w.org==='all'||(w.orgName?w.orgName===orgLabel(i):+w.org===i);
+    }).map(function(w){
+      var dp=String(w.due).split('-'),end=new Date(+dp[0],+dp[1]-1,+dp[2],23,59,59).getTime();
+      var got=g.filter(function(p){return DEMO.subs.some(function(x){
+        return x.workId===w.id&&normName(x.name)===normName(p.name)&&new Date(x.first||x.at).getTime()<=end})}).length;
+      return {id:w.id,got:got,of:g.length};
+    })};
+  });
+}
+function demoRole(){return DEMO.as==='member'||DEMO.as==='new'?'member':'admin'}
+function goDemo(){
+  DEMO_ON=true;
+  DEMO.as=demoParam('as')||'ebod';
+  A.offline=false;A.token=null;A.session=null;A.via='demo';
+  A.aff='demo';A.affName='De Anza PBL (demo)';
+  PROVISIONAL=false;
+  var bar=$('demobar'); if(bar){bar.style.display='';paintDemoBar()}
+}
+function paintDemoBar(){
+  var bar=$('demobar'); if(!bar)return;
+  var lbl={ebod:'EBOD',member:'A member',new:'New member'};
+  bar.innerHTML='<b>Demo — nothing here is saved or sent anywhere</b><span>'+
+    (DEMO.as==='new'?'Jordan is new: sign up, fill in onboarding, then see your Org, teams and homework once EBOD has formed them.':
+     DEMO.as==='member'?'One member’s view of the club: their Org, teams, homework and the season.':
+     'EBOD’s view: form Orgs from signed-up members, form consulting and FLC teams, post homework and see who handed in.')+
+    '</span><div class="demoswitch">'+
+    ['ebod','member','new'].map(function(k){return '<a href="'+demoUrl(k)+'"'+(DEMO.as===k?' class="on"':'')+'>'+lbl[k]+'</a>'}).join('')+
+    '<a href="#" id="demoreset">Reset demo</a></div>';
+  var r=$('demoreset');
+  if(r)r.addEventListener('click',function(e){e.preventDefault();try{sessionStorage.removeItem(DEMO_KEY)}catch(x){}location.href=demoUrl(DEMO.as==='new'?'new':DEMO.as);});
+}
+/* The member this demo shows as: a 1st-year consultant who also wants FLC. */
+function demoMemberName(){
+  var c=demoPeople().filter(function(p){return p.year===1&&p.track==='c'})[0]||demoPeople()[0];
+  return c.name;
+}
+function demoSignIn(name,role){
+  A.name=name; A.email=name.toLowerCase().replace(/\s+/g,'.')+'@demo.example'; A.pic='';
+  setRole(role,null);
+  showGate(false);
+}
+function buildDemoState(fresh){
   var unseed=seedRandom(20260903);
   try{
     S.preset='business';
     S.club=cloneClub(DEFAULT_CLUB);
-    S.club.clubName='Claude Demo Club';
+    S.club.clubName='De Anza PBL';
+    S.club.ebod=F26.ebod.slice(); S.club.clients=F26.clients.slice(); S.club.flcEvents=F26.flcEvents.slice();
+    S.club.mbtiTestUrl='https://www.16personalities.com/free-personality-test';
+    S.club.formUrl='https://docs.google.com/forms/d/demo/viewform';
     S.actions=cloneActions();
+    S.people=[];S.orgs=[];S.orgNames=[];S.log=[];
     applyClubChrome();renderClubSetup();syncRuleInputs();
-    $('orgcount').value=8;
-    sampleRoster();   /* 100 members into the intake box, and ingested */
-    run();            /* drafted into 8 Orgs */
-    sampleSemester(); /* twelve weeks of attendance, scored */
-    demoTeams();      /* four working teams and a Cup to go with them */
-  }catch(e){
-    say('The demo roster could not be built: '+(e&&e.message?e.message:e));
-  }finally{ unseed(); }
-  renderCup();
-  if(!applyRoute()&&S.orgs.length)setView('v-draft');
-  say('Demo club \u2014 a made-up roster of '+S.people.length+' members in '+S.orgs.length+' Orgs. Change anything; nothing is saved or shared.','info');
+    DEMO.prefs={};
+    demoPeople().forEach(function(p){if(p.prefs)DEMO.prefs[normName(p.name)]=p.prefs});
+    if(fresh){DEMO.fresh=true;return}
+    ingestAccounts(demoAccounts());
+    run();
+    autoAssignEbod();
+    sampleSemester();
+    makeClientTeams(); fillClientTeams();
+    teamsList().forEach(function(t,i){
+      if(kindOf(t)!=='consulting')return;
+      var y2=(t.members||[]).filter(function(m){var p=findPersonByName(m);return p&&p.year===2});
+      t.pms=[F26.ebod[(i+7)%F26.ebod.length].name,y2[0]||''];
+      t.initiatives=['Market research','Brand','Operations'];
+      t.assign={};(t.members||[]).forEach(function(m,j){t.assign[normName(m)]=t.initiatives[j%3]});
+    });
+    prefsFromRoster(demoAccounts());
+    (function(){
+      var r=formFlcTeams();
+      S.club.teams=teamsList().concat(r.teams);
+      var first=teamsList().filter(function(t){return kindOf(t)==='consulting'})[0];
+      S.club.work=[
+        {id:'dw1',title:'Bootcamp 1 reflection',due:'2026-10-21',team:'all',kind:'any',note:'A few paragraphs, any format.',
+         brief:'What you took from bootcamp 1, one thing you want to get better at before FLC or finals, and one question for your Org.'},
+        {id:'dw2',title:'Client discovery notes',due:'2026-10-29',team:first?first.id:'all',kind:'link',note:'A shared Google Doc link.',
+         brief:'Your initiative’s notes from the first client call: what they asked for, what they did not say, and the three questions we still need answered.'},
+        {id:'dw3',title:'Case brief — mock case stations',due:'2026-10-27',team:'all',kind:'file',note:'One PDF, two pages maximum.',
+         brief:'Summarise the case, name the decision, and recommend one course of action with the numbers behind it.'}];
+      /* Most of the club handed the first one in, a few late. */
+      DEMO.subs=[];
+      S.people.forEach(function(p,i){
+        if(Math.random()<.78){
+          var day=Math.random()<.9?'2026-10-'+(18+Math.floor(Math.random()*3)):'2026-10-23';
+          DEMO.subs.push({workId:'dw1',workTitle:'Bootcamp 1 reflection',name:p.name,org:orgLabel(p.org),
+            fileName:'reflection.pdf',fileUrl:'#',at:day+'T19:00:00',first:day+'T19:00:00',revision:1,status:i%5?'submitted':'checked',points:null});
+        }
+      });
+      S.club.cups=[{id:'c1',org:1,label:'Full turnout at IM orientation',at:Date.now(),by:'Derick'}];
+    })();
+  } finally { unseed(); }
+}
+function buildDemo(){
+  var saved=demoLoad(), fresh=demoParam('fresh')==='1';
+  var done=function(){
+    unlockNav();scoreAll();renderDraft();renderCup();renderTeamBoard();renderSquads();renderBoard();
+    demoStore();
+    demoEnter();
+  };
+  if(saved&&saved.state&&!fresh){
+    var d=saved.demo||{};
+    DEMO.subs=d.subs||[];DEMO.prefs=d.prefs||{};DEMO.profiles=d.profiles||{};
+    DEMO.newbie=d.newbie||null;DEMO.onboarded=!!d.onboarded;DEMO.fresh=!!d.fresh;
+    if(saved.state.people&&saved.state.people.length)restore(saved.state);
+    else{S.club=mergeClub(DEFAULT_CLUB,saved.state.club);S.people=[];S.orgs=[];S.orgNames=[];S.log=saved.state.log||[];}
+    applyClubChrome();renderClubSetup();
+    done();
+    return;
+  }
+  DEMO.subs=[];DEMO.newbie=null;DEMO.onboarded=false;
+  var pr=null;
+  try{ pr=buildDemoState(fresh); }catch(e){ say('The demo could not be built: '+(e&&e.message?e.message:e)); }
+  (pr||Promise.resolve()).then(done);
+}
+/* Who the page is signed in as, once the club is in place. */
+function demoEnter(){
+  var role=demoRole();
+  if(DEMO.as==='member'){demoSignIn(demoMemberName(),'member');markFormDone();maybeOfferForm();}
+  else if(DEMO.as==='new'){
+    if(!DEMO.onboarded){demoGate();return}
+    demoSignIn(NEWBIE.first+' '+NEWBIE.last,'member');
+    markFormDone();maybeOfferForm();
+  }
+  else demoSignIn('Bryant','admin');
+  unlockNav();
+  if(role==='admin')setView(S.orgs.length?'v-draft':'v-intake');
+  else setView(S.orgs.length&&myOrgIndex()>-1?'v-teams':'v-profile');
+  maybeTour();
+  bootDone();
+}
+/* The sign-up card, as a brand-new member sees it. The Google button is the
+   only thing that is pretend: the real one hands this page a signed Google
+   ID token for the member's own address. */
+function demoGate(){
+  showGate(true); gateMode('signup');
+  if($('gateswitch'))$('gateswitch').style.display='none';
+  if($('suform'))$('suform').style.display='none';
+  var gor=document.querySelector('#sugoogle .gateor'); if(gor)gor.style.display='none';
+  var g=$('sugsibtn');
+  if(g){g.innerHTML='<button type="button" id="demogoogle" class="gatebtn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px">'+
+    '<b style="font-size:16px">G</b> Sign up with Google <span style="opacity:.6">(demo)</span></button>';
+    $('demogoogle').addEventListener('click',function(){
+      A.name=NEWBIE.first+' '+NEWBIE.last; A.email=NEWBIE.email; A.via='demo';
+      gateMode('join'); $('jn-code').value='pbl-fall26';
+      gateMsg('Signed in as '+NEWBIE.email+'. Pick the club and enter the join code from EBOD.');
+    });
+  }
+  bootDone();
 }
 
 /* ================= THEME =================
@@ -7708,6 +8559,8 @@ function gateUp(){
 }
 function syncUrl(id,replace){
   if(!ROUTES[id])return;
+  /* The demo keeps its own address, so a reload stays in the demo. */
+  if(DEMO_ON)return;
   /* Nothing behind the sign-in card is a place the visitor navigated to, so
      writing /draft into the address bar there was both wrong and sticky --
      they reload, land on /draft, and are shown the card again. The address
@@ -7752,10 +8605,11 @@ function initRouting(){
   initCalendar();
   initWork();
   initSquads();
+  initCups();
   initBoard();
   initHidden();
   initFormEditor();
-  if(isDemo()){ goDemo(); buildDemo(); bootDone(); return; }
+  if(isDemo()){ goDemo(); wireGateForms(); buildDemo(); return; }
   /* The working copy is filed per club, and A.aff is empty until the backend
      answers. Reading it here without seeding the club first meant every club
      looked under "default", found nothing, and fell through to the sign-in
