@@ -6684,7 +6684,7 @@ function renderAffs(){
     box.innerHTML='<p class="empty">Not connected to a sheet.</p>';
     /* With no sheet there is no club list, so the pickers would sit empty
        beside a Switch that cannot go anywhere. */
-    ['dr-club','rs-club'].forEach(function(id){var el=$(id); if(el)el.parentNode.parentNode.style.display='none'});
+    ['dr-club','rs-club'].forEach(function(id){var el=$(id); var row=el&&el.closest('.row'); if(row)row.style.display='none'});
     return;
   }
   box.innerHTML='<p class="empty wait">Loading…</p>';
