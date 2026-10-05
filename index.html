@@ -5605,7 +5605,7 @@ function renderTeam(){
      Teams now. What is left is who is in it, and a nudge to meet once. */
   var h='<div class="panel"><input class="bigname" id="teamname" value="'+esc(orgLabel(i))+'" aria-label="Org name"'+(canEdit()?'':' readonly')+'>'+
     '<p class="hint" style="margin-top:6px">'+esc(unitWord())+' '+pad(i)+' · '+g.length+' members, '+
-    (S.club.useYear?c.y2+' '+esc(S.club.oldWord.toLowerCase())+' and '+c.y1+' '+esc(S.club.newWord.toLowerCase()):'')+'</p>'+
+    (S.club.useYear?c.y2+' '+esc(S.club.oldWord.toLowerCase())+(c.y2===1?'':'s')+' and '+c.y1+' '+esc(S.club.newWord.toLowerCase())+(c.y1===1?'':'s'):'')+'</p>'+
     '<div class="note-soft">Nothing here is required. One or two optional meetups early in the quarter are plenty '+
     '— grab food after a meeting, study together, say hi at the next event.</div></div>';
 
@@ -6680,7 +6680,13 @@ function submitClubForm(){
 function affSay(t,kind){var m=$('affmsg');m.textContent=t;m.className='msg show'+(kind?' '+kind:'')}
 function renderAffs(){
   var box=$('afftable'); if(!box)return;
-  if(A.offline){box.innerHTML='<p class="empty">Not connected to a sheet.</p>';return}
+  if(A.offline){
+    box.innerHTML='<p class="empty">Not connected to a sheet.</p>';
+    /* With no sheet there is no club list, so the pickers would sit empty
+       beside a Switch that cannot go anywhere. */
+    ['dr-club','rs-club'].forEach(function(id){var el=$(id); if(el)el.parentNode.parentNode.style.display='none'});
+    return;
+  }
   box.innerHTML='<p class="empty wait">Loading…</p>';
   backendPost('listAffiliations',null).then(function(r){
     if(!r||!r.ok){box.innerHTML='<p class="empty">Could not read the club list.</p>';return}
@@ -7248,6 +7254,7 @@ function sampleRoster(){
     'What year are you in the club?',
     'Which '+S.club.trackWord.toLowerCase()+' are you most interested in?',
     'MBTI type',
+    'Are you interested in being an Org Lead?',
     'Anything the draft should know?'].map(csvCell).join(',')];
   var used={};
   for(var i=0;i<100;i++){
