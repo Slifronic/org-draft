@@ -38,7 +38,7 @@ var NEEDS = {
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
   forkClub: 'admin',
   submitTeamRequest: 'member', withdrawTeamRequest: 'member', listTeamRequests: 'member',
-  reviewTeamRequest: 'admin', editTeamRequest: 'admin', reviewSubmissions: 'admin',
+  reviewTeamRequest: 'admin', editTeamRequest: 'admin', reviewSubmissions: 'admin', deleteTeamRequest: 'admin',
   syncMemberDrives: 'admin', ensureMyDrive: 'member'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
@@ -787,7 +787,8 @@ function doPost(e) {
       /* A member's own folder is not part of what the club sees, and it is
          touched on every visit -- bumping for it would empty the cache for
          everyone each time a member opened the page. */
-      if (!READ_ONLY[action] && action !== 'ensureMyDrive') bumpShared_(id.aff || DEFAULT_AFF);
+      if (!READ_ONLY[action] && clubWide_(action, body.payload)) bumpShared_(id.aff || DEFAULT_AFF);
+      if (OWN_BITS_[action]) dropMe_(normAff(id.aff || DEFAULT_AFF), email);
       return out(res);
     } catch (err) {
       return out(failRef_('dispatch:' + action, err));
@@ -1083,14 +1084,7 @@ function clubSnapshot_(aff) {
     var drive = {};
     var dm = readDrive_(aff).members || {};
     Object.keys(dm).forEach(function (k) { if (dm[k] && dm[k].f) drive[k] = 1; });
-    var prof = {};
-    readTab('profiles').forEach(function (r) {
-      if (normAff(r.Affiliation) !== aff || !r.Email) return;
-      /* The same test the page used: any answer on file means it was sent. */
-      prof[String(r.Email).toLowerCase()] = {formAt: !!(r.FormAt || r.Year || r.Track || r.MBTI),
-                                             prefs: String(r.Prefs || '')};
-    });
-    return {cfg: cfg, gcal: gAll, drive: drive, prof: prof, reqs: readReqs_(aff),
+    return {cfg: cfg, gcal: gAll, drive: drive, reqs: readReqs_(aff),
             memberNames: memberNames_(aff), affName: (findAff(aff) || {}).name || aff,
             teamBoard: teamBoard_(aff, cfg), orgBoard: orgBoard_(aff, cfg),
             teams: readScoped('teams', aff), pointsLog: readScoped('pointsLog', aff),
@@ -1115,6 +1109,38 @@ function memberNames_(aff) {
 /* A hand-in that is a link rather than a file. Same one-row-per-member rule
    and the same first-hand-in timestamp as a file, so it counts for the Org
    Cup exactly the same way. */
+/* A page's changes to the club, merged into what is stored: {set: {key: value},
+   del: [key], items: {key: {up: [item], rm: [id], order: [id]}}}. Items that
+   another officer added in the meantime are kept, after the ones this page
+   ordered. */
+function applyCfgPatch_(base, p) {
+  var out = {};
+  for (var k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+  var set = p.set || {}, del = p.del || [], items = p.items || {};
+  Object.keys(set).forEach(function (k) { if (k !== '__patch') out[k] = set[k]; });
+  del.forEach(function (k) { delete out[k]; });
+  Object.keys(items).forEach(function (k) {
+    var ch = items[k] || {}, list = Array.isArray(out[k]) ? out[k].slice() : [];
+    var rm = {}; (ch.rm || []).forEach(function (id) { rm[String(id)] = 1; });
+    list = list.filter(function (it) { return !(it && rm[String(it.id)]); });
+    (ch.up || []).forEach(function (it) {
+      if (!it || it.id === undefined) return;
+      var at = -1; for (var i = 0; i < list.length; i++) if (list[i] && String(list[i].id) === String(it.id)) { at = i; break; }
+      if (at > -1) list[at] = it; else list.push(it);
+    });
+    if (Array.isArray(ch.order)) {
+      var pos = {}; ch.order.forEach(function (id, i) { pos[String(id)] = i; });
+      list.sort(function (a, b) {
+        var pa = pos.hasOwnProperty(String(a && a.id)) ? pos[String(a.id)] : 1e9 + list.indexOf(a);
+        var pb = pos.hasOwnProperty(String(b && b.id)) ? pos[String(b.id)] : 1e9 + list.indexOf(b);
+        return pa - pb;
+      });
+    }
+    out[k] = list;
+  });
+  return out;
+}
+
 /* This club's saved setup. */
 function clubCfg_(aff) {
   var key = 'club:' + aff, c = {};
@@ -2504,6 +2530,20 @@ function dispatch(action, payload, email, role, id) {
       });
     }
 
+    /* Officers delete a request outright -- any status -- or every request
+       that became a team they have just deleted, so nobody is left looking at
+       "Approved" for a team that no longer exists. */
+    case 'deleteTeamRequest': {
+      var dq = payload || {}, dId = String(dq.id || ''), dTeam = String(dq.teamId || '');
+      if (!dId && !dTeam) return {ok: false, error: 'Which request?'};
+      return withLock_(function () {
+        var list = readReqs_(aff), n = list.length;
+        list = list.filter(function (r) { return !((dId && r.id === dId) || (dTeam && r.teamId === dTeam)); });
+        if (list.length !== n) writeReqs_(aff, list);
+        return {ok: true, deleted: n - list.length};
+      });
+    }
+
     /* Officers see every request. A member sees the ones they sent and the
        ones that list them, so they know when someone has put them on a team. */
     case 'listTeamRequests': {
@@ -2588,7 +2628,7 @@ function dispatch(action, payload, email, role, id) {
       var sh = clubSnapshot_(aff);
       var cfg = sh.cfg, me = String(email).toLowerCase();
       var officer = RANK[role] >= RANK.admin, meRow = id.name || email;
-      var myP = sh.prof[me] || {};
+      var myP = meBits_(aff, me);
       /* What the page used to ask for in three more calls after this one --
          whether the sign-up form is in, the member's FLC choices, and the
          team requests that involve them -- rides along, so a member's page is
@@ -2625,6 +2665,16 @@ function dispatch(action, payload, email, role, id) {
     case 'setConfig': {
       var ckey = 'club:' + aff;
       var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), next = payload || {};
+      /* Two officers saving at once used to cost one of them their change:
+         each save replaced the whole club. A page now sends only what it
+         changed -- whole values for most settings, and item by item for the
+         lists of things with ids (teams, rooms, cups, assignments, events) --
+         and it is merged into what is stored, under the write lock. */
+      if (next.__patch) {
+        var base0 = {};
+        for (var qp = 1; qp < v0.length; qp++) if (String(v0[qp][0]) === ckey) { try { base0 = JSON.parse(v0[qp][1]) || {}; } catch (e) {} }
+        next = applyCfgPatch_(base0, next);
+      }
       for (var q = 1; q < v0.length; q++) {
         if (String(v0[q][0]) === ckey) {
           /* The browser saves the whole club, but only the server ever learns
@@ -3133,6 +3183,19 @@ function acctFor_(aff, email, id) {
   if (hit && !String((hit.first || '') + (hit.last || '')).trim() && id && id.name) { hit = JSON.parse(JSON.stringify(hit)); hit.name = id.name; }
   return hit || {email: k, who: k, first: '', last: '', name: id && id.name};
 }
+/* Writes that change only the caller's own things. They leave the club's
+   cache alone (forty members sending the sign-up form at orientation would
+   otherwise empty it forty times) and refresh just that member's bits. A
+   profile save that changes a name does touch the club: names are on the
+   roster everybody picks teammates from. */
+var OWN_BITS_ = {saveProfile: 1, submitForm: 1, myFormAnswers: 1};
+function clubWide_(action, payload) {
+  if (action === 'ensureMyDrive' || action === 'submitForm' || action === 'myFormAnswers' ||
+      action === 'changePassword' || action === 'setMyPassword') return false;
+  if (action === 'saveProfile') return !!(payload && (payload.firstName || payload.lastName));
+  return true;
+}
+
 /* ---- what every page load reads, kept for a couple of minutes ----
    Opening the page cost about eight seconds, nearly all of it reading the
    same dozen sheets for every member of the club in turn. The club-wide part
@@ -3141,7 +3204,7 @@ function acctFor_(aff, email, id) {
    sees it at once. Edits made straight in the spreadsheet show up within
    SHARED_TTL_ seconds. Nothing per-person is cached here except what that
    person is allowed to see anyway, and photos never are. */
-var SHARED_TTL_ = 120, SHARED_CHUNK_ = 90000;
+var SHARED_TTL_ = 600, SHARED_CHUNK_ = 90000;
 function sharedVer_(aff) {
   try { return CacheService.getScriptCache().get('ver:' + aff) || '0'; } catch (e) { return '0'; }
 }
@@ -3174,9 +3237,41 @@ function sharedPut_(name, aff, ver, obj) {
 function shared_(name, aff, compute) {
   var ver = sharedVer_(aff), hit = sharedGet_(name, aff, ver);
   if (hit) return hit;
+  /* Forty members opening the page together after a change all missed the
+     cache at once and all rebuilt it -- forty times the work, and Apps Script
+     only runs thirty at a time. The first one rebuilds; the rest wait a few
+     seconds for its result rather than starting their own. */
+  var c = null, flag = 'bld:' + name + ':' + aff + ':' + ver;
+  try { c = CacheService.getScriptCache(); } catch (e) {}
+  if (c && c.get(flag)) {
+    for (var w = 0; w < 16; w++) {
+      Utilities.sleep(500);
+      hit = sharedGet_(name, aff, ver);
+      if (hit) return hit;
+    }
+  }
+  try { if (c) c.put(flag, '1', 30); } catch (e) {}
   var val = compute();
   sharedPut_(name, aff, ver, val);
+  try { if (c) c.remove(flag); } catch (e) {}
   return val;
+}
+/* One member's own bits for the page (form sent, FLC choices), kept apart
+   from the club so that a member saving them does not empty the club's cache
+   for everyone else. */
+function meBits_(aff, email) {
+  var k = 'me:' + aff + ':' + String(email).toLowerCase(), c = null;
+  try { c = CacheService.getScriptCache(); var got = c.get(k); if (got) return JSON.parse(got); } catch (e) {}
+  var me = {formAt: false, prefs: ''};
+  readTab('profiles').forEach(function (r) {
+    if (normAff(r.Affiliation) !== aff || String(r.Email).toLowerCase() !== String(email).toLowerCase()) return;
+    me = {formAt: !!(r.FormAt || r.Year || r.Track || r.MBTI), prefs: String(r.Prefs || '')};
+  });
+  try { if (c) c.put(k, JSON.stringify(me), 21600); } catch (e) {}
+  return me;
+}
+function dropMe_(aff, email) {
+  try { CacheService.getScriptCache().remove('me:' + aff + ':' + String(email).toLowerCase()); } catch (e) {}
 }
 
 /* The name a member registered with, for labels other people read. Asked on

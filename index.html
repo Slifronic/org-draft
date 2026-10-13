@@ -38,7 +38,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<!-- The fonts no longer hold up the first paint: the page draws in the
+     fallback face and swaps when they arrive. The backend's two hosts are
+     connected to early, so sign-in's first call skips the handshake. -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet"></noscript>
 <style>
 :root{
   color-scheme:dark;
@@ -3057,18 +3063,63 @@ var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
    out of order, leaving the sheet holding an older snapshot than the one the
    officer last typed. Coalesce into a single trailing write instead. */
 var clubSyncTimer=null, teamSyncTimer=null;
+/* Two officers at once used to overwrite each other: every save sent the
+   whole club. A save now sends what changed since the club was last read or
+   saved -- item by item for the lists that have ids -- and the backend merges
+   it into what is stored. With nothing to compare against yet (a club loaded
+   from a save file, a new club), it sends the whole club as before. */
+var CFG_BASE=null, CFG_BASE_AFF='';
+function setCfgBase(){CFG_BASE=JSON.parse(JSON.stringify(S.club||{}));CFG_BASE_AFF=A.aff||''}
+function cfgPatch(cur,base){
+  var set={},del=[],items={},any=false;
+  var idList=function(v){return Array.isArray(v)&&v.every(function(x){return x&&typeof x==='object'&&x.id!==undefined&&x.id!==''})};
+  Object.keys(cur).forEach(function(k){
+    var a=cur[k], b=base[k];
+    if(JSON.stringify(a)===JSON.stringify(b))return;
+    any=true;
+    if(idList(a)&&idList(b)){
+      var bm={}; b.forEach(function(x){bm[String(x.id)]=JSON.stringify(x)});
+      var am={}; a.forEach(function(x){am[String(x.id)]=1});
+      items[k]={up:a.filter(function(x){return bm[String(x.id)]!==JSON.stringify(x)}),
+                rm:b.filter(function(x){return !am[String(x.id)]}).map(function(x){return x.id}),
+                order:a.map(function(x){return x.id})};
+    } else set[k]=a;
+  });
+  Object.keys(base).forEach(function(k){if(!(k in cur)){del.push(k);any=true}});
+  return any?{__patch:1,set:set,del:del,items:items}:null;
+}
 function syncClub(){
   if(clubSyncTimer)clearTimeout(clubSyncTimer);
   clubSyncTimer=setTimeout(function(){
     clubSyncTimer=null;
-    backendPost('setConfig',S.club);
+    var snap=JSON.parse(JSON.stringify(S.club||{}));
+    var body=(CFG_BASE&&CFG_BASE_AFF===(A.aff||''))?cfgPatch(snap,CFG_BASE):snap;
+    if(!body)return;
+    backendPost('setConfig',body).then(function(r){if(r&&r.ok){CFG_BASE=snap;CFG_BASE_AFF=A.aff||''}});
   },900);
 }
 function syncTeamsSoon(){
   if(teamSyncTimer)clearTimeout(teamSyncTimer);
   teamSyncTimer=setTimeout(function(){teamSyncTimer=null;syncTeams()},900);
 }
-function backendPost(action,payload){
+/* With a meeting's worth of people on at once, the sheet's write lock or Apps
+   Script's own limits can turn a call away. A write the backend refused as
+   busy never ran, so it is safe to send again; a read that got no answer at
+   all is too. Each waits a little longer, with jitter, so retries spread out. */
+var RETRY_READS={getAll:1,myProfile:1,getProfile:1,formSchema:1,listSubmissions:1,listTeamRequests:1,
+                 clubRoster:1,listSignups:1,memberCard:1,whoami:1,listAffiliations:1};
+function backendPost(action,payload,tries){
+  tries=tries||0;
+  return backendPostOnce(action,payload).then(function(v){
+    var busy=v&&v.ok===false&&/\bbusy\b/i.test(String(v.error||''));
+    if((busy||(!v&&RETRY_READS[action]&&!DEMO_ON&&WEBAPP_URL&&!A.offline))&&tries<2){
+      return new Promise(function(res){setTimeout(res,700+Math.random()*900*(tries+1))})
+        .then(function(){return backendPost(action,payload,tries+1)});
+    }
+    return v;
+  });
+}
+function backendPostOnce(action,payload){
   /* The demo never talks to the sheet: every call is answered in memory. */
   if(DEMO_ON)return Promise.resolve(demoBackend(action,payload));
   if(!WEBAPP_URL||A.offline)return Promise.resolve(null);
@@ -3137,6 +3188,7 @@ function mergeBackendData(data){
      vocabulary, so the words have to be in place before they are parsed. */
   if(data.config&&data.config.unit){
     S.club=mergeClub(DEFAULT_CLUB,data.config);
+    if(data.ok)setCfgBase();
     changed=true;
   }
   /* A successful club read is the whole truth about that club, empty included.
@@ -3250,6 +3302,49 @@ function download(text,name){
   URL.revokeObjectURL(a.href);
 }
 function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'}
+
+/* ---------------- staying current ----------------
+   Several officers and a room of members use the club at once, and a page
+   only read it when it opened. It now reads it again when you come back to
+   the tab and every few minutes while you are on it -- but never while you
+   are typing, choosing, or have a change on its way to the sheet, and it
+   redraws only pages that hold nothing you could be part-way through. */
+var LAST_SYNC=Date.now();
+function canQuietRefresh(){
+  if(DEMO_ON||A.offline||!(A.session||A.token)||A.role==='none'||PROVISIONAL)return false;
+  if(gateUp()||clubSyncTimer||teamSyncTimer)return false;
+  var ae=document.activeElement;
+  if(ae&&(/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)||ae.isContentEditable))return false;
+  if(!$('modalwrap').hidden||($('navsheet')&&!$('navsheet').hidden)||$('membercard').classList.contains('on'))return false;
+  if(document.querySelector('.sellist:not([hidden])')||(typeof CHAT!=='undefined'&&CHAT.open))return false;
+  return true;
+}
+function renderLive(id){
+  if(id==='v-teams')renderTeam();
+  else if(id==='v-cup'){renderCup();renderTeamBoard()}
+  else if(id==='v-calendar')renderCalendar();
+  else if(id==='v-draft')renderDraft();
+  /* Members can be part-way through a hand-in or a team request on these. */
+  else if(id==='v-squads'&&canEdit())renderSquads();
+  else if(id==='v-work'&&canEdit())renderWork();
+}
+function quietRefresh(force){
+  if(!canQuietRefresh())return;
+  if(!force&&Date.now()-LAST_SYNC<45000)return;
+  LAST_SYNC=Date.now();
+  backendGet().then(function(d){
+    if(!d||!d.ok||!canQuietRefresh())return;
+    var y=window.scrollY;
+    if(!mergeBackendData(d)&&!d.me)return;
+    scoreAll(); renderBoard();
+    var cur=document.querySelector('.view.on'); if(cur)renderLive(cur.id);
+    renderWeek(); navCounts(); renderAttention();
+    if(canEdit())loadSubs(true);
+    window.scrollTo(0,y);
+  });
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')quietRefresh()});
+setInterval(function(){if(document.visibilityState==='visible')quietRefresh(true)},180000);
 
 /* ---------------- status lines ----------------
    Every .msg speaks to screen readers, and one that changes somewhere the
@@ -7483,13 +7578,26 @@ function renderSquads(){
   [['consulting','Consulting'],['flc','FLC (case competition)'],['other','Other teams']].forEach(function(sec){
     var list=teams.filter(function(t){return kindOf(t)===sec[0]});
     if(!list.length)return;
-    h+='<h3 class="sqsec">'+esc(sec[1])+' <span class="savenote">'+list.length+' team'+(list.length===1?'':'s')+'</span></h3>';
+    h+='<h3 class="sqsec">'+esc(sec[1])+' <span class="savenote">'+list.length+' team'+(list.length===1?'':'s')+'</span>'+
+      (canEdit()?' <button type="button" class="tiny ghost danger sqkillall" data-k="'+sec[0]+'" data-n="'+esc(sec[1])+'">Delete all '+list.length+'</button>':'')+'</h3>';
     h+='<div class="squadgrid">'+list.map(squadCard).join('')+'</div>';
   });
   if(!canEdit())h+='</details>';
   box.innerHTML=h;
   wireMemberLinks(box);
   if(!canEdit())return;
+  Array.prototype.forEach.call(box.querySelectorAll('.sqkillall'),function(b){
+    b.addEventListener('click',function(){
+      var gone=teamsList().filter(function(t){return kindOf(t)===b.dataset.k});
+      uiConfirm('Delete all '+gone.length+' '+b.dataset.n+' teams?','Everyone on them goes back to unassigned, and requests members sent for them go too. Cmd-Z undoes it.','Delete all '+gone.length,true).then(function(ok){
+        if(!ok)return;
+        var ids=gone.map(function(t){return t.id});
+        S.club.teams=teamsList().filter(function(t){return ids.indexOf(t.id)<0}); saveTeams();
+        dropTeamRequests(ids);
+        sqSay('Deleted '+gone.length+' '+b.dataset.n+' teams.','good');
+      });
+    });
+  });
   Array.prototype.forEach.call(box.querySelectorAll('.squad'),function(card){
     var t=teamById(card.dataset.id); if(!t)return;
     var nm=card.querySelector('.sqname');
@@ -7524,13 +7632,23 @@ function renderSquads(){
     });
     var k=card.querySelector('.sqkill');
     if(k)k.addEventListener('click',function(){
-      uiConfirm('Delete '+t.name+'?','Its members go back to being unassigned. Homework already handed in is kept.','Delete',true)
+      uiConfirm('Delete '+t.name+'?','Its members go back to being unassigned. Homework already handed in is kept. If members sent this team in, their request goes too.','Delete',true)
         .then(function(ok){
           if(!ok)return;
           S.club.teams=teamsList().filter(function(x){return x.id!==t.id}); saveTeams();
+          dropTeamRequests([t.id]);
+          sqSay('Deleted '+t.name+'.','good');
         });
     });
   });
+}
+/* A team that came from a member's request takes the request with it, so
+   nobody is left reading "Approved" for a team that is gone. */
+function dropTeamRequests(ids){
+  if(!ids.length)return;
+  if(DEMO_ON){DEMO.reqs=(DEMO.reqs||[]).filter(function(q){return ids.indexOf(q.teamId)<0});demoStore();TREQ.list=demoReqsFor();renderReqAdmin();navCounts();return}
+  Promise.all(ids.map(function(id){return backendPost('deleteTeamRequest',{teamId:id})}))
+    .then(function(){TREQ.list=TREQ.list.filter(function(q){return ids.indexOf(q.teamId)<0});renderReqAdmin();navCounts()});
 }
 /* The build form changes with the kind of team: a client for consulting, an
    event for FLC, just a name otherwise. */
@@ -7964,8 +8082,9 @@ function renderReqAdmin(){
         (checks.length?'<ul class="reqchecks">'+checks.map(function(c){return '<li>'+esc(c)+'</li>'}).join('')+'</ul>':
           (q.status==='pending'?'<p class="savenote" style="color:var(--accent)">No clashes found.</p>':''))+
         (q.review?'<p class="savenote">EBOD: '+esc(q.review)+'</p>':'')+
-        (q.status==='pending'?'<div class="row" style="margin-top:8px"><button type="button" class="tiny rqyes">Approve</button>'+
-          '<button type="button" class="tiny ghost rqno">Send back…</button></div>':'')+
+        '<div class="row" style="margin-top:8px">'+
+          (q.status==='pending'?'<button type="button" class="tiny rqyes">Approve</button><button type="button" class="tiny ghost rqno">Send back…</button>':'')+
+          '<button type="button" class="tiny ghost danger rqdel">Delete request</button></div>'+
       '</div>';
     }).join('')+'</div>';
   }
@@ -7979,6 +8098,18 @@ function renderReqAdmin(){
   Array.prototype.forEach.call(box.querySelectorAll('.reqrow'),function(row){
     var q=TREQ.list.filter(function(x){return x.id===row.dataset.id})[0]; if(!q)return;
     var yes=row.querySelector('.rqyes'), no=row.querySelector('.rqno');
+    var del=row.querySelector('.rqdel');
+    if(del)del.addEventListener('click',function(){
+      uiConfirm('Delete this request?','It disappears for '+(q.byName||'the member')+' too.'+(q.teamId&&teamById(q.teamId)?' The team it became stays; delete that from its card if you want it gone.':''),'Delete',true).then(function(ok){
+        if(!ok)return;
+        var go=DEMO_ON?Promise.resolve((DEMO.reqs=(DEMO.reqs||[]).filter(function(x){return x.id!==q.id}),demoStore(),{ok:true}))
+                      :backendPost('deleteTeamRequest',{id:q.id});
+        go.then(function(r){
+          if(r&&r.ok){TREQ.list=TREQ.list.filter(function(x){return x.id!==q.id});renderReqAdmin();navCounts();say('Request deleted.','good')}
+          else say((r&&r.error)||'That did not go through. The backend may need its latest version.');
+        });
+      });
+    });
     var ed=row.querySelector('.rqedit');
     if(ed)ed.addEventListener('click',function(){REQEDIT=q.id;renderReqAdmin()});
     var cn=row.querySelector('.rqcancel');
@@ -10080,6 +10211,7 @@ function afterSignIn(pre){
        open Homework: the hand-ins list loads in the background. */
     if(canEdit())loadSubs();
     navCounts();
+    LAST_SYNC=Date.now();
     say('Synced from the shared sheet — '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','good');
   });
 }
@@ -10240,6 +10372,11 @@ function demoBackend(action,pl){
       var st=pl.status||'checked';
       DEMO.subs.forEach(function(x){if(x.workId===pl.workId&&normName(x.name)===normName(pl.name)){x.status=st;if(pl.points!==''&&pl.points!=null)x.points=+pl.points}});
       demoStore(); return {ok:true,status:st,points:+pl.points||0};
+    }
+    case 'deleteTeamRequest': {
+      var n0=(DEMO.reqs||[]).length;
+      DEMO.reqs=(DEMO.reqs||[]).filter(function(q){return !((pl.id&&q.id===pl.id)||(pl.teamId&&q.teamId===pl.teamId))});
+      demoStore(); return {ok:true,deleted:n0-DEMO.reqs.length};
     }
     case 'reviewSubmissions': {
       var want={}, n=0; (pl.names||[]).forEach(function(x){want[normName(x)]=1});
