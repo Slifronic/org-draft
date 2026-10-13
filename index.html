@@ -3160,23 +3160,28 @@ var clubSyncTimer=null, teamSyncTimer=null;
    from a save file, a new club), it sends the whole club as before. */
 var CFG_BASE=null, CFG_BASE_AFF='';
 function setCfgBase(){CFG_BASE=JSON.parse(JSON.stringify(S.club||{}));CFG_BASE_AFF=A.aff||''}
+/* Each change also carries what it replaced (was), so the backend can keep
+   what somebody else changed in the meantime -- often another browser
+   signed in to the same club account. */
 function cfgPatch(cur,base){
-  var set={},del=[],items={},any=false;
+  var set={},was={},del=[],items={},any=false;
   var idList=function(v){return Array.isArray(v)&&v.every(function(x){return x&&typeof x==='object'&&x.id!==undefined&&x.id!==''})};
   Object.keys(cur).forEach(function(k){
     var a=cur[k], b=base[k];
     if(JSON.stringify(a)===JSON.stringify(b))return;
     any=true;
     if(idList(a)&&idList(b)){
-      var bm={}; b.forEach(function(x){bm[String(x.id)]=JSON.stringify(x)});
+      var bm={}, bo={}; b.forEach(function(x){bm[String(x.id)]=JSON.stringify(x);bo[String(x.id)]=x});
       var am={}; a.forEach(function(x){am[String(x.id)]=1});
-      items[k]={up:a.filter(function(x){return bm[String(x.id)]!==JSON.stringify(x)}),
+      var up=a.filter(function(x){return bm[String(x.id)]!==JSON.stringify(x)}), w={};
+      up.forEach(function(x){if(bo[String(x.id)])w[String(x.id)]=bo[String(x.id)]});
+      items[k]={up:up,was:w,
                 rm:b.filter(function(x){return !am[String(x.id)]}).map(function(x){return x.id}),
                 order:a.map(function(x){return x.id})};
-    } else set[k]=a;
+    } else {set[k]=a; if(k in base)was[k]=b}
   });
   Object.keys(base).forEach(function(k){if(!(k in cur)){del.push(k);any=true}});
-  return any?{__patch:1,set:set,del:del,items:items}:null;
+  return any?{__patch:1,set:set,was:was,del:del,items:items}:null;
 }
 function syncClub(){
   if(clubSyncTimer)clearTimeout(clubSyncTimer);
@@ -3185,9 +3190,26 @@ function syncClub(){
     var snap=JSON.parse(JSON.stringify(S.club||{}));
     var body=(CFG_BASE&&CFG_BASE_AFF===(A.aff||''))?cfgPatch(snap,CFG_BASE):snap;
     if(!body)return;
-    backendPost('setConfig',body).then(function(r){if(r&&r.ok){CFG_BASE=snap;CFG_BASE_AFF=A.aff||''}});
+    CLUB_INFLIGHT++;
+    backendPost('setConfig',body).then(function(r){
+      CLUB_INFLIGHT=Math.max(0,CLUB_INFLIGHT-1);
+      if(!(r&&r.ok))return;
+      CFG_BASE=snap; CFG_BASE_AFF=A.aff||'';
+      /* The backend answers with the club as stored, everyone's changes
+         merged. Taken in unless something else was changed here meanwhile
+         (that goes out with the next save and comes back the same way). */
+      if(r.cfg&&!clubSyncTimer&&!CLUB_INFLIGHT&&JSON.stringify(S.club)===JSON.stringify(snap)){
+        var merged=mergeClub(DEFAULT_CLUB,r.cfg);
+        if(JSON.stringify(merged)!==JSON.stringify(snap)){
+          S.club=merged; setCfgBase(); save();
+          var cur=document.querySelector('.view.on');
+          if(cur&&canQuietRefresh())renderLive(cur.id);
+        }
+      }
+    });
   },900);
 }
+var CLUB_INFLIGHT=0, TEAMS_INFLIGHT=0;
 function syncTeamsSoon(){
   if(teamSyncTimer)clearTimeout(teamSyncTimer);
   teamSyncTimer=setTimeout(function(){teamSyncTimer=null;syncTeams()},900);
@@ -3248,12 +3270,41 @@ function findPersonByName(nm){
   for(var i=0;i<S.people.length;i++)if(S.people[i].norm===norm||normName(S.people[i].name)===norm)return S.people[i];
   return null;
 }
-function syncTeams(){
-  var rows=S.people.map(function(p){
-    return {MemberName:p.name,Org:orgLabel(p.org),Track:p.track,Year:p.year,
-      MBTI:p.mbti||'',LeadInterest:'no',IsLead:'no',Notes:p.note||'',Availability:p.avail||''};
+function teamRow(p){
+  return {MemberName:p.name,Org:orgLabel(p.org),Track:p.track,Year:p.year,
+    MBTI:p.mbti||'',LeadInterest:'no',IsLead:'no',Notes:p.note||'',Availability:p.avail||''};
+}
+/* The roster as this page last read or saved it, by name. Moving somebody,
+   renaming an Org or an undo sends only the rows that differ from it, each
+   with its old version, and the backend merges them into what is stored --
+   so two officers rearranging Orgs at once both keep their moves. A new
+   draft (full) replaces the club's roster, which is what a new draft is. */
+var TEAMS_BASE=null;
+function setTeamsBase(rows){
+  TEAMS_BASE={};
+  (rows||S.people.map(teamRow)).forEach(function(r){TEAMS_BASE[normName(r.MemberName)]=r});
+}
+function syncTeams(full){
+  var rows=S.people.map(teamRow), body;
+  if(full||!TEAMS_BASE)body=rows;
+  else{
+    var up=[], seen={};
+    rows.forEach(function(r){
+      var k=normName(r.MemberName), b=TEAMS_BASE[k]; seen[k]=1;
+      if(!b||JSON.stringify(b)!==JSON.stringify(r))up.push({row:r,was:b||null});
+    });
+    var rm=Object.keys(TEAMS_BASE).filter(function(k){return !seen[k]}).map(function(k){return TEAMS_BASE[k].MemberName});
+    if(!up.length&&!rm.length)return;
+    body={__patch:1,up:up,rm:rm};
+  }
+  TEAMS_INFLIGHT++;
+  backendPost('setTeams',body).then(function(r){
+    TEAMS_INFLIGHT=Math.max(0,TEAMS_INFLIGHT-1);
+    if(!(r&&r.ok))return;
+    setTeamsBase(rows);
+    /* Pull the merged roster back soon, so moves made elsewhere show here. */
+    if(!full)setTimeout(function(){quietRefresh(true)},1500);
   });
-  backendPost('setTeams',rows);
 }
 function syncLogEntries(entries){
   if(!entries||!entries.length)return;
@@ -3292,6 +3343,7 @@ function mergeBackendData(data){
     S.people=[];S.orgs=[];S.orgNames=[];S.standings=[];
     changed=true;
   }
+  if(data.ok&&data.teams&&!data.teams.length)setTeamsBase([]);
   if(data.ok&&data.pointsLog&&!data.pointsLog.length&&S.log.length){
     S.log=[];changed=true;
   }
@@ -3314,6 +3366,7 @@ function mergeBackendData(data){
     });
     if(people.length){
       S.people=people;
+      if(data.ok)setTeamsBase();
       S.orgs=[];for(var i=0;i<orgNames.length;i++)S.orgs.push([]);
       S.people.forEach(function(p){S.orgs[p.org].push(p);p.norm=normName(p.name)});
       S.orgNames=orgNames;
@@ -3403,7 +3456,7 @@ function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'}
 var LAST_SYNC=Date.now();
 function canQuietRefresh(){
   if(DEMO_ON||A.offline||!(A.session||A.token)||A.role==='none'||PROVISIONAL)return false;
-  if(gateUp()||clubSyncTimer||teamSyncTimer)return false;
+  if(gateUp()||clubSyncTimer||teamSyncTimer||CLUB_INFLIGHT||TEAMS_INFLIGHT)return false;
   var ae=document.activeElement;
   if(ae&&(/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)||ae.isContentEditable))return false;
   if(!$('modalwrap').hidden||($('navsheet')&&!$('navsheet').hidden)||$('membercard').classList.contains('on'))return false;
@@ -3435,7 +3488,14 @@ function quietRefresh(force){
   });
 }
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')quietRefresh()});
-setInterval(function(){if(document.visibilityState==='visible')quietRefresh(true)},180000);
+/* Officers check every minute -- several of them, often on one shared
+   account, may be changing the same club -- and members every three. */
+var QR_TICK=0;
+setInterval(function(){
+  if(document.visibilityState!=='visible')return;
+  QR_TICK++;
+  if(canEdit()||QR_TICK%3===0)quietRefresh(true);
+},60000);
 
 /* ---------------- status lines ----------------
    Every .msg speaks to screen readers, and one that changes somewhere the
@@ -4252,7 +4312,7 @@ function finishDraft(r,n){
   if(r.unknownTrack)notes.push(r.unknownTrack+' track value'+(r.unknownTrack>1?'s':'')+' defaulted to Either');
   S.draftNotes=notes;
   save();
-  syncTeams();
+  syncTeams(true);
   setView('v-draft');
 }
 /* ================= ORG CUP ================= */
@@ -10268,7 +10328,7 @@ $('redraw').addEventListener('click',function(){
   S.applied={};scoreAll();renderDraft();save();
   /* Without this the reshuffle only ever existed in this browser, and every
      member kept seeing the previous Orgs. */
-  syncTeams();
+  syncTeams(true);
   });
 });
 if($('ebodauto'))$('ebodauto').addEventListener('click',autoAssignEbod);

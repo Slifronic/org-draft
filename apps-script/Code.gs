@@ -1306,20 +1306,70 @@ function memberNames_(aff) {
    del: [key], items: {key: {up: [item], rm: [id], order: [id]}}}. Items that
    another officer added in the meantime are kept, after the ones this page
    ordered. */
+/* Several officers -- often several browsers on the one club account -- edit
+   at once, each from the copy they last read. A page sends what it changed
+   together with what that thing looked like when it read it (`was`), and
+   this keeps both people's changes: a field this page did not touch keeps
+   what is stored; a list of names gets this page's additions and removals
+   applied to the stored list; anything both changed goes to the later save. */
+function merge3_(srv, cli, was) {
+  var J = function (v) { return JSON.stringify(v === undefined ? null : v); };
+  if (was === undefined || srv === undefined) return cli;
+  if (J(cli) === J(was)) return srv;           /* this page did not change it */
+  if (J(srv) === J(was)) return cli;           /* nobody else did */
+  var isSet = function (a) {
+    if (!Array.isArray(a)) return false;
+    var seen = {};
+    for (var i = 0; i < a.length; i++) {
+      var v = a[i];
+      if ((typeof v !== 'string' && typeof v !== 'number') || v === '' || seen['k' + v]) return false;
+      seen['k' + v] = 1;
+    }
+    return true;
+  };
+  if (isSet(srv) && isSet(cli) && isSet(was)) {
+    var key = function (v) { return 'k' + v; }, inCli = {}, inWas = {}, outSet = {};
+    cli.forEach(function (v) { inCli[key(v)] = 1; });
+    was.forEach(function (v) { inWas[key(v)] = 1; });
+    var res = srv.filter(function (v) { return !(inWas[key(v)] && !inCli[key(v)]); });
+    res.forEach(function (v) { outSet[key(v)] = 1; });
+    cli.forEach(function (v) { if (!inWas[key(v)] && !outSet[key(v)]) { res.push(v); outSet[key(v)] = 1; } });
+    return res;
+  }
+  var plain = function (o) { return o && typeof o === 'object' && !Array.isArray(o); };
+  if (plain(srv) && plain(cli) && plain(was)) {
+    var res2 = {}, keys = {};
+    [srv, cli, was].forEach(function (o) { Object.keys(o).forEach(function (k) { keys[k] = 1; }); });
+    Object.keys(keys).forEach(function (k) {
+      var inC = Object.prototype.hasOwnProperty.call(cli, k), inW = Object.prototype.hasOwnProperty.call(was, k),
+          inS = Object.prototype.hasOwnProperty.call(srv, k);
+      if (!inC && inW) { if (inS && J(srv[k]) !== J(was[k])) res2[k] = srv[k]; return; }  /* removed here; kept if changed there */
+      if (!inS) { if (inC) res2[k] = cli[k]; return; }
+      res2[k] = inC ? merge3_(srv[k], cli[k], inW ? was[k] : undefined) : srv[k];
+    });
+    return res2;
+  }
+  return cli;
+}
 function applyCfgPatch_(base, p) {
   var out = {};
   for (var k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
-  var set = p.set || {}, del = p.del || [], items = p.items || {};
-  Object.keys(set).forEach(function (k) { if (k !== '__patch') out[k] = set[k]; });
+  var set = p.set || {}, del = p.del || [], items = p.items || {}, wasSet = p.was || {};
+  Object.keys(set).forEach(function (k) {
+    if (k === '__patch') return;
+    out[k] = Object.prototype.hasOwnProperty.call(wasSet, k) ? merge3_(out[k], set[k], wasSet[k]) : set[k];
+  });
   del.forEach(function (k) { delete out[k]; });
   Object.keys(items).forEach(function (k) {
     var ch = items[k] || {}, list = Array.isArray(out[k]) ? out[k].slice() : [];
     var rm = {}; (ch.rm || []).forEach(function (id) { rm[String(id)] = 1; });
     list = list.filter(function (it) { return !(it && rm[String(it.id)]); });
+    var wasItems = ch.was || {};
     (ch.up || []).forEach(function (it) {
       if (!it || it.id === undefined) return;
       var at = -1; for (var i = 0; i < list.length; i++) if (list[i] && String(list[i].id) === String(it.id)) { at = i; break; }
-      if (at > -1) list[at] = it; else list.push(it);
+      var w = wasItems[String(it.id)];
+      if (at > -1) list[at] = w ? merge3_(list[at], it, w) : it; else list.push(it);
     });
     if (Array.isArray(ch.order)) {
       var pos = {}; ch.order.forEach(function (id, i) { pos[String(id)] = i; });
@@ -2893,12 +2943,14 @@ function dispatch(action, payload, email, role, id) {
             });
           }
           sh0.getRange(q + 1, 2).setValue(JSON.stringify(next));
-          return {ok: true, saved: true};
+          /* The merged result goes back, so this page shows what the others
+             saved too, straight away. */
+          return {ok: true, saved: true, cfg: next};
         }
       }
       var json = JSON.stringify(next);
       sh0.appendRow([ckey, json]);
-      return {ok: true, saved: true};
+      return {ok: true, saved: true, cfg: next};
     }
 
     /* An Org Lead runs their own Org, and naming it is the one piece of that
@@ -2946,10 +2998,31 @@ function dispatch(action, payload, email, role, id) {
       /* Replaces only this club's rows. Clearing the whole sheet would delete
          every other affiliation's roster, so the surviving rows are read
          first and written back alongside the new ones. */
-      var sh = tab('teams'), cols = TAB.teams.cols;
-      var others = readTab('teams').filter(function (r) {
+      var sh = tab('teams'), cols = TAB.teams.cols, allT = readTab('teams');
+      var others = allT.filter(function (r) {
         return String(r.Affiliation || DEFAULT_AFF).toLowerCase() !== aff;
       });
+      /* Moving one member, or renaming an Org, sends only the rows that
+         changed, each with what it looked like when that page read it. Two
+         officers rearranging at once then both keep their moves. A new
+         draft still sends every row and replaces the club's roster. */
+      if (payload && payload.__patch) {
+        var flatT = function (n) { return String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+        var cur = allT.filter(function (r) { return String(r.Affiliation || DEFAULT_AFF).toLowerCase() === aff; });
+        var byN = {}, order = [];
+        cur.forEach(function (r) { var k = flatT(r.MemberName); if (k && !byN[k]) { byN[k] = r; order.push(k); } });
+        (payload.rm || []).forEach(function (n) { delete byN[flatT(n)]; });
+        (payload.up || []).forEach(function (u) {
+          var row = u && u.row; if (!row || !row.MemberName) return;
+          var k = flatT(row.MemberName), was = u.was, have = byN[k];
+          if (!have) { byN[k] = row; order.push(k); return; }
+          Object.keys(row).forEach(function (f) {
+            if (was && String(row[f] === undefined ? '' : row[f]) === String(was[f] === undefined ? '' : was[f])) return;
+            have[f] = row[f];
+          });
+        });
+        payload = order.filter(function (k) { return byN[k]; }).map(function (k) { return byN[k]; });
+      }
       var mine = (payload || []).map(function (r) {
         r.Affiliation = aff;
         if (r.MemberName) r.MemberName = capName_(r.MemberName);
