@@ -6645,10 +6645,13 @@ function renderRoomsPanel(){
 var TREQ={loaded:false,list:[],asked:''};
 var TREQ_CAP={consulting:14,flc:4,other:14};
 function selfTeamsOn(){return !(S.club&&S.club.selfTeams===false)}
+/* Only once somebody is signed in. Before that there is nobody to ask for,
+   and a panel that re-rendered on a load that never happened would spin. */
+function treqWho(){return (A.offline||DEMO_ON)?'':String(A.email||A.name||'')}
 function loadTeamReqs(force){
   if(TREQ.loaded&&!force)return Promise.resolve(TREQ.list);
   if(DEMO_ON){TREQ={loaded:true,list:demoReqsFor(),asked:''};return Promise.resolve(TREQ.list)}
-  if(A.offline||!(A.email||A.name))return Promise.resolve([]);
+  if(!treqWho())return Promise.resolve([]);
   return backendPost('listTeamRequests',{me:A.name||''}).then(function(r){
     TREQ.loaded=true; TREQ.list=(r&&r.ok&&r.requests)||[];
     if(r&&!r.ok)TREQ.error=r.error||''; else TREQ.error='';
@@ -6725,8 +6728,15 @@ function renderReqAdmin(){
   if(!canEdit()){box.hidden=true;box.innerHTML='';return}
   box.hidden=false;
   if(DEMO_ON){TREQ.list=demoReqsFor();TREQ.loaded=true}
-  if(!TREQ.loaded){box.innerHTML='<h2>Teams members sent in</h2><p class="empty wait">Reading requests…</p>';
-    loadTeamReqs().then(renderReqAdmin);return}
+  else {
+    var who=treqWho();
+    if(!who){box.innerHTML='<h2>Teams members sent in</h2><p class="empty">Shown once you are signed in.</p>';return}
+    if(!TREQ.loaded||TREQ.asked!==who){
+      TREQ.asked=who;TREQ.loaded=false;
+      box.innerHTML='<h2>Teams members sent in</h2><p class="empty wait">Reading requests…</p>';
+      loadTeamReqs(true).then(function(){if(TREQ.loaded)renderReqAdmin()});return;
+    }
+  }
   var list=TREQ.list.slice().sort(function(a,b){
     var o={pending:0,returned:1,approved:2};return (o[a.status]-o[b.status])||String(b.at).localeCompare(String(a.at))});
   var waiting=list.filter(function(q){return q.status==='pending'}).length;
@@ -6791,9 +6801,12 @@ function renderReqMember(){
   var box=$('myteamreq'); if(!box)return;
   if(canEdit()||!selfTeamsOn()){box.hidden=true;box.innerHTML='';return}
   box.hidden=false;
-  var who=String(A.email||A.name||'');
-  if(DEMO_ON){TREQ.list=demoReqsFor();TREQ.loaded=true;TREQ.asked=who}
-  else if(!TREQ.loaded||TREQ.asked!==who){TREQ.asked=who;TREQ.loaded=false;loadTeamReqs(true).then(renderReqMember)}
+  var who=treqWho();
+  if(DEMO_ON){TREQ.list=demoReqsFor();TREQ.loaded=true}
+  else if(who&&(!TREQ.loaded||TREQ.asked!==who)){
+    TREQ.asked=who;TREQ.loaded=false;
+    loadTeamReqs(true).then(function(){if(TREQ.loaded)renderReqMember()});
+  }
   var mine=TREQ.list.filter(function(q){return q.mine||(DEMO_ON&&isMe({name:q.byName}))});
   var listed=TREQ.list.filter(function(q){return mine.indexOf(q)<0});
   var cur=box.dataset.kind||'flc';
