@@ -55,7 +55,7 @@
    other. */
 :root[data-theme="pbl"]{
   color-scheme:light;
-  --ink:#1a1a1a; --slate:#4a4744; --mute:#8a8681; --rule:#d8d4ce; --paper:#edebe7; --card:#f5f3f0;
+  --ink:#1a1a1a; --slate:#4a4744; --mute:#6b6762; --rule:#d8d4ce; --paper:#edebe7; --card:#f5f3f0;
   --consult:#8a2320; --compete:#b8892b; --either:#8a8681; --flag:#a32b22; --ok:#4e7a46;
   --wash:#f4e7e5; --warmwash:#f7f0de; --accent:#8a2320;
   --fill:#8a2320; --onfill:#ffffff; --void:#efede9; --moss:#f4e7e5; --forest:#8a2320;
@@ -1208,6 +1208,64 @@ tr.mine td{background:var(--warmwash)}
 .demoswitch{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .demoswitch a{font-size:12px;padding:3px 10px;border:1px solid var(--rule);border-radius:999px;text-decoration:none}
 .demoswitch a.on{background:var(--fill);color:var(--onfill);border-color:var(--fill)}
+
+/* ================= Oct 2026 experience pass =================
+   From a member and an officer walking the whole site on a laptop and a phone. */
+/* the homework link box was the one input left unstyled */
+input[type=url]{padding:9px 10px;width:100%;background:var(--void,var(--paper));border:1px solid var(--rule);border-radius:4px;
+  color:var(--ink);font-family:'DM Sans',sans-serif;font-size:14.5px;min-height:40px}
+/* the due date is the most important fact on a homework card */
+.hwdue{font-size:13px;color:var(--slate)}
+/* screen readers hear status messages as they change */
+.msg.show{scroll-margin:90px}
+/* a message that changes somewhere off-screen is echoed where it can be seen */
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,12px);z-index:1200;max-width:min(560px,calc(100vw - 32px));
+  background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:14px;line-height:1.4;
+  box-shadow:0 8px 26px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#toast.bad{background:var(--flag)}
+/* the tab strip says there is more to it when it scrolls */
+nav#nav{scroll-behavior:smooth}
+@media (max-width:640px){
+  .navrow{position:relative}
+  .navrow::after{content:'';position:absolute;right:0;top:0;bottom:2px;width:28px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,var(--paper))}
+  /* "De Anza PBL" was on screen three times; the eyebrow and badge say it */
+  header h1{display:none}
+  #toast{bottom:76px}
+}
+/* fingers, not cursors: nothing tappable under 44px tall */
+@media (pointer:coarse){
+  button,.linkbtn,.demochip,.selbtn,nav button{min-height:44px}
+  button.tiny{min-height:40px}
+  .check{min-height:40px;align-items:center}
+}
+/* form questions that still need an answer */
+.ffield.missing{border-left:3px solid var(--flag);padding-left:10px}
+.ffield.missing label:first-child{color:var(--flag)}
+/* a member's own week, at the top of their first page */
+.weekpanel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.weekpanel .wk{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;min-width:0}
+.weekpanel .wk h3{margin:0 0 6px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.weekpanel .wk p{margin:2px 0;font-size:14px;line-height:1.4}
+.weekpanel .wk .sub{color:var(--slate);font-size:13px}
+.weekpanel .wk button{margin-top:8px}
+@media (max-width:640px){.weekpanel{grid-template-columns:1fr}}
+/* officers: a count of what is waiting, on the tab itself */
+nav button .navcount{display:inline-block;min-width:18px;padding:1px 6px;margin-left:6px;border-radius:9px;
+  background:var(--flag);color:#fff;font-size:10.5px;line-height:16px;letter-spacing:0;text-align:center}
+@media (min-width:900px){#atbody ul.roster{columns:3;column-gap:28px}#atbody ul.roster li{break-inside:avoid}}
+/* an empty bulletin is a single line with the post button */
+.board.bempty{padding-top:6px;padding-bottom:6px}
+.board.bempty #boardtoggle{display:none}
+/* the assignment form opens when it is wanted */
+.panel.folded>*:not(h2):not(.foldbtn){display:none}
+.panel .foldbtn{margin-top:4px}
+details.allteams{margin-top:18px}
+details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);padding:10px 0;list-style-position:inside}
+/* attendance: the button follows you down a long roster */
+.atbar{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:12px;justify-content:space-between;
+  background:var(--card);border-top:1px solid var(--rule);padding:10px 0;margin-top:10px}
 </style>
 </head>
 <body data-role="none">
@@ -1640,7 +1698,7 @@ tr.mine td{background:var(--warmwash)}
 <div class="view" id="v-attend">
 <div class="panel" data-section="take-attendance">
   <h2>Take attendance</h2>
-  <p class="hint">Pick the event, check who showed up, log it. Standings update immediately.</p>
+  <p class="hint">Pick the event, check who showed up, log it. Each person’s commitment log updates at once.</p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:2;min-width:210px"><label for="atact">Action</label><select id="atact"></select></div>
     <div class="field" style="flex:1;min-width:150px"><label for="atevent">Event label (optional)</label><input type="text" id="atevent" placeholder="Week 3 workshop"></div>
@@ -1653,7 +1711,7 @@ tr.mine td{background:var(--warmwash)}
   </div>
   <div class="row" style="margin-top:12px"><input type="text" id="atsearch" placeholder="Search members…" aria-label="Search members" style="max-width:320px"></div>
   <div id="atbody" style="margin-top:10px"></div>
-  <div class="row"><button id="atadd">Log attendance</button></div>
+  <div class="atbar"><span class="savenote" id="atcount2" aria-live="polite">Nobody checked yet</span><button id="atadd">Log attendance</button></div>
   <div class="msg" id="atmsg"></div>
 </div>
 <div class="panel" data-section="absences">
@@ -2039,7 +2097,7 @@ Marcus Lee"></textarea>
   <input type="file" id="loadjson" accept=".json,application/json">
   <button class="tiny danger" id="wipe">Wipe this browser</button>
 </div>
-<footer><a href="/orientation">Orientation</a> · The browser copy is a convenience, not a backup — it disappears if the cache is cleared or the officer changes laptops. Export a save file at the end of each semester and hand it to whoever runs the Cup next.</footer>
+<footer><a href="/orientation">Orientation</a><span data-req="admin"> · The browser copy is a convenience, not a backup — it disappears if the cache is cleared or the officer changes laptops. Export a save file at the end of each semester and hand it to whoever runs the Cup next.</span></footer>
 
 </div>
 <script>
@@ -3150,6 +3208,47 @@ function download(text,name){
 }
 function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'}
 
+/* ---------------- status lines ----------------
+   Every .msg speaks to screen readers, and one that changes somewhere the
+   person cannot see -- a swap confirmed 2,000px up the Teams page, a hand-in
+   result under the fold -- is echoed in a toast at the bottom of the screen. */
+(function(){
+  var t=document.createElement('div'); t.id='toast'; t.setAttribute('role','status'); t.setAttribute('aria-live','polite');
+  document.body.appendChild(t);
+  var timer=null;
+  function echo(el){
+    if(!el||!el.classList.contains('show')||el.classList.contains('wait'))return;
+    var txt=String(el.textContent||'').trim(); if(!txt||el.offsetParent===null)return;
+    var r=el.getBoundingClientRect();
+    if(r.bottom>0&&r.top<(window.innerHeight||800)-60)return;
+    t.textContent=txt; t.className='on'+((el.classList.contains('good')||el.classList.contains('info'))?'':' bad');
+    clearTimeout(timer); timer=setTimeout(function(){t.className=''},4200);
+  }
+  var mo=new MutationObserver(function(ms){
+    ms.forEach(function(m){
+      var el=m.target.nodeType===1?m.target:m.target.parentElement;
+      if(el&&el.classList&&el.classList.contains('msg'))echo(el);
+      else if(el&&el.closest){var p=el.closest('.msg'); if(p)echo(p)}
+      Array.prototype.forEach.call(m.addedNodes||[],function(n){
+        if(n.nodeType!==1)return;
+        if(n.classList.contains('msg'))watch(n);
+        Array.prototype.forEach.call(n.querySelectorAll?n.querySelectorAll('.msg'):[],watch);
+      });
+    });
+  });
+  function watch(m){
+    if(m.dataset.watched)return; m.dataset.watched='1';
+    if(!m.getAttribute('role'))m.setAttribute('role','status');
+    mo.observe(m,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['class']});
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.msg'),watch);
+  new MutationObserver(function(ms){ms.forEach(function(m){Array.prototype.forEach.call(m.addedNodes||[],function(n){
+    if(n.nodeType!==1)return;
+    if(n.classList&&n.classList.contains('msg'))watch(n);
+    else if(n.querySelectorAll)Array.prototype.forEach.call(n.querySelectorAll('.msg'),watch);
+  })})}).observe(document.body,{childList:true,subtree:true});
+})();
+
 /* ---------------- navigation ---------------- */
 function setView(id,fromRoute){
   /* Until a member has sent the sign-up form, it is the only page there is.
@@ -3185,13 +3284,19 @@ function setView(id,fromRoute){
     renderFormEditor();
   }
   if(id==='v-calendar')renderCalendar();
-  if(id==='v-work')renderWork();
+  if(id==='v-work'){foldSetWork();renderWork();}
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
   wireHideControls();
   applyFormGate();
   window.scrollTo(0,0);
+  /* On a phone the strip scrolls sideways; the tab you are on comes into it. */
+  var cur=document.querySelector('#nav button[aria-current="true"]');
+  if(cur&&cur.scrollIntoView&&window.matchMedia&&window.matchMedia('(max-width:640px)').matches)
+    try{cur.scrollIntoView({inline:'center',block:'nearest'})}catch(e){}
+  renderWeek();
+  navCounts();
 }
 Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
   b.addEventListener('click',function(){
@@ -3345,7 +3450,8 @@ function uiAsk(o){
     yes.className=o.danger?'danger':'';
     $('modalno').textContent=o.cancel||'Cancel';
     $('modalwrap').hidden=false;
-    setTimeout(function(){(o.input?$('modalinput'):yes).focus()},30);
+    /* On a destructive question Enter must not be the way to say yes. */
+    setTimeout(function(){(o.input?$('modalinput'):(o.danger?$('modalno'):yes)).focus()},30);
   });
 }
 function uiClose(val){
@@ -3675,8 +3781,12 @@ function ingestAccounts(roster){
       out.push([nm,u.email||'',u.year||'',u.track||'',u.mbti||'',u.avail||'',u.notes||''].map(csvCell).join(','));
     });
     var noAns=rows.filter(function(u){return !u.year&&!u.track}).length;
-    if(ingest(out.join('\n'),'signed-up members')&&noAns)
+    var got=ingest(out.join('\n'),'signed-up members');
+    if(got&&noAns)
       say('Loaded '+rows.length+' signed-up members. '+noAns+' have not filled in the onboarding form yet, so they default to 1st year / not sure.','info');
+    /* The next step is the mapping and the Run draft button, which sat well
+       below the fold; take the officer there. */
+    if(got&&$('mapper'))setTimeout(function(){$('mapper').scrollIntoView({behavior:'smooth',block:'start'})},150);
   }
 }
 
@@ -3877,7 +3987,11 @@ function run(){
     return;
     });
 }
-  finishDraft(r,n);
+  if(!S.orgs.length){finishDraft(r,n);return}
+  uiConfirm('Replace the current '+unitsWord()+'?','Running the draft again replaces all '+S.orgs.length+' '+unitsWord()+
+    ', including any moves made by hand. Members see the new ones as soon as it saves.','Run the draft',true).then(function(ok){
+    if(ok)finishDraft(r,n);
+  });
 }
 function finishDraft(r,n){
   S.people=r.people;
@@ -4177,6 +4291,9 @@ function maybeTour(){
   if((A.offline&&!DEMO.as)||tourSeen())return;
   if(A.role!=='member')return;
   if(!S.orgs.length||formGateOn())return;
+  /* Someone who followed a link to a particular tab came for that tab; the
+     tour waits for a visit that starts at the front page. */
+  if(!DEMO_ON&&viewForPath()&&viewForPath()!==homeView())return;
   setTimeout(function(){if(!formGateOn())startTour()},700);
 }
 function initTour(){
@@ -4318,7 +4435,7 @@ function isPast(d){
   var p=String(d).split('-');
   return new Date(+p[0],+p[1]-1,+p[2])<t;
 }
-var CALV={mode:'month', y:0, m:0, d:0};
+var CALV={mode:(window.matchMedia&&window.matchMedia('(max-width:640px)').matches)?'list':'month', y:0, m:0, d:0};
 function calKeyOf(d){return String(d||'')}
 function ymd(y,m,d){
   return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
@@ -4676,6 +4793,8 @@ function initCalendar(){
     var t=new Date(); CALV.y=t.getFullYear(); CALV.m=t.getMonth(); CALV.d=t.getDate(); renderCalendar();
   });
   var MODES=[['cal-day','day'],['cal-week','week'],['cal-month','month'],['cal-list','list']];
+  /* The starting mode can be List (on a phone), so the switch shows whichever it is. */
+  MODES.forEach(function(q){var e=$(q[0]); if(e)e.classList.toggle('on',q[1]===CALV.mode)});
   MODES.forEach(function(pair){
     var b=$(pair[0]); if(!b)return;
     b.addEventListener('click',function(){
@@ -4828,16 +4947,17 @@ function renderWork(){
         (w.due?'<span class="hwdue mono'+(late?' late':'')+'">'+(late?'Was due ':'Due ')+esc(calDate(w.due))+'</span>':'')+
         (canEdit()?'<button class="hwkill" type="button" title="Remove">×</button>':'')+'</div>'+
       (forL?'<span class="hwfor mono">'+esc(forL)+'</span>':'<span class="hwfor mono">Everyone</span>')+
-      (done?'<span class="hwfor mono" style="color:var(--accent)">Handed in '+esc(String(done).slice(0,10))+'</span>':'')+
+      (done?'<span class="hwfor mono" style="color:var(--accent)">Handed in \u2713 '+esc(calDate(String(done).slice(0,10)))+'</span>':'')+
       (w.brief?'<p class="hwbrief">'+esc(w.brief)+'</p>':'')+
       (w.note?'<p class="hint" style="margin:6px 0 0">'+esc(w.note)+'</p>':'')+
-      (kind!=='link'?'<div class="hwup">'+
-        '<input type="file" class="hwfile" id="hwf_'+esc(w.id)+'">'+
+      /* Officers review here; the hand-in controls are for the members it is set for. */
+      (!canEdit()&&kind!=='link'?'<div class="hwup">'+
+        '<input type="file" class="hwfile" id="hwf_'+esc(w.id)+'" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg,.heic,.webp">'+
         '<label class="linkbtn" for="hwf_'+esc(w.id)+'"><b>File</b> <span class="hwname">Choose a file</span></label>'+
-        '<button class="tiny hwsend" type="button" disabled>Hand it in</button>'+
+        '<button class="hwsend" type="button" disabled>Hand it in</button>'+
       '</div>':'')+
-      (kind!=='file'?'<div class="hwlink"><input type="url" class="hwurl mono" placeholder="https://docs.google.com/… (shared so EBOD can open it)" aria-label="Link to your work">'+
-        '<button class="tiny hwsendlink" type="button">Hand in link</button></div>':'')+
+      (!canEdit()&&kind!=='file'?'<div class="hwlink"><input type="url" class="hwurl mono" placeholder="Paste a shared Google Docs or Slides link" aria-label="Link to your work">'+
+        '<button class="hwsendlink" type="button">Hand in link</button></div>':'')+
       '<div class="msg hwmsg2"></div>'+
       (canEdit()?'<div class="subs" data-for="'+esc(w.id)+'"><div class="s-lbl">Handed in</div>'+
         '<div class="subbody"><p class="empty wait">Loading…</p></div></div>':'')+
@@ -4850,7 +4970,7 @@ function renderWork(){
         nm=cardEl.querySelector('.hwname'), msg=cardEl.querySelector('.hwmsg2');
     var k=cardEl.querySelector('.hwkill');
     if(k)k.addEventListener('click',function(){
-      uiConfirm('Remove this assignment?','Work already handed in stays in the club Drive and on the Submissions tab.','Remove',true).then(function(ok){
+      uiConfirm('Remove this assignment?','Work already handed in stays in the club Drive.','Remove',true).then(function(ok){
         if(!ok)return;
         S.club.work=(S.club.work||[]).filter(function(w){return w.id!==id});
         save(); syncClub(); renderWork();
@@ -4859,7 +4979,9 @@ function renderWork(){
     var handed=function(r){
       if(r&&r.ok){
         hwMarkDone(id);
-        msg.textContent=(r.replaced?'Replaced — version '+r.revision+'. ':'Handed in. ')+(r.filed?r.filed+'.':'');
+        var wk=((S.club&&S.club.work)||[]).filter(function(x){return x.id===id})[0]||{};
+        msg.textContent=(r.replaced?'Replaced \u2713 This is now the version EBOD sees.':'Handed in \u2713')+
+          (wk.due&&!isPast(wk.due)?' You can replace it until '+calDate(wk.due)+'.':'');
         msg.className='msg hwmsg2 show good';
         if(canEdit())loadSubs(true);
         else{
@@ -4871,11 +4993,17 @@ function renderWork(){
       else {msg.textContent=(r&&r.error)||'That did not go through.';msg.className='msg hwmsg2 show'}
     };
     var lb=cardEl.querySelector('.hwsendlink'), li=cardEl.querySelector('.hwurl');
+    /* Handing in again replaces what EBOD sees, so it says so first. */
+    var sure=function(){
+      return hwDoneAt(id)?uiConfirm('Replace what you handed in?','EBOD will see this one instead. Your first on-time hand-in still counts toward your Org\u2019s cup.','Replace it'):Promise.resolve(true);
+    };
     if(lb)lb.addEventListener('click',function(){
       var u=safeUrl(li.value);
       if(!u){msg.textContent='Paste a full link starting with https://';msg.className='msg hwmsg2 show';return}
-      lb.disabled=true; msg.textContent='Handing it in…'; msg.className='msg hwmsg2 show info wait';
-      backendPost('submitWork',{workId:id,link:u}).then(function(r){lb.disabled=false;handed(r)});
+      sure().then(function(ok){ if(!ok)return;
+        lb.disabled=true; msg.textContent='Handing it in…'; msg.className='msg hwmsg2 show info wait';
+        backendPost('submitWork',{workId:id,link:u}).then(function(r){lb.disabled=false;handed(r)});
+      });
     });
     if(!f)return;
     f.addEventListener('change',function(){
@@ -4886,6 +5014,7 @@ function renderWork(){
     btn.addEventListener('click',function(){
       var file=f.files&&f.files[0]; if(!file)return;
       if(file.size>8*1024*1024){msg.textContent='That file is over 8 MB.';msg.className='msg hwmsg2 show';return}
+      sure().then(function(ok){ if(!ok)return;
       btn.disabled=true; msg.textContent='Uploading…'; msg.className='msg hwmsg2 show info wait';
       var fr=new FileReader();
       fr.onload=function(){
@@ -4895,9 +5024,73 @@ function renderWork(){
       };
       fr.onerror=function(){btn.disabled=false;msg.textContent='Could not read that file.';msg.className='msg hwmsg2 show'};
       fr.readAsDataURL(file);
+      });
     });
   });
 }
+/* Setting an assignment is occasional; reviewing them is weekly. The form
+   waits behind a button so the hand-ins are what an officer sees first. */
+function foldSetWork(){
+  var p=document.querySelector('#v-work .panel[data-section="set-work"]'); if(!p||p.dataset.fold)return;
+  p.dataset.fold='1'; p.classList.add('folded');
+  var b=document.createElement('button'); b.type='button'; b.className='foldbtn'; b.textContent='+ New assignment';
+  b.setAttribute('aria-expanded','false');
+  p.querySelector('h2').insertAdjacentElement('afterend',b);
+  b.addEventListener('click',function(){
+    var open=p.classList.toggle('folded')===false;
+    b.textContent=open?'Close':'+ New assignment'; b.setAttribute('aria-expanded',open?'true':'false');
+  });
+}
+
+/* ================= THIS WEEK =================
+   "What do I owe, what is on, and who are my people" took four tabs to answer.
+   A member's first page now opens with all three, each one tap from where it
+   is dealt with. Officers have their own counts on the tabs instead. */
+function renderWeek(){
+  var host=document.querySelector('.view.on'), old=$('weekpanel');
+  if(canEdit()||A.role!=='member'||formGateOn()||!host||host.id!==homeView()){if(old)old.remove();return}
+  var me=null; for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
+  var today=todayYMD();
+  /* due: theirs, not yet handed in on this device, soonest first */
+  var owed=hwList().filter(function(w){return hwMine(w,me)&&!hwDoneAt(w.id)})
+    .sort(function(a,b){return String(a.due||'9999').localeCompare(String(b.due||'9999'))});
+  var next=owed.filter(function(w){return !w.due||w.due>=today})[0]||owed[0]||null;
+  var hw='<div class="wk"><h3>Due next</h3>'+(next
+    ?'<p><b>'+esc(next.title)+'</b></p><p class="sub">'+(next.due?(isPast(next.due)?'Was due ':'Due ')+esc(calDate(next.due)):'No due date')+
+      (owed.length>1?' · '+(owed.length-1)+' more after it':'')+'</p><button type="button" class="tiny" data-wk="hw" data-id="'+esc(next.id)+'">Hand it in</button>'
+    :'<p>Nothing due.</p><p class="sub">You are all caught up.</p>')+'</div>';
+  /* on: the next two things on the calendar */
+  var evs=calList().filter(function(e){return e.date&&String(e.end||e.date)>=today&&!e.ebod})
+    .sort(function(a,b){return (String(a.date)+String(a.time||'')).localeCompare(String(b.date)+String(b.time||''))}).slice(0,2);
+  var cal='<div class="wk"><h3>Coming up</h3>'+(evs.length?evs.map(function(e){
+      return '<p><b>'+esc(e.title||'Event')+'</b></p><p class="sub">'+esc(calDate(e.date))+(e.time?' · '+esc(e.time):'')+(e.where?' · '+esc(e.where):'')+'</p>'}).join('')
+    :'<p>Nothing on the calendar yet.</p>')+'<button type="button" class="tiny ghost" data-wk="cal">Calendar</button></div>';
+  /* who: their Org, its EBOD contact, their teams */
+  var oi=myOrgIndex(), tms=teamsOf(me?me.name:A.name).map(function(t){return t.name});
+  var who='<div class="wk"><h3>Your people</h3>'+(oi>-1
+    ?'<p><b>'+esc(orgLabel(oi))+'</b></p>'+(orgContact(oi)?'<p class="sub">EBOD contact: '+esc(orgContact(oi))+'</p>':'')
+    :'<p>No '+esc(unitWord())+' yet.</p><p class="sub">'+esc(unitsWord())+' are formed at bootcamp 1 (Oct 20).</p>')+
+    (tms.length?'<p class="sub">Teams: '+esc(tms.join(', '))+'</p>':'')+
+    '<button type="button" class="tiny ghost" data-wk="teams">'+(tms.length?'Your teams':'Teams')+'</button></div>';
+  var el=old||document.createElement('div');
+  el.id='weekpanel'; el.className='panel'; el.setAttribute('aria-label','This week');
+  el.innerHTML='<h2>This week</h2><div class="weekpanel">'+hw+cal+who+'</div>';
+  if(!old||el.parentNode!==host){
+    var after=host.querySelector('.demorow');
+    host.insertBefore(el,after?after.nextSibling:host.firstChild);
+  }
+  Array.prototype.forEach.call(el.querySelectorAll('[data-wk]'),function(b){
+    b.addEventListener('click',function(){
+      var k=b.dataset.wk;
+      if(k==='cal')return setView('v-calendar');
+      if(k==='teams')return setView('v-squads');
+      setView('v-work');
+      var card=document.querySelector('.hwcard[data-id="'+(b.dataset.id||'')+'"]');
+      if(card){card.scrollIntoView({block:'center'});var f=card.querySelector('.linkbtn,.hwurl');if(f)try{f.focus({preventScroll:true})}catch(e){}}
+    });
+  });
+}
+
 /* Officers write the same handful of assignments every term, so the shapes of
    them are offered rather than retyped. Picking one fills the form in; every
    field stays editable afterwards. */
@@ -4922,7 +5115,17 @@ function loadSubs(force){
   if(SUBS.loaded&&!force)return paintSubs();
   backendPost('listSubmissions',null).then(function(r){
     SUBS={loaded:true,rows:(r&&r.ok)?r.submissions:[]};
-    paintSubs();
+    paintSubs(); navCounts();
+  });
+}
+/* The names still to hand in, ready to paste into a group chat nudge. */
+function wireSubCopy(body){
+  var cp=body.querySelector('.subcopy'); if(!cp)return;
+  var label=cp.textContent;
+  cp.addEventListener('click',function(){
+    var fallback=function(){uiPrompt('Not in yet','Copy these names.','Names',cp.dataset.names,'Done')};
+    try{navigator.clipboard.writeText(cp.dataset.names).then(function(){cp.textContent='Copied';setTimeout(function(){cp.textContent=label},1600)},fallback)}
+    catch(e){fallback()}
   });
 }
 function paintSubs(){
@@ -4940,9 +5143,11 @@ function paintSubs(){
     var sum='<div class="subsum"><span><b>'+rows.length+'</b> of '+targets.length+' handed in</span>'+
       (w.due?'<span><b>'+onTime+'</b> on time</span><span><b>'+(rows.length-onTime)+'</b> late</span>':'')+
       '<span><b>'+missing.length+'</b> still to come</span></div>'+
-      (missing.length?'<div class="missing"><b>Not in yet:</b> '+esc(missing.slice(0,24).join(', '))+(missing.length>24?', and '+(missing.length-24)+' more':'')+'</div>':'');
-    if(!rows.length){body.innerHTML=sum+'<p class="empty">Nobody has handed this in yet.</p>';return}
-    rows.sort(function(a,b){return String(a.name).localeCompare(String(b.name))});
+      (missing.length?'<div class="missing"><b>Not in yet:</b> '+esc(missing.slice(0,24).join(', '))+(missing.length>24?', and '+(missing.length-24)+' more':'')+
+        ' <button type="button" class="tiny ghost subcopy" data-names="'+esc(missing.join(', '))+'">Copy all '+missing.length+' names</button></div>':'');
+    if(!rows.length){body.innerHTML=sum+'<p class="empty">Nobody has handed this in yet.</p>';wireSubCopy(body);return}
+    /* What still needs a look comes first. */
+    rows.sort(function(a,b){return ((a.status==='checked')-(b.status==='checked'))||String(a.name).localeCompare(String(b.name))});
     body.innerHTML=sum+rows.map(function(x){
       var done=x.status==='checked';
       return '<div class="subrow'+(done?' done':'')+'" data-w="'+esc(x.workId)+'" data-n="'+esc(x.name)+'">'+
@@ -4952,21 +5157,24 @@ function paintSubs(){
         '<span class="subwhen mono">'+esc(String(x.at||'').slice(0,10))+
           (x.revision>1?' · v'+x.revision:'')+
           (end&&new Date(x.first||x.at).getTime()>end?' · late':'')+'</span>'+
-        '<input type="number" class="subpts" min="0" max="999" placeholder="pts" title="Commitment points (optional, never ranked)" value="'+
+        '<input type="number" class="subpts" min="0" max="999" placeholder="pts" aria-label="Commitment points for '+esc(x.name)+'" title="Commitment points (optional, never ranked)" value="'+
           (x.points==null?'':esc(String(x.points)))+'">'+
-        '<button class="tiny subok" type="button">'+(done?'Checked':'Check off')+'</button>'+
+        '<button class="tiny subok" type="button" data-done="'+(done?1:0)+'" title="'+(done?'Click to mark it not checked again':'Mark it checked')+'">'+(done?'Checked \u2713':'Check off')+'</button>'+
       '</div>';
     }).join('')+'<div class="msg submsg"></div>';
+    wireSubCopy(body);
     Array.prototype.forEach.call(body.querySelectorAll('.subok'),function(b){
       b.addEventListener('click',function(){
         var row=b.parentNode, msg=body.querySelector('.submsg');
         var pts=row.querySelector('.subpts').value;
+        var undo=b.dataset.done==='1';
         b.disabled=true;
         backendPost('reviewSubmission',{workId:row.dataset.w,name:row.dataset.n,
-                                        status:'checked',points:pts}).then(function(rr){
+                                        status:undo?'submitted':'checked',points:undo?'':pts}).then(function(rr){
           b.disabled=false;
           if(rr&&rr.ok){
-            msg.textContent='Checked off'+(rr.points?' — '+rr.points+' points to '+row.dataset.n+'.':'.');
+            msg.textContent=undo?('Marked '+row.dataset.n+' as not checked. Points already given stay in their log.')
+              :'Checked off'+(rr.points?' — '+rr.points+' points to '+row.dataset.n+'.':'.');
             msg.className='msg show good';
             loadSubs(true);
             if(rr.points)backendGet().then(function(d){mergeBackendData(d);scoreAll();refreshScored()});
@@ -5030,8 +5238,9 @@ function renderBoard(){
   /* A member with nothing pinned should not see an empty box; an officer
      should, because that is where the post button lives. */
   sec.hidden=(!items.length&&!canEdit());
+  sec.classList.toggle('bempty',!items.length);
   if(!items.length){
-    list.innerHTML='<p class="empty">No notices yet.</p>';
+    list.innerHTML='';
     return;
   }
   list.innerHTML=items.map(function(n){
@@ -5527,6 +5736,7 @@ function atSay(text,kind){var m=$('atmsg');m.textContent=text;m.className='msg s
 function atUpdateCount(){
   var n=$('atbody').querySelectorAll('input.at-check:checked').length;
   $('atcount').textContent=n?n+' checked':'';
+  if($('atcount2'))$('atcount2').textContent=n?n+' checked':'Nobody checked yet';
 }
 function renderAttend(){
   fillActionSelect();
@@ -6180,9 +6390,15 @@ function wireEbodPicks(root){
    is one dropdown away. */
 function autoAssignEbod(){
   var e=ebodList(); if(!e.length||!S.orgs.length)return;
-  S.club.orgEbod=S.orgs.map(function(_,i){return e[i%e.length].name});
-  save(); syncClub(); renderDraft();
-  if($('v-teams').classList.contains('on'))renderTeam();
+  var go=function(){
+    S.club.orgEbod=S.orgs.map(function(_,i){return e[i%e.length].name});
+    save(); syncClub(); renderDraft();
+    if($('v-teams').classList.contains('on'))renderTeam();
+  };
+  var set=(S.club.orgEbod||[]).filter(function(x){return x}).length;
+  if(!set)return go();
+  uiConfirm('Reassign every EBOD contact?',set+' '+unitsWord()+' already have a contact. Assigning round-robin replaces them all, including ones picked by hand.','Reassign',true)
+    .then(function(ok){if(ok)go()});
 }
 var DRAFTBOXES=['draftstats','draftnotes','draftfilters','legend','orggrid'];
 function renderDraft(){
@@ -7037,6 +7253,31 @@ function renderPrefsPanel(){
   });
 }
 
+/* Members: their teams, then the forms. Officers: requests waiting on them
+   come before everything else. */
+function layoutSquads(){
+  var v=$('v-squads'), box=$('squadbody'); if(!v||!box)return;
+  if(!canEdit()){ if(box.nextElementSibling!==$('myteamreq'))v.insertBefore(box,$('myteamreq')); }
+  else {
+    var waiting=TREQ.list.filter(function(q){return q.status==='pending'}).length;
+    var first=v.querySelector('.panel[data-section]')||v.querySelector('.panel');
+    if(waiting&&first&&first!==$('sqreqs'))v.insertBefore($('sqreqs'),first);
+    if(box.parentNode===v&&v.lastElementChild!==box)v.appendChild(box);
+  }
+  navCounts();
+}
+/* Officers: how much is waiting on them, on the tab itself. */
+function navCounts(){
+  var set=function(view,n,what){
+    var b=document.querySelector('#nav button[data-view="'+view+'"]'); if(!b)return;
+    var c=b.querySelector('.navcount');
+    if(!canEdit()||!n){if(c)c.remove();return}
+    if(!c){c=document.createElement('span');c.className='navcount';b.appendChild(c)}
+    c.textContent=n; c.setAttribute('aria-label',n+' '+what);
+  };
+  set('v-squads',TREQ.loaded?TREQ.list.filter(function(q){return q.status==='pending'}).length:0,'team requests waiting');
+  set('v-work',SUBS.loaded?(SUBS.rows||[]).filter(function(x){return x.status!=='checked'}).length:0,'hand-ins to check');
+}
 function renderSquads(){
   var box=$('squadbody'); if(!box)return;
   var ks=$('sq-kind');
@@ -7050,6 +7291,7 @@ function renderSquads(){
   renderReqAdmin();
   renderReqMember();
   renderMyPrefs();
+  layoutSquads();
   var teams=teamsList().slice();
   if(!teams.length){
     box.innerHTML='<div class="panel"><p class="empty">No teams yet.'+(canEdit()?' Set up the client teams or form FLC teams above.':' Consulting teams are announced at bootcamp 1 (Oct 20); FLC teams once EBOD has your preferences.')+'</p></div>';
@@ -7057,6 +7299,15 @@ function renderSquads(){
   }
   if(!canEdit())teams.sort(function(a,b){return (isMyTeam(b)?1:0)-(isMyTeam(a)?1:0)});
   var h='';
+  /* A member's own teams first, then everybody else's folded away: it was a
+     13,000px phone page with theirs somewhere in the middle. */
+  if(!canEdit()){
+    var mineT=teams.filter(isMyTeam);
+    h+='<h3 class="sqsec">Your teams</h3>'+(mineT.length
+      ?'<div class="squadgrid">'+mineT.map(squadCard).join('')+'</div>'
+      :'<div class="panel"><p class="empty">You are not on a team yet. Consulting teams are announced at bootcamp 1 (Oct 20); FLC teams once EBOD has everyone\u2019s choices. Already have people in mind? Send a team below.</p></div>');
+    h+='<details class="allteams"><summary>See all teams in the club ('+teams.length+')</summary>';
+  }
   if(canEdit()){
     var free=S.people.filter(function(p){return !teamOf(p.name)});
     h+='<p class="hint" style="margin:0 0 12px">'+(free.length
@@ -7070,6 +7321,7 @@ function renderSquads(){
     h+='<h3 class="sqsec">'+esc(sec[1])+' <span class="savenote">'+list.length+' team'+(list.length===1?'':'s')+'</span></h3>';
     h+='<div class="squadgrid">'+list.map(squadCard).join('')+'</div>';
   });
+  if(!canEdit())h+='</details>';
   box.innerHTML=h;
   wireMemberLinks(box);
   if(!canEdit())return;
@@ -7740,15 +7992,18 @@ function renderTeamBoard(){
   var mine=myOrgIndex();
   var h='';
   if(ORGBOARD===null&&!A.offline&&canEdit())
-    h+='<p class="hint">On-time numbers have not come back from the club sheet yet. If this stays, the Apps Script backend needs its latest version deployed; hand-awarded cups still show.</p>';
+    h+='<p class="hint">On-time numbers are still loading from the club sheet. Hand-awarded cups already show.</p>';
   h+='<div class="cupgrid">';
-  S.orgs.forEach(function(g,i){
+  /* A member's own Org leads; officers keep the Orgs in order. */
+  var order=S.orgs.map(function(_,i){return i});
+  if(!canEdit()&&mine>-1)order=[mine].concat(order.filter(function(i){return i!==mine}));
+  order.forEach(function(i){
     var au=autoCups(i), hc=handCups(i), n=au.length+hc.length;
     h+='<div class="cupcard'+(i===mine?' mine':'')+'"><h4>'+esc(orgLabel(i))+(i===mine?' <span class="youchip">yours</span>':'')+'</h4>'+
       '<div class="cups">'+(n?cupIcons(n):'<span class="none">No cups yet</span>')+'</div>'+
       ((au.length||hc.length)?'<ul class="cupwhy">'+
         au.map(function(w){return '<li>'+esc(workTitle(w.id))+' — '+w.got+' of '+w.of+' on time</li>'}).join('')+
-        hc.map(function(c){return '<li>'+esc(c.label)+(canEdit()?' <button class="tiny ghost cupkill" data-id="'+esc(c.id)+'" type="button" title="Remove">×</button>':'')+'</li>'}).join('')+
+        hc.map(function(c){return '<li>'+esc(c.label)+(canEdit()?' <button class="tiny ghost cupkill" data-id="'+esc(c.id)+'" data-label="'+esc(c.label)+'" type="button" title="Remove this cup" aria-label="Remove cup: '+esc(c.label)+'">×</button>':'')+'</li>'}).join('')+
       '</ul>':'')+
       (orgContact(i)?'<div class="cupwhy">EBOD contact: '+esc(orgContact(i))+'</div>':'')+
     '</div>';
@@ -7757,8 +8012,11 @@ function renderTeamBoard(){
   box.innerHTML=h;
   Array.prototype.forEach.call(box.querySelectorAll('.cupkill'),function(b){
     b.addEventListener('click',function(){
-      S.club.cups=(S.club.cups||[]).filter(function(c){return c.id!==b.dataset.id});
-      save(); syncClub(); renderTeamBoard(); renderDraft();
+      uiConfirm('Remove this cup?','“'+b.dataset.label+'” comes off the Org\u2019s shelf for everyone.','Remove',true).then(function(ok){
+        if(!ok)return;
+        S.club.cups=(S.club.cups||[]).filter(function(c){return c.id!==b.dataset.id});
+        save(); syncClub(); renderTeamBoard(); renderDraft();
+      });
     });
   });
   var sel=$('cup-org');
@@ -7874,7 +8132,10 @@ function renderProfile(){
         (tracksOf().length?'<div class="field" style="flex:1;min-width:160px"><label for="me-track">'+esc(S.club.trackWord)+'</label>'+
           '<select id="me-track"><option value="">Not set</option>'+
           allBuckets().map(function(b){
-            return '<option value="'+esc(b.id)+'"'+(String(ans.track||'')===b.id?' selected':'')+'>'+esc(b.label)+'</option>';
+            /* The sign-up form records the track's label ("Case competitions"),
+               the profile its id: either one selects it. */
+            var cur=String(ans.track||''), tid=bucketById(cur)?cur:normTrack(cur);
+            return '<option value="'+esc(b.id)+'"'+(tid===b.id?' selected':'')+'>'+esc(b.label)+'</option>';
           }).join('')+'</select></div>':'')+
         '<div class="field" style="flex:1;min-width:150px"><label for="me-bday">Birthday</label>'+
           '<input type="date" id="me-bday" value="'+esc(ans.bday||'')+'"></div>'+
@@ -7886,8 +8147,8 @@ function renderProfile(){
           '<input type="text" id="me-about" placeholder="Allergies, availability, a nickname" value="'+esc(ans.notes||'')+'"></div>'+
       '</div>'+
       '<div class="profmeta" style="margin-top:6px">'+
-        (ans.year?'Year in the club: '+esc(String(ans.year))+' · ':'')+
-        (ans.avail?'Availability: '+esc(String(ans.avail)):'')+
+        [ans.year?'Year in the club: '+esc(String(ans.year)):'',ans.avail?'Availability: '+esc(String(ans.avail)):'']
+          .filter(function(x){return x}).join(' · ')+
       '</div>'+
       '<div class="row"><button id="me-save">Save my details</button></div>'+
       (S.club.useMbti&&!ans.mbti&&mbtiTestUrl()?'<p class="hint">No type recorded. '+mbtiTestLink()+'</p>':'')+
@@ -8538,6 +8799,9 @@ function formGateOn(){
 var FORM_INTRO='';
 function applyFormGate(){
   var on=formGateOn();
+  /* The tab sits first for a member who owes it, last for an officer. */
+  var nb=$('navform'), nv=$('nav');
+  if(nb&&nv&&canEdit()&&nv.lastElementChild!==nb)nv.appendChild(nb);
   document.body.classList.toggle('formgate',on);
   navBtns().forEach(function(b){
     if(b.id==='navform')return;
@@ -8574,7 +8838,8 @@ function liftFormGate(toProfile){
   if(!want||want==='v-form'||!$(want)||!routeAllowed(want))
     want=(S.orgs.length&&myOrgIndex()>-1)?'v-teams':'v-profile';
   setView(want);
-  maybeTour();
+  /* Just through the form is exactly when the tour belongs, wherever they landed. */
+  if(!tourSeen()&&A.role==='member'&&S.orgs.length&&!(A.offline&&!DEMO.as))setTimeout(function(){if(!formGateOn())startTour()},700);
 }
 
 /* The club arrives from the backend a second or two after sign-in, so this
@@ -8583,7 +8848,8 @@ function liftFormGate(toProfile){
 function maybeOfferForm(){
   var btn=$('navform'); if(!btn)return;
   if(!S.club||!S.club.formUrl){btn.style.display='none';applyFormGate();return}
-  if(canEdit()){btn.style.display='';applyFormGate();return}
+  /* Officers are never held by it; for them it is a preview, at the end of the bar. */
+  if(canEdit()){btn.style.display='';var nv=$('nav');if(nv&&nv.lastElementChild!==btn)nv.appendChild(btn);applyFormGate();return}
   /* A member who has sent it never needs it again: the tab goes, as it does
      the moment they submit. Everyone else gets it as the FIRST tab. */
   if(formDone()){btn.style.display='none';FORM_PENDING=false;applyFormGate();return}
@@ -8613,6 +8879,9 @@ function markFormDone(){try{localStorage.setItem(formDoneKey(),'1')}catch(e){}}
    form standing and is tried again the next time the club refreshes. */
 function checkFormDone(){
   if(FORM_CHECKING||FORM_CHECKED)return;
+  /* Still showing the copy saved in this browser: the club's own answer is on
+     its way with the sign-in, so asking separately would only add a call. */
+  if(PROVISIONAL)return;
   FORM_CHECKING=true;
   backendPost('myProfile',null).then(function(r){
     FORM_CHECKING=false;
@@ -8653,7 +8922,7 @@ function formSummary(answers){
 function submitClubForm(){
   var m=$('formmsg');
   if(!FORM.loaded){m.textContent='The form has not loaded.';m.className='msg show';return}
-  var answers={},missing=[];
+  var answers={},missing=[],firstMissing=null;
   FORM.schema.fields.forEach(function(f,i){
     var id='ff_'+i, val='';
     if(f.type===2||f.type===4){
@@ -8669,12 +8938,20 @@ function submitClubForm(){
       else if(val&&f.type===0&&!/e-?mail/.test(L)&&/\bname\b|surname/.test(L))val=capName(val);
       if(el)el.value=val;
     }
-    if(f.required&&(!val||!val.length))missing.push(f.label);
+    var miss=f.required&&(!val||!val.length);
+    if(miss){missing.push(f.label.replace(/[?:.\s]+$/,''));if(!firstMissing)firstMissing=id}
+    var box=$(id)?$(id).closest('.field'):(document.getElementsByName(id)[0]||{closest:function(){return null}}).closest('.field');
+    if(box){box.classList.toggle('ffield',true);box.classList.toggle('missing',!!miss)}
+    if($(id))$(id).setAttribute('aria-invalid',miss?'true':'false');
     if(val&&val.length)answers[f.id]=val;
   });
   if(missing.length){
-    m.textContent='Still needed: '+missing.slice(0,3).join(', ')+(missing.length>3?' and '+(missing.length-3)+' more':'')+'.';
-    m.className='msg show';return;
+    m.textContent='Still needed: '+missing.slice(0,3).join('; ')+(missing.length>3?' and '+(missing.length-3)+' more':'')+'.';
+    m.className='msg show';
+    /* Take them to the first one rather than leaving a list under the button. */
+    var fm=$(firstMissing)||document.getElementsByName(firstMissing)[0];
+    if(fm){fm.scrollIntoView({block:'center',behavior:'smooth'});try{fm.focus({preventScroll:true})}catch(e){}}
+    return;
   }
   var go=$('formsubmit'); go.disabled=true;
   m.textContent='Sending…';m.className='msg show info wait';
@@ -8995,7 +9272,7 @@ function chatChips(list){
 }
 function chatSuggestions(){
   if(!S.orgs.length&&!teamsList().length)return ['What can you do?','How do I start?','How do Org Cups work?'];
-  if(!canEdit())return ['How are the Org Cups?','What is my team?','How do Org Cups work?'];
+  if(!canEdit())return ['What is my team?','How do Org Cups work?','When is the next event?'];
   var list=['How are the Org Cups?','Which Orgs have no cup yet?','Who is not on a team?'];
   if(S.club.useMbti)list.push('Any swaps worth making?');
   list.push('What can you do?');
@@ -9148,12 +9425,36 @@ function chatRoles(){
 }
 
 /* ---- intent matching ---- */
+function chatNext(){
+  var today=todayYMD();
+  var evs=calList().filter(function(e){return e.date&&String(e.end||e.date)>=today&&(canEdit()||!e.ebod)})
+    .sort(function(a,b){return (String(a.date)+String(a.time||'')).localeCompare(String(b.date)+String(b.time||''))}).slice(0,3);
+  if(!evs.length)return 'Nothing is on the calendar from today on.';
+  return 'Coming up:<ul style="margin:6px 0 0 18px;padding:0">'+evs.map(function(e){
+    return '<li><b>'+esc(e.title||'Event')+'</b> — '+esc(calDate(e.date))+(e.time?', '+esc(e.time):'')+(e.where?', '+esc(e.where):'')+'</li>'}).join('')+
+    '</ul><div style="margin-top:6px;color:var(--slate)">Each one has + Calendar on the Calendar tab.</div>';
+}
+function chatDue(){
+  var me=null; for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
+  var list=hwList().filter(function(w){return canEdit()||hwMine(w,me)});
+  var open=list.filter(function(w){return canEdit()||!hwDoneAt(w.id)})
+    .sort(function(a,b){return String(a.due||'9999').localeCompare(String(b.due||'9999'))});
+  if(!list.length)return 'Nothing has been set yet.';
+  if(!open.length)return 'You have handed in everything set for you. Nice.';
+  return (canEdit()?'Assignments:':'Still to hand in:')+'<ul style="margin:6px 0 0 18px;padding:0">'+open.slice(0,4).map(function(w){
+    return '<li><b>'+esc(w.title)+'</b>'+(w.due?' — '+(isPast(w.due)?'was due ':'due ')+esc(calDate(w.due)):'')+'</li>'}).join('')+
+    '</ul><div style="margin-top:6px;color:var(--slate)">Hand it in on the Homework tab.</div>';
+}
 function chatAnswer(qRaw){
   var q=' '+String(qRaw||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ')+' ';
   var has=function(){for(var i=0;i<arguments.length;i++)if(q.indexOf(' '+arguments[i]+' ')>-1||q.indexOf(arguments[i])>-1)return true;return false};
 
   if(has('what can you','who are you','help','what do you do'))return chatHelp();
   if(has('how do points','how does scoring','how do i score','scoring work','points work','how are points','cup work','team cup work'))return chatScoring();
+
+  /* Dates and homework do not depend on the Orgs existing. */
+  if(has('next event','coming up','when is','whats on','what is on','calendar','meeting','bootcamp','schedule'))return chatNext();
+  if(has('due','homework','assignment','hand in','deadline'))return chatDue();
 
   if(!S.orgs.length&&!teamsList().length)return chatNoData();
   if(has('my team'))return (function(){var ts=myTeams();if(!ts.length)return 'You are not on a team yet. EBOD forms them at bootcamp 1 (Oct 20).';
@@ -9176,7 +9477,7 @@ function chatAnswer(qRaw){
     return S.club.useMbti&&S.orgs.length?chatOrg(0):'This club has personality types switched off under Club setup.';
 
   return 'I did not follow that. I answer from this club’s own data rather than general knowledge, so I am good at questions about your '+
-    esc(unitsWord().toLowerCase())+', members, teams and the Team Cup — and no use for anything else.'+
+    esc(unitsWord().toLowerCase())+', members, teams, homework, the calendar and the Org Cup — and no use for anything else.'+
     '<div style="margin-top:8px;color:var(--slate)">Try one of the suggestions below, or ask “what can you do?”</div>';
 }
 
@@ -9205,8 +9506,8 @@ function chatOpen(){
     : 'no roster loaded';
   if(!CHAT.greeted){
     CHAT.greeted=true;
-    chatPush('bot','I read this club’s roster and points directly, so what I tell you matches what the tabs show. Ask me anything about your '+
-      esc(unitsWord().toLowerCase())+', a member, or the standings.');
+    chatPush('bot','I answer from this club’s own data, so what I tell you matches the tabs. Ask about your '+
+      esc(unitWord().toLowerCase())+', your teams, what is due, or what is coming up.');
     chatChips(chatSuggestions());
   }
   setTimeout(function(){chatEl('chatinput').focus()},60);
@@ -9342,12 +9643,18 @@ if($('qnames'))$('qnames').addEventListener('input',renderQuickPick);
 if($('dr-target'))$('dr-target').addEventListener('change',toggleNewClub);
 $('redraw').addEventListener('click',function(){
   if(!S.people.length)return;
+  /* It replaces every Org, hand moves included, and members see the result
+     as soon as it saves -- so it asks, the way every other overwrite does. */
+  uiConfirm('Reshuffle every '+unitWord()+'?','This re-runs the draft for all '+S.people.length+' members and replaces every '+
+    unitWord()+', including any moves made by hand. Members see the new '+unitsWord()+' as soon as it saves.','Reshuffle',true).then(function(ok){
+  if(!ok)return;
   S.orgs=draft(S.people,S.orgs.length,$('mbtibal').checked);
   S.orgs.forEach(function(g,i){g.forEach(function(p){p.org=i})});
   S.applied={};scoreAll();renderDraft();save();
   /* Without this the reshuffle only ever existed in this browser, and every
      member kept seeing the previous Orgs. */
   syncTeams();
+  });
 });
 if($('ebodauto'))$('ebodauto').addEventListener('click',autoAssignEbod);
 if($('accpull'))$('accpull').addEventListener('click',loadFromAccounts);
@@ -9407,10 +9714,17 @@ $('atadd').addEventListener('click',function(){
   if(!actionId){atSay('No active actions. Add one, or switch one back on.');return}
   var names=Array.prototype.map.call($('atbody').querySelectorAll('.at-check:checked'),function(c){return c.dataset.name});
   if(!names.length){atSay('Check off at least one person.');return}
-  addLog(names,actionId,$('atevent').value.trim(),$('atdate').value);
+  /* Pressing it twice used to log everyone twice. */
+  var lbl=$('atevent').value.trim(), day=$('atdate').value, want={};
+  names.forEach(function(n){want[normName(n)]=1});
+  var dup=S.log.filter(function(l){return l.actionId===actionId&&String(l.label||'')===lbl&&String(l.date||'').slice(0,10)===day&&want[normName(l.name)]}).length;
+  (dup?uiConfirm('Log this again?',dup+' of these people are already logged for '+actById(actionId).label+(lbl?' ('+lbl+')':'')+' on '+calDate(day)+'. Logging again counts them twice.','Log again',true):Promise.resolve(true)).then(function(ok){
+  if(!ok)return;
+  addLog(names,actionId,lbl,day);
   Array.prototype.forEach.call($('atbody').querySelectorAll('.at-check'),function(c){c.checked=false});
   atUpdateCount();
   atSay('Logged '+names.length+' entr'+(names.length>1?'ies':'y')+' for '+actById(actionId).label+'.','good');
+  });
 });
 $('cupconnect').addEventListener('click',function(){loadCupSheet($('cupurl').value)});
 $('cuprefresh').addEventListener('click',function(){loadCupSheet(lastCupUrl||$('cupurl').value)});
@@ -9577,6 +9891,10 @@ function afterSignIn(pre){
     save();
     bootDone();
     maybeTour();
+    /* Officers see what is waiting on them from the start, not only once they
+       open Homework: the hand-ins list loads in the background. */
+    if(canEdit())loadSubs();
+    navCounts();
     say('Synced from the shared sheet — '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','good');
   });
 }
@@ -9923,6 +10241,7 @@ function demoEnter(){
   }
   else demoSignIn('Bryant','admin');
   unlockNav();
+  if(canEdit()){TREQ={loaded:true,list:demoReqsFor(),asked:''};loadSubs()}
   if(role==='admin')setView(S.orgs.length?'v-draft':'v-intake');
   else setView(S.orgs.length&&myOrgIndex()>-1?'v-teams':'v-profile');
   maybeTour();
