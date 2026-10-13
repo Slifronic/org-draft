@@ -13,7 +13,7 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8791';
 const W = +process.env.W, H = +process.env.H, END = 177.6;
 
 // Cue points, in seconds, from the narration (whisper timings).
-const CUE = { google: 15.2, club: 17.6, join: 21.4, locked: 26.5, form: 32.6, year: 36.4, track: 38.6,
+const CUE = { google: 16.8, club: 19.2, code: 21.0, join: 24.4, locked: 27.6, form: 32.6, year: 36.4, track: 38.6,
   mbti: 41.0, avail: 43.0, submit: 49.0, tour: 52.6, orgs: 61.0, orgsList: 69.0, teams: 83.4, flc: 85.4,
   hw: 104.5, hwLink: 108.0, cal: 119.6, calDay: 124.0, calAdd: 128.6, cup: 136.2, cupMore: 146.0,
   profile: 154.4, profileMore: 160.0, card: 166.2 };
@@ -26,7 +26,7 @@ const CARD = `(() => {
   k.innerHTML = '<div style="width:1010px;padding:58px 64px;background:#f7f6f2;border:1px solid #d9d7d0;border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.09);font-family:-apple-system,\\'Helvetica Neue\\',Helvetica,Arial,sans-serif;color:#1b1b1b">' +
     '<div style="display:flex;align-items:center;gap:12px;font-size:15px;letter-spacing:.2em;color:#5f5f5a;margin-bottom:22px"><span id="__endmark"></span>START HERE</div>' +
     '<div style="font-size:86px;font-weight:700;letter-spacing:-.025em;line-height:1">org.deanzapbl.com</div>' +
-    '<p style="font-size:27px;line-height:1.4;margin:26px 0 0;color:#2f2f2c">Sign up with Google, pick De Anza PBL and send the sign-up form. Your Org appears after bootcamp 1 on October 20.</p>' +
+    '<p style="font-size:27px;line-height:1.4;margin:26px 0 0;color:#2f2f2c">Sign up with Google, enter the join code from EBOD and send the sign-up form. Your Org appears after bootcamp 1 on October 20.</p>' +
     '<div style="display:flex;gap:38px;margin-top:34px;font-size:18px;color:#5f5f5a"><span>Questions: Bryant Vo, VP of Communications</span><span>Written guide: org.deanzapbl.com/orientation</span></div></div>';
   document.body.appendChild(k);
   const cur = document.getElementById('__cur'); if (cur) cur.style.display = 'none';
@@ -58,13 +58,14 @@ const CARD = `(() => {
     await at(CUE.google - 2.6); await r.moveTo(p.getByRole('button', { name: /Sign up with Google/ }), 900);
     await at(CUE.google); await r.click(p.getByRole('button', { name: /Sign up with Google/ }), 250);
     await at(CUE.club); await r.moveTo(p.locator('#jn-aff'), 800);
+    await at(CUE.code); await r.moveTo(p.locator('#jn-code'), 700);
     await at(CUE.join); await r.click(p.getByRole('button', { name: /Join this club/ }), 700);
     await at(CUE.locked); await r.moveTo(p.locator('#nav button', { hasText: 'Homework' }).first(), 700);
     await r.click(p.locator('#nav button', { hasText: 'Homework' }).first(), 200);
     await at(CUE.form); await r.moveTo(p.locator('#ff_0'), 800);
     await at(CUE.year); await r.click(p.locator('input[name="ff_2"][value="1st year"]'));
     await at(CUE.track); await r.click(p.locator('input[name="ff_3"][value="Case competition (FLC)"]'));
-    await at(CUE.mbti); await r.type(p.locator('#ff_4'), 'ENFP', 90);
+    await at(CUE.mbti); await r.type(p.locator('#ff_4'), 'enfp', 90);
     await at(CUE.avail); await r.click(p.locator('input[name="ff_5"][value="Tue/Thu evenings"]')); await r.click(p.locator('input[name="ff_5"][value="Weekends"]'));
     await r.moveTo(p.locator('#formsubmit'), 900);
     await at(CUE.submit); await r.click(p.locator('#formsubmit'), 300);

@@ -1232,7 +1232,7 @@ tr.mine td{background:var(--warmwash)}
 
     <div id="sugoogle">
       <div class="gatebtn" id="sugsibtn"></div>
-      <p class="gatenote">Signing up with Google takes your name and email from your account, so all you pick is your club. No password to choose or forget.</p>
+      <p class="gatenote">Signing up with Google takes your name and email from your account, so you only need your club and its join code. No password to choose or forget.</p>
       <div class="gateor"><span>or use an email and password</span></div>
     </div>
     <form id="suform" autocomplete="on" style="display:none">
@@ -1248,12 +1248,16 @@ tr.mine td{background:var(--warmwash)}
         <input type="password" id="su-pass" name="password" autocomplete="new-password" placeholder="at least 10 characters"></div>
       <div class="field" style="margin-top:10px"><label for="su-aff">Which club are you joining?</label>
         <select id="su-aff"></select></div>
+      <div class="field" style="margin-top:10px"><label for="su-code">Join code</label>
+        <input type="text" id="su-code" class="mono" placeholder="from your club officers" autocapitalize="none" spellcheck="false"></div>
       <button type="submit" id="su-go" style="width:100%;margin-top:14px">Create account</button>
     </form>
 
     <form id="joinform" autocomplete="off" style="display:none">
       <div class="field"><label for="jn-aff">Which club are you in?</label>
         <select id="jn-aff"></select></div>
+      <div class="field" style="margin-top:10px"><label for="jn-code">Join code</label>
+        <input type="text" id="jn-code" class="mono" placeholder="from your club officers" autocapitalize="none" spellcheck="false"></div>
       <button type="submit" id="jn-go" style="width:100%;margin-top:14px">Join this club</button>
       <button type="button" id="jn-out" class="ghost" style="width:100%;margin-top:8px">Use a different account</button>
     </form>
@@ -1526,6 +1530,7 @@ tr.mine td{background:var(--warmwash)}
     <div class="row" style="margin-top:0">
       <div class="field" style="flex:1;min-width:150px"><label for="nc-code">Short code</label><input type="text" class="mono" id="nc-code" placeholder="deanza-pbl-s26" autocapitalize="none" spellcheck="false"></div>
       <div class="field" style="flex:1;min-width:170px"><label for="nc-name">Display name</label><input type="text" id="nc-name" placeholder="De Anza PBL — Spring 26"></div>
+      <div class="field" style="flex:1;min-width:150px"><label for="nc-join">Join code</label><input type="text" class="mono" id="nc-join" placeholder="at least 6 characters"></div>
     </div>
     <p class="hint">The new club starts empty and copies this club’s setup — track names, the season dates, whether MBTI is used. It does not take its form, its sheet or its accounts. The club you are viewing now is left exactly as it is.</p>
   </div>
@@ -1954,11 +1959,12 @@ Marcus Lee"></textarea>
 </div>
 <div class="panel" data-section="clubs-on-this-system">
   <h2>Clubs on this system</h2>
-  <p class="hint">Each club is separate — roster, teams, points and officers. Anyone signing up picks their club; there is no join code, so remove anyone who should not be there from the Access tab.</p>
-  <p class="hint"><b>Edit</b> renames a club. <b>Clear data</b> empties a club for a new semester; <b>Delete</b> removes it entirely.</p>
+  <p class="hint">Each club is separate — roster, teams, points and officers. Signing up needs the club’s join code.</p>
+  <p class="hint">Treat the join code like a door code. <b>Edit</b> issues a new one. <b>Clear data</b> empties a club for a new semester; <b>Delete</b> removes it entirely.</p>
   <div class="row" style="margin-top:0">
     <div class="field" style="flex:1;min-width:150px"><label for="af-code">Short code</label><input type="text" class="mono" id="af-code" placeholder="riverside-pbl" autocapitalize="none" spellcheck="false"></div>
     <div class="field" style="flex:1;min-width:160px"><label for="af-name">Display name</label><input type="text" id="af-name" placeholder="Riverside PBL"></div>
+    <div class="field" style="flex:1;min-width:150px"><label for="af-join">Join code</label><input type="text" class="mono" id="af-join" placeholder="at least 6 characters"></div>
     <button id="af-add">Create club</button>
   </div>
   <div class="msg" id="affmsg"></div>
@@ -2632,9 +2638,9 @@ function gateMode(mode){
   if(h)h.textContent = showSignUp?'Create your account':(showJoin?'One more step':'Sign in to continue');
   var intro=$('gateintro');
   if(intro)intro.innerHTML = showSignUp
-    ? 'Pick the club you are joining. Everything else is just your name and how you want to sign in.'
+    ? 'You need two things from your club: which one you are joining, and its join code. Everything else is just your name and how you want to sign in.'
     : (showJoin
-      ? 'You are signed in, but you are not in a club yet. Pick yours to join it — until then there is nothing for you to see.'
+      ? 'You are signed in, but you are not in a club yet. Pick yours and enter the join code your officers gave you — until then there is nothing for you to see.'
       : 'This page holds your club\u2019s roster, personality types, and points. Sign in with the account your club knows you by \u2014 what you can see and change depends on the role your officers gave you.');
   gateMsg('');
   if(showSignUp||showJoin)loadAffiliations(showSignUp?'su-aff':'jn-aff');
@@ -2654,20 +2660,21 @@ function loadAffiliations(selId){
   });
 }
 function doSignupSubmit(){
-  var first=$('su-first').value.trim(), last=$('su-last').value.trim();
+  var first=capName($('su-first').value), last=capName($('su-last').value);
   var email=$('su-email').value.trim().toLowerCase();
-  var pw=$('su-pass').value, aff=$('su-aff').value;
+  var pw=$('su-pass').value, aff=$('su-aff').value, code=$('su-code').value.trim();
   if(!first){gateMsg('Enter your first name.',true);return}
   if(!last){gateMsg('Enter your last name.',true);return}
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){gateMsg('Enter a valid email address.',true);return}
   if(pw.length<10){gateMsg('Pick a password of at least 10 characters.',true);return}
   if(!aff){gateMsg('Pick the club you are joining.',true);return}
+  if(!code){gateMsg('You need the join code from your club officers.',true);return}
   $('su-go').disabled=true;
   gateMsg('Creating your account…');
   busyOn('Creating your account');
   deriveForNew(pw).then(function(d){
     return backendPost('signup',{firstName:first,lastName:last,email:email,
-      affiliation:aff,
+      affiliation:aff,joinCode:code,
       dk:d.dk,clientSalt:d.clientSalt,iterations:d.iterations});
   }).then(function(r){
     $('su-go').disabled=false;
@@ -2690,12 +2697,13 @@ function doSignupSubmit(){
   });
 }
 function doJoinSubmit(){
-  var aff=$('jn-aff').value;
+  var aff=$('jn-aff').value, code=$('jn-code').value.trim();
   if(!aff){gateMsg('Pick your club.',true);return}
+  if(!code){gateMsg('You need the join code from your club officers.',true);return}
   $('jn-go').disabled=true;
   gateMsg('Checking…');
-  busyOn('Joining your club');
-  backendPost('joinAffiliation',{affiliation:aff}).then(function(r){
+  busyOn('Checking your join code');
+  backendPost('joinAffiliation',{affiliation:aff,joinCode:code}).then(function(r){
     $('jn-go').disabled=false;
     if(!r||!r.ok)busyClear();
     if(!r){gateMsg('The club sheet did not answer.',true);return}
@@ -3057,8 +3065,8 @@ function mergeBackendData(data){
     var people=data.teams.filter(function(r){
       return r.MemberName&&String(r.MemberName).trim()&&String(r.MemberName)!=='MemberName';
     }).map(function(r){
-      return {name:r.MemberName,year:parseInt(r.Year,10)||1,track:r.Track||FLEX_ID,
-        mbti:r.MBTI||null,lead:false,avail:String(r.Availability||''),
+      return {name:capName(r.MemberName),year:parseInt(r.Year,10)||1,track:r.Track||FLEX_ID,
+        mbti:fmtMbti(r.MBTI)||null,lead:false,avail:String(r.Availability||''),
         note:r.Notes||'',org:orgIdx[r.Org||(S.club.unit+' 01')]||0,pts:0,evts:0,cross:0,hist:[]};
     });
     if(people.length){
@@ -3551,6 +3559,20 @@ function normMbti(v){
   var m=String(v||'').toUpperCase().replace(/[^A-Z]/g,'').match(/([EI])([SN])([TF])([JP])/);
   return m?m[0]:null;
 }
+/* A name as people expect to see it: every word starts with a capital,
+   including after a hyphen or apostrophe ("mary-jane o'neil" -> "Mary-Jane
+   O'Neil"). The rest is left as typed, so "McKenzie" stays "McKenzie". */
+function capName(v){
+  return String(v==null?'':v).replace(/\s+/g,' ').trim()
+    .replace(/(^|[\s\-'\u2019])(\p{Ll})/gu,function(m,a,b){return a+b.toUpperCase()});
+}
+/* A personality type in capitals, however it was typed. A proper four-letter
+   type is pulled out of anything around it ("enfp-t" -> "ENFP"); anything else
+   is kept, just upper-cased, so nothing a member typed is thrown away. */
+function fmtMbti(v){
+  var s=String(v==null?'':v).trim(); if(!s)return '';
+  return normMbti(s)||s.toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+}
 // Attendance names have to survive "Last, First", double spaces, and punctuation.
 function normName(s){
   s=String(s||'').trim();
@@ -3586,7 +3608,7 @@ function buildPeople(){
   if(miss.length)return {err:'Map these first: '+miss.join(', ')+'.',people:[]};
   var people=[],skipped=0,unknownTrack=0,unknownYear=0,noType=[];
   S.rawRows.forEach(function(r){
-    var name=(r[ci.name]||'').trim();
+    var name=capName(r[ci.name]||'');
     if(!name){skipped++;return}
     var year=normYear(r[ci.year]);
     var track=normTrack(r[ci.track]);
@@ -3806,11 +3828,12 @@ function run(){
 
   var tgt=($('dr-target')||{}).value||'';
   if(tgt==='__new'){
-    var nc=($('nc-code')||{}).value.trim(), nn=($('nc-name')||{}).value.trim();
+    var nc=($('nc-code')||{}).value.trim(), nn=($('nc-name')||{}).value.trim(), nj=($('nc-join')||{}).value.trim();
     if(!/^[a-z0-9-]{3,32}$/.test(nc)){say('The new club needs a short code: 3\u201332 characters, letters, digits and dashes.');return}
     if(!nn){say('Give the new club a display name.');return}
+    if(nj.length<6){say('The new club needs a join code of at least 6 characters.');return}
     say('Creating '+nn+'\u2026','info');
-    backendPost('forkClub',{code:nc,name:nn}).then(function(res){
+    backendPost('forkClub',{code:nc,name:nn,joinCode:nj}).then(function(res){
       if(!res||!res.ok){say((res&&res.error)||'That club could not be created.');return}
       /* Move to the new club before the draft is written, so setTeams lands
          there. switchAff is deliberately not used: it reloads from the sheet
@@ -4038,7 +4061,7 @@ function deleteAccount(u,after){
   uiConfirm('Remove '+nm+'?',
             'Their account and saved profile are deleted, and they are signed out the next time '+
             'their session is checked. Anything already logged against their name in the Cup stays. '+
-            'Without a join code they can sign up again, so remove them again if they do.',
+            'They can sign up again with the join code.',
             'Remove the account',true).then(function(ok){
     if(!ok)return;
     backendPost('deleteSignup',{who:u.who,kind:u.kind,aff:u.aff}).then(function(r){
@@ -6795,7 +6818,7 @@ function namePicker(host,o){
       if(taken(n))return false; if(!q)return true;
       var k=normName(n); return k.indexOf(q)===0||k.indexOf(' '+q)>-1;
     }).slice(0,60);
-    var raw=cleanLabel(inp.value).trim();
+    var raw=capName(cleanLabel(inp.value));
     var extra=raw&&!shown.some(function(n){return normName(n)===normName(raw)})?raw:'';
     if(hi>=shown.length+(extra?1:0))hi=0;
     list.innerHTML=(shown.length?shown.map(function(n,i){
@@ -7906,12 +7929,13 @@ function renderProfile(){
       });
     });
     if($('me-save'))$('me-save').addEventListener('click',function(){
-      var extra={firstName:$('me-first').value.trim(),lastName:$('me-last').value.trim()};
+      $('me-first').value=capName($('me-first').value); $('me-last').value=capName($('me-last').value);
+      var extra={firstName:$('me-first').value,lastName:$('me-last').value};
       /* The member's own corrections to what the form recorded. Sent with the
          name so it is one write, not three. */
       if($('me-track'))extra.track=$('me-track').value;
       if($('me-bday')) extra.bday =$('me-bday').value;
-      if($('me-mbti')) extra.mbti =$('me-mbti').value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+      if($('me-mbti')){ extra.mbti=fmtMbti($('me-mbti').value); $('me-mbti').value=extra.mbti; }
       if($('me-about'))extra.notes=$('me-about').value.slice(0,300);
       backendPost('saveProfile',extra)
         .then(function(r){
@@ -8218,7 +8242,7 @@ function renderClubRosterTable(){
     if(q&&((u.first||'')+' '+(u.last||'')+' '+(u.email||u.who||'')).toLowerCase().indexOf(q)<0)return false;
     return true;
   });
-  if(!CROSTER.length){box.innerHTML='<p class="empty">Nobody has signed up for this club yet. Share the site\u2019s address.</p>';return}
+  if(!CROSTER.length){box.innerHTML='<p class="empty">Nobody has signed up for this club yet. Share the join code and the sign-up form.</p>';return}
   if(!rows.length){box.innerHTML='<p class="empty">Nobody matches.</p>';return}
   var canKill=canEdit();
   var h='<div class="tablewrap"><table><thead><tr><th class="l"></th><th class="l">Name</th>'+
@@ -8623,7 +8647,15 @@ function submitClubForm(){
       var picked=Array.prototype.filter.call(document.getElementsByName(id),function(x){return x.checked})
         .map(function(x){return x.value});
       val=picked.length?(f.type===4?picked:picked[0]):'';
-    } else { var el=$(id); val=el?String(el.value||'').trim():''; }
+    } else {
+      var el=$(id); val=el?String(el.value||'').trim():'';
+      /* Names get their capitals and a personality type is upper-cased before
+         it reaches the club's sheet, and the box shows what was sent. */
+      var L=String(f.label||'').toLowerCase();
+      if(val&&f.type===0&&/mbti|personality|16 ?personalities|four letters/.test(L))val=fmtMbti(val);
+      else if(val&&f.type===0&&!/e-?mail/.test(L)&&/\bname\b|surname/.test(L))val=capName(val);
+      if(el)el.value=val;
+    }
     if(f.required&&(!val||!val.length))missing.push(f.label);
     if(val&&val.length)answers[f.id]=val;
   });
@@ -8678,7 +8710,7 @@ function renderAffs(){
       rows.map(function(a){
         var acts='';
         if(!a.legacy)acts+='<button class="affedit" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
-          '" title="Rename this club">Edit</button>';
+          '" title="Rename this club or issue a new join code">Edit</button>';
         acts+='<button class="affpurge" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
           '" title="Remove this club\u2019s roster, points and attendance. Keeps the club, its accounts and its setup.">Clear data</button>';
         if(!a.legacy)acts+='<button class="danger affdel" data-code="'+esc(a.code)+'" data-name="'+esc(a.name)+
@@ -8726,13 +8758,20 @@ function renderAffs(){
     });
     Array.prototype.forEach.call(box.querySelectorAll('.affedit'),function(b){
       b.addEventListener('click',function(){
+        /* Two questions, asked one after the other, because the short code is
+           fixed and the join code is optional -- crowding both into one box
+           made it read as though either could be left blank. */
         uiPrompt('Rename '+b.dataset.name,
           'The short code "'+b.dataset.code+'" cannot change \u2014 every row of this club\u2019s data is stamped with it.',
-          'Display name',b.dataset.name,'Save').then(function(nm){
+          'Display name',b.dataset.name,'Next').then(function(nm){
           if(nm===null)return;
-          backendPost('updateAffiliation',{code:b.dataset.code,name:nm.trim()}).then(function(r){
-            if(r&&r.ok){affSay('Updated.','good');if(A.aff===b.dataset.code&&nm.trim()){A.affName=nm.trim();setRole(A.role,null)}renderAffs()}
-            else affSay((r&&r.error)||'That change was refused.');
+          uiPrompt('New join code?','Leave it blank to keep the current one. Changing it stops any code already going around from working.',
+            'Join code','','Save').then(function(jc){
+            if(jc===null)jc='';
+            backendPost('updateAffiliation',{code:b.dataset.code,name:nm.trim(),joinCode:jc.trim()}).then(function(r){
+              if(r&&r.ok){affSay('Updated.','good');if(A.aff===b.dataset.code&&nm.trim()){A.affName=nm.trim();setRole(A.role,null)}renderAffs()}
+              else affSay((r&&r.error)||'That change was refused.');
+            });
           });
         });
       });
@@ -9410,12 +9449,13 @@ wirePurgePanel();
 $('cardclose').addEventListener('click',function(){$('membercard').classList.remove('on')});
 $('membercard').addEventListener('click',function(e){if(e.target.id==='membercard')$('membercard').classList.remove('on')});
 $('af-add').addEventListener('click',function(){
-  var c=$('af-code').value.trim().toLowerCase(), nm=$('af-name').value.trim();
+  var c=$('af-code').value.trim().toLowerCase(), nm=$('af-name').value.trim(), j=$('af-join').value.trim();
   if(!/^[a-z0-9-]{3,32}$/.test(c)){affSay('Codes are 3\u201332 characters: letters, digits, dashes.');return}
   if(!nm){affSay('Give the club a display name.');return}
-  backendPost('createAffiliation',{code:c,name:nm}).then(function(r){
-    if(r&&r.ok){$('af-code').value='';$('af-name').value='';
-      affSay('Created '+nm+'. Members sign up by picking it.','good');renderAffs()}
+  if(j.length<6){affSay('Join codes must be at least 6 characters.');return}
+  backendPost('createAffiliation',{code:c,name:nm,joinCode:j}).then(function(r){
+    if(r&&r.ok){$('af-code').value='';$('af-name').value='';$('af-join').value='';
+      affSay('Created '+nm+'. Members sign up by picking it and entering the join code.','good');renderAffs()}
     else affSay((r&&r.error)||'That was refused by the sheet.');
   });
 });
@@ -9888,8 +9928,8 @@ function demoGate(){
     '<b style="font-size:16px">G</b> Sign up with Google <span style="opacity:.6">(demo)</span></button>';
     $('demogoogle').addEventListener('click',function(){
       A.name=NEWBIE.first+' '+NEWBIE.last; A.email=NEWBIE.email; A.via='demo';
-      gateMode('join');
-      gateMsg('Signed in as '+NEWBIE.email+'. Pick your club to join it.');
+      gateMode('join'); $('jn-code').value='pbl-fall26';
+      gateMsg('Signed in as '+NEWBIE.email+'. Pick the club and enter the join code from EBOD.');
     });
   }
   bootDone();
@@ -10099,9 +10139,9 @@ function initRouting(){
    A short captioned clip for each tab a member uses, recorded from the demo
    club. Silent on purpose: they play muted on a phone in a lecture hall. A
    button at the top of the tab opens the clip over the page. */
-var DEMO_V='20261013';
+var DEMO_V='20261013b';
 var TAB_DEMOS=[
-  ['v-form','signup','Sign up and the sign-up form',59],
+  ['v-form','signup','Sign up and the sign-up form',62],
   ['v-teams','orgs','Orgs',38],
   ['v-squads','teams','Teams and forming your own',47],
   ['v-squads','flc','FLC choices and hotel',59],

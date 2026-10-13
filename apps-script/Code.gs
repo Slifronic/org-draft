@@ -182,11 +182,11 @@ function accountsFor(only) {
   function push(who, kind, a, pr, r, joined, how, email) {
     if (only && a !== normAff(only)) return;
     out.push({who: who, kind: kind,
-              first: r.FirstName || pr.first || '', last: r.LastName || pr.last || '',
+              first: capName_(r.FirstName || pr.first || ''), last: capName_(r.LastName || pr.last || ''),
               email: email, role: String(r.Role || 'member').toLowerCase(),
               aff: a, affName: affNames[a] || a, joined: joined || '',
               how: how || '', photo: pr.photo || '',
-              year: String(pr.year || ''), track: String(pr.track || ''), mbti: String(pr.mbti || ''),
+              year: String(pr.year || ''), track: String(pr.track || ''), mbti: fmtMbti_(pr.mbti),
               avail: String(pr.avail || ''), notes: String(pr.notes || ''), prefs: String(pr.prefs || '')});
   }
   readTab('users').forEach(function (r) {
@@ -606,20 +606,20 @@ function doLogin(payload) {
           expires: exp};
 }
 
-/* Self-service sign-up. Anyone may create an account in any club, always as
-   a member -- role is not something a stranger gets to choose. There is no
-   join code (EBOD, Oct 2026): picking the club is enough, and officers remove
-   anyone who should not be there from the Access tab. */
+/* Self-service sign-up. Anyone may create an account, but only into an
+   affiliation whose join code they can produce, and only ever as a member --
+   role is not something a stranger gets to choose. */
 /* The account is keyed by email address, because that is the thing a member
    already knows and cannot accidentally pick twice. First and last name are
    kept separately so the roster can be matched on a real name rather than a
    login handle. */
 function doSignup(payload) {
   var p = payload || {};
-  var first = String(p.firstName || '').trim();
-  var last  = String(p.lastName || '').trim();
+  var first = capName_(p.firstName);
+  var last  = capName_(p.lastName);
   var email = String(p.email || '').toLowerCase().trim();
   var aff = findAff(p.affiliation);
+  var given = String(p.joinCode || '').trim();
 
   if (!first) return {ok: false, error: 'Enter your first name.'};
   if (!last)  return {ok: false, error: 'Enter your last name.'};
@@ -628,6 +628,12 @@ function doSignup(payload) {
   if (!aff) return {ok: false, error: 'Pick the club you are joining.'};
   if (!p.dk || !p.clientSalt) return {ok: false, error: 'The browser did not send a derived key.'};
 
+  /* Wrong code and unknown club answer the same way, and both pause, so the
+     endpoint cannot be used to hunt for valid codes. */
+  if (String(aff.joinCode) !== given) {
+    Utilities.sleep(400);
+    return {ok: false, error: 'That join code does not match this club.'};
+  }
   if (findUser(email)) return {ok: false, error: 'There is already an account for that email.'};
 
   var ssalt = Utilities.getUuid();
@@ -655,7 +661,7 @@ function identify(body) {
             aff: normAff(rec.affiliation || DEFAULT_AFF)};
   }
   var email, gName = '';
-  try { var vt = verifiedToken_(body.token); email = vt && vt.email; gName = (vt && vt.name) || ''; }
+  try { var vt = verifiedToken_(body.token); email = vt && vt.email; gName = capName_((vt && vt.name) || ''); }
   catch (err) { return {ok: false, error: 'Token check failed: ' + err}; }
   if (!email) {
     return {ok: false, error: CLIENT_ID
@@ -757,7 +763,7 @@ function doPost(e) {
 
     /* A Google account that has not joined a club yet is signed in but
        belongs nowhere. Without this it fell through to the default club and
-       could read that club's roster and points without ever joining it. It
+       could read that club's roster and points with no join code at all. It
        may learn who it is and join; nothing else. */
     if (id.needsAff && action !== 'joinAffiliation' && action !== 'whoami') {
       if (action === 'getAll')
@@ -938,7 +944,6 @@ function memberCfg_(cfg, meName) {
   }
   return c;
 }
-function flatName_(x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 /* What a member's browser gets of the club's rows. Everybody's name, Org,
    year and track is ordinary club knowledge -- it is on every Org page. A
@@ -1300,7 +1305,7 @@ function dispatch(action, payload, email, role, id) {
       var got = {
         year:  cYear  > -1 ? String(hit[cYear]  || '') : '',
         track: cTrack > -1 ? String(hit[cTrack] || '') : '',
-        mbti:  cMbti  > -1 ? String(hit[cMbti]  || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4) : '',
+        mbti:  cMbti  > -1 ? fmtMbti_(hit[cMbti]) : '',
         lead:  cLead  > -1 ? String(hit[cLead]  || '') : '',
         avail: cAvail > -1 ? String(hit[cAvail] || '').slice(0, 120) : '',
         notes: cNote  > -1 ? String(hit[cNote]  || '').slice(0, 500) : ''
@@ -1716,11 +1721,16 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, status: rvS, points: awarded};
     }
 
-    /* A signed-in Google address that has not joined a club yet. Like
-       sign-up: no join code, and always as a member. */
+    /* A signed-in Google address that has not joined a club yet. Same join
+       code rule as sign-up, and always as a member. */
     case 'joinAffiliation': {
       var ja = findAff((payload || {}).affiliation);
+      var jcode = String((payload || {}).joinCode || '').trim();
       if (!ja) return {ok: false, error: 'Pick the club you are joining.'};
+      if (String(ja.joinCode) !== jcode) {
+        Utilities.sleep(400);
+        return {ok: false, error: 'That join code does not match this club.'};
+      }
       if (id.via !== 'google') return {ok: false, error: 'Password accounts are placed when they are created.'};
       var already = affForEmail(email);
       if (already) return {ok: false, error: 'You are already in ' + already.aff + '.'};
@@ -1728,8 +1738,7 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, joined: ja.code, name: ja.name};
     }
 
-    /* Renaming a club, without touching its data. Join codes are no longer
-       asked for; one sent by an older page is still stored, unused. */
+    /* Renaming a club or rotating its join code, without touching its data. */
     case 'updateAffiliation': {
       var uc = normAff((payload || {}).code);
       var un = String((payload || {}).name || '').trim();
@@ -1738,7 +1747,10 @@ function dispatch(action, payload, email, role, id) {
       for (var z = 1; z < vA.length; z++) {
         if (normAff(vA[z][0]) !== uc) continue;
         if (un) shA.getRange(z + 1, 2).setValue(un);
-        if (uj) shA.getRange(z + 1, 3).setValue(uj.slice(0, 64));
+        if (uj) {
+          if (uj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
+          shA.getRange(z + 1, 3).setValue(uj);
+        }
         return {ok: true, updated: uc};
       }
       return {ok: false, error: 'No club with that code.'};
@@ -1750,6 +1762,7 @@ function dispatch(action, payload, email, role, id) {
       var aj = String((payload || {}).joinCode || '').trim();
       if (!/^[a-z0-9-]{3,32}$/.test(ac)) return {ok: false, error: 'Codes are 3-32 characters: letters, digits, dashes.'};
       if (!an) return {ok: false, error: 'Give the club a display name.'};
+      if (aj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
       if (findAff(ac)) return {ok: false, error: 'That code is taken.'};
       tab('affiliations').appendRow([ac, an, aj, email, new Date()]);
       return {ok: true, created: ac, name: an};
@@ -1765,8 +1778,8 @@ function dispatch(action, payload, email, role, id) {
 
     case 'saveProfile': {
       var pE = String(email).toLowerCase();
-      var pf = String((payload || {}).firstName || '').trim();
-      var pl = String((payload || {}).lastName || '').trim();
+      var pf = capName_((payload || {}).firstName);
+      var pl = capName_((payload || {}).lastName);
       var ph = String((payload || {}).photo || '');
       if (ph === 'none') ph = ' ';   /* explicit clear */
       if (ph.length > 200000) return {ok: false, error: 'That picture is too large.'};
@@ -1790,7 +1803,7 @@ function dispatch(action, payload, email, role, id) {
         if (pay.track !== undefined && idxP.Track !== undefined)
           shP.getRange(i0 + 1, idxP.Track + 1).setValue(String(pay.track).slice(0, 40));
         if (pay.mbti !== undefined && idxP.MBTI !== undefined)
-          shP.getRange(i0 + 1, idxP.MBTI + 1).setValue(String(pay.mbti).toUpperCase().slice(0, 4));
+          shP.getRange(i0 + 1, idxP.MBTI + 1).setValue(fmtMbti_(pay.mbti));
         if (pay.notes !== undefined && idxP.FormNotes !== undefined)
           shP.getRange(i0 + 1, idxP.FormNotes + 1).setValue(String(pay.notes).slice(0, 300));
         if (pay.bday !== undefined && idxP.Birthday !== undefined)
@@ -1817,7 +1830,7 @@ function dispatch(action, payload, email, role, id) {
       if (pay0.track !== undefined && idxP.Track !== undefined)
         rowP[idxP.Track] = String(pay0.track).slice(0, 40);
       if (pay0.mbti !== undefined && idxP.MBTI !== undefined)
-        rowP[idxP.MBTI] = String(pay0.mbti).toUpperCase().slice(0, 4);
+        rowP[idxP.MBTI] = fmtMbti_(pay0.mbti);
       if (pay0.notes !== undefined && idxP.FormNotes !== undefined)
         rowP[idxP.FormNotes] = String(pay0.notes).slice(0, 300);
       if (pay0.bday !== undefined && idxP.Birthday !== undefined)
@@ -1852,7 +1865,7 @@ function dispatch(action, payload, email, role, id) {
       tab('users').appendRow([mE, msalt, ss2, hashDk(mdk, ss2),
         Number((payload || {}).iterations) || PBKDF2_ITERS, role, 0, '',
         'linked from Google', new Date(), aff,
-        String((payload || {}).firstName || ''), String((payload || {}).lastName || ''), mE]);
+        capName_((payload || {}).firstName), capName_((payload || {}).lastName), mE]);
       return {ok: true, created: true};
     }
 
@@ -2063,6 +2076,7 @@ function dispatch(action, payload, email, role, id) {
       if (!/^[a-z0-9-]{3,32}$/.test(fc))
         return {ok: false, error: 'Codes are 3-32 characters: letters, digits, dashes.'};
       if (!fn) return {ok: false, error: 'Give the new club a display name.'};
+      if (fj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
       if (findAff(fc)) return {ok: false, error: 'That code is taken.'};
 
       tab('affiliations').appendRow([fc, fn, fj, email, new Date()]);
@@ -2619,7 +2633,12 @@ function dispatch(action, payload, email, role, id) {
       var others = readTab('teams').filter(function (r) {
         return String(r.Affiliation || DEFAULT_AFF).toLowerCase() !== aff;
       });
-      var mine = (payload || []).map(function (r) { r.Affiliation = aff; return r; });
+      var mine = (payload || []).map(function (r) {
+        r.Affiliation = aff;
+        if (r.MemberName) r.MemberName = capName_(r.MemberName);
+        if (r.MBTI) r.MBTI = fmtMbti_(r.MBTI);
+        return r;
+      });
       sh.clear();
       sh.getRange(1, 1, 1, cols.length).setValues([cols]);
       sh.setFrozenRows(1);
@@ -2848,6 +2867,19 @@ function writeDrive_(aff, d) {
   if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow(['drive:' + aff, j]);
 }
 function flatName_(x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+/* Every word of a name starts with a capital, after a hyphen or apostrophe
+   too; the rest stays as typed ("mary-jane o'neil" -> "Mary-Jane O'Neil"). */
+function capName_(v) {
+  return String(v == null ? '' : v).replace(/\s+/g, ' ').trim()
+    .replace(/(^|[\s\-'\u2019])([a-z\u00df-\u00ff])/g, function (m, a, b) { return a + b.toUpperCase(); });
+}
+/* A personality type in capitals: a proper four letters pulled out of
+   whatever surrounds them ("enfp-t" -> "ENFP"), else just upper-cased. */
+function fmtMbti_(v) {
+  var u = String(v == null ? '' : v).toUpperCase().replace(/[^A-Z]/g, '');
+  var m = u.match(/[EI][SN][TF][JP]/);
+  return m ? m[0] : u.slice(0, 4);
+}
 function folderUrl_(id) { return 'https://drive.google.com/drive/folders/' + id; }
 function safeFolderName_(x) { return String(x || '').replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').trim().slice(0, 90) || 'Untitled'; }
 /* The assignments a member should see: everyone's, their Org's, their teams'. */
@@ -2960,7 +2992,7 @@ function stampFormSent_(aff, email, sum) {
   for (var c = 0; c < v[0].length; c++) ix[String(v[0][c])] = c;
   var clip = function (x, n) { return String(x || '').replace(/[<>\u0000-\u001F]/g, ' ').slice(0, n); };
   var fill = {Year: clip(sum.year, 40), Track: clip(sum.track, 40),
-              MBTI: clip(sum.mbti, 8).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4),
+              MBTI: fmtMbti_(clip(sum.mbti, 40)),
               Availability: clip(sum.avail, 120), FormNotes: clip(sum.notes, 500)};
   for (var r = 1; r < v.length; r++) {
     if (String(v[r][ix.Email]).toLowerCase() !== e) continue;
@@ -3043,7 +3075,7 @@ function profileName_(aff, email) {
   var k = String(email || '').toLowerCase(), out = '';
   readTab('profiles').forEach(function (r) {
     if (String(r.Email).toLowerCase() === k && normAff(r.Affiliation) === aff)
-      out = String(((r.FirstName || '') + ' ' + (r.LastName || '')).trim());
+      out = capName_((r.FirstName || '') + ' ' + (r.LastName || ''));
   });
   return out.slice(0, 60);
 }

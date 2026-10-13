@@ -79,14 +79,15 @@ function rig(page) {
 }
 
 const CLIPS = [
- { id: 'signup', n: '1 of 8', title: 'Sign up', line: 'Make your account, join De Anza PBL and send the sign-up form.', as: 'new',
+ { id: 'signup', n: '1 of 8', title: 'Sign up', line: 'Make your account, join with the code and send the sign-up form.', as: 'new',
    run: async (p, r) => {
      await r.caption('Open <b>org.deanzapbl.com</b> and choose <b>Sign up with Google</b>, with your own email.');
      await r.click(p.getByRole('button', { name: /Sign up with Google/ })); await r.sleep(1300);
      const join = p.getByRole('button', { name: /Join this club/ }); await join.waitFor({ state: 'visible', timeout: 10000 });
-     await r.say('Pick <b>De Anza PBL</b>. That is all: there is no code to enter.');
+     await r.say('Pick <b>De Anza PBL</b> and enter the <b>join code</b> EBOD gives you.');
      const aff = p.locator('#jn-aff'); if (await aff.isVisible().catch(() => false)) await r.moveTo(aff, 700);
-     await r.sleep(2800); await r.click(join); await r.sleep(1600);
+     const code = p.locator('#jn-code'); if (await code.isVisible().catch(() => false)) await r.moveTo(code, 700);
+     await r.sleep(2600); await r.click(join); await r.sleep(1600);
      await r.caption('The <b>sign-up form</b> comes first. Until you send it, the other tabs stay locked.');
      await r.click(p.locator('#nav button', { hasText: 'Homework' }).first(), 650); await r.sleep(500);
      await r.caption('Pressing one just points you back here. Your name and email are already filled in.');
@@ -94,10 +95,10 @@ const CLIPS = [
      await r.say('Choose your year and the track you are most interested in.');
      await r.click(p.locator('input[name="ff_2"][value="1st year"]')); await r.click(p.locator('input[name="ff_3"][value="Case competition (FLC)"]'));
      await r.sleep(1000);
-     await r.say('Add your MBTI type and when you are usually free.');
-     await r.type(p.locator('#ff_4'), 'ENFP'); await r.click(p.locator('input[name="ff_5"][value="Tue/Thu evenings"]'));
+     await r.say('Add your MBTI type, in capitals or not, and when you are usually free.');
+     await r.type(p.locator('#ff_4'), 'enfp'); await r.click(p.locator('input[name="ff_5"][value="Tue/Thu evenings"]'));
      await r.click(p.locator('input[name="ff_5"][value="Weekends"]')); await r.sleep(1000);
-     await r.say('Press <b>Submit to the club</b>. EBOD places you in an Org from these answers.');
+     await r.say('Press <b>Submit to the club</b>. Names get their capitals and your type is saved as <b>ENFP</b>.');
      await r.moveTo(p.locator('#formsubmit'), 700); await r.sleep(2600); await r.click(p.locator('#formsubmit')); await r.sleep(2600);
      if (await p.isVisible('#tourskip').catch(() => false)) await r.click(p.locator('#tourskip'), 500);
      await r.caption('Sent. Every tab is open now, and a short tour shows you around the first time.', 300);
