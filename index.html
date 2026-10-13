@@ -3316,6 +3316,7 @@ function mergeBackendData(data){
     }
   }
   if(data.ok&&data.gcal){setGcal(data.gcal);changed=true}
+  if(data.ok&&data.calFeedKey)CALFEED_KEY=String(data.calFeedKey);
   if(data.ok&&data.memberNames)REG.names=data.memberNames.slice(0,2000);
   /* Once a visit: makes the folder if it is missing, adds new assignments,
      and puts the member's real name on it. In the background, after load. */
@@ -4946,8 +4947,8 @@ function renderCalendar(){
   if(cid&&document.activeElement!==cid)cid.value=S.club.gcalId||defaultGcalId();
   /* The link EBOD chose to share wins over the synced calendar's own: the
      synced one may be the officers' working calendar. */
-  var share=safeUrl(S.club.calShare), join=$('cal-join'), copy=$('cal-copy');
-  if(join){join.style.display=share?'':'none';if(share)join.href=calAddUrl(share)}
+  var feed=calFeedUrl(), share=feed||safeUrl(S.club.calShare), join=$('cal-join'), copy=$('cal-copy');
+  if(join){join.style.display=share?'':'none';if(share)join.href=feed?feedAddUrl(feed):calAddUrl(share)}
   if(copy)copy.style.display=share?'':'none';
   if(share&&sub)sub.style.display='none';
   var cs=$('cal-share');
@@ -4989,6 +4990,20 @@ function paintCalStatus(){
 /* A calendar feed (.ics) opens as a subscription in Google Calendar; a
    Google Calendar link opens as it is. Either way the raw link is what gets
    copied, so it works in Apple or Outlook calendars too. */
+/* The members' feed: exactly what members see on this tab, served by the
+   backend under a key that only signed-in members are given. The officers'
+   own Google Calendar stays private. An iPhone opens it in its Calendar app;
+   everything else goes to Google Calendar's add-by-URL screen. */
+var CALFEED_KEY='';
+function calFeedUrl(){
+  if(!CALFEED_KEY||!A.aff||!WEBAPP_URL||DEMO_ON)return '';
+  return WEBAPP_URL+'?feed=ics&club='+encodeURIComponent(A.aff)+'&key='+encodeURIComponent(CALFEED_KEY);
+}
+function feedAddUrl(u){
+  var w=String(u).replace(/^https?:\/\//i,'webcal://');
+  if(phoneKind()==='ios')return w;
+  return 'https://calendar.google.com/calendar/r?cid='+encodeURIComponent(w);
+}
 function calAddUrl(u){
   u=safeUrl(u); if(!u)return '';
   if(/\.ics(\?|$)|\/ical\//i.test(u))return 'https://calendar.google.com/calendar/r?cid='+encodeURIComponent(u.replace(/^https?:/i,'webcal:'));
@@ -5000,6 +5015,10 @@ function paintShareHint(){
   var held=(S.club.events||[]).filter(function(e){return e.ebod}).length;
   var gid=S.club.gcalId||'';
   var linkedSame=!!(share&&gid&&(share.indexOf(encodeURIComponent(gid))>-1||share.indexOf(gid)>-1));
+  if(calFeedUrl()){
+    h.innerHTML='Members’ <b>Add the org calendar</b> and <b>Copy link</b> give them a feed of exactly what they see on this tab, kept up to date by the club account. Events you hide here are left out, and the chapter’s Google Calendar itself stays private.';
+    return;
+  }
   h.innerHTML=(share?'Members see <b>Add the org calendar</b> and <b>Copy link</b> on this tab. ':'Nothing shared yet: members only see the events on this page. ')+
     'The link only opens for people who can see that calendar in Google: make it public or share it with the chapter under the calendar’s <i>Access permissions</i>.'+
     (linkedSame&&held?' <span style="color:var(--flag)">This is the synced calendar, which also holds '+held+' EBOD-only event'+(held===1?'':'s')+'. Anyone the link works for sees those too.</span>':'');
@@ -5020,7 +5039,7 @@ function initCalendar(){
   });
   var cp=$('cal-copy');
   if(cp)cp.addEventListener('click',function(){
-    var u=safeUrl(S.club.calShare); if(!u)return;
+    var u=calFeedUrl()||safeUrl(S.club.calShare); if(!u)return;
     var done=function(){cp.textContent='Copied';setTimeout(function(){cp.textContent='Copy link'},1600)};
     try{navigator.clipboard.writeText(u).then(done,function(){uiPrompt('Copy this link','','Calendar link',u,'Done')})}
     catch(e){uiPrompt('Copy this link','','Calendar link',u,'Done')}

@@ -695,9 +695,132 @@ function roleFor(email) {
 
 /* ---------------- entry points ---------------- */
 
-function doGet() {
+function doGet(e) {
+  /* The one GET: the members' calendar feed, which calendar apps fetch on
+     their own and cannot sign in for. It is opened by a per-club key that
+     only reaches signed-in members, and it holds exactly what members see
+     on the Calendar tab. The officers' calendar itself stays private. */
+  var p = (e && e.parameter) || {};
+  if (p.feed === 'ics') {
+    try {
+      var fAff = normAff(p.club || DEFAULT_AFF);
+      if (!findAff(fAff) || !p.key || String(p.key) !== feedKey_(fAff))
+        return ContentService.createTextOutput('Not found').setMimeType(ContentService.MimeType.TEXT);
+      return ContentService.createTextOutput(memberIcs_(fAff)).setMimeType(ContentService.MimeType.ICAL);
+    } catch (err) {
+      try { console.error('feed: ' + (err && err.stack ? err.stack : err)); } catch (e2) {}
+      return ContentService.createTextOutput('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//The Org System//EN\r\nEND:VCALENDAR\r\n')
+        .setMimeType(ContentService.MimeType.ICAL);
+    }
+  }
   // Reads moved to POST so the token travels in the body, never in a URL.
   return out({ok: false, error: 'This endpoint expects a POST carrying a Google ID token.'});
+}
+
+/* ---- the members' calendar feed ----
+   The season's fixed dates, as the page has them (F26.season in index.html):
+   they live in the page, not on any calendar, so the feed needs its own copy.
+   Keep the two in step. */
+var SEASON_EVENTS_ = [
+  {id: 'f26-orient', title: 'IM orientation', date: '2026-10-15'},
+  {id: 'f26-boot1', title: 'Bootcamp 1 + team formation', date: '2026-10-20'},
+  {id: 'f26-boot2', title: 'Bootcamp 2 \u2014 FLC / consulting split rooms', date: '2026-10-22'},
+  {id: 'f26-mock', title: 'Mock case stations (week of Oct 27)', date: '2026-10-27'},
+  {id: 'f26-flc1', title: 'FLC \u2014 Emeryville (day 1)', date: '2026-11-13', where: 'Emeryville'},
+  {id: 'f26-flc2', title: 'FLC \u2014 Emeryville (day 2)', date: '2026-11-14', where: 'Emeryville'},
+  {id: 'f26-flc3', title: 'FLC \u2014 Emeryville (day 3)', date: '2026-11-15', where: 'Emeryville'},
+  {id: 'f26-final', title: 'Consulting finals', date: '2026-11-19'}
+];
+/* A random key per club, made the first time anyone asks. Changing it (delete
+   the FEED_ property) cuts off every subscription made with the old one. */
+function feedKey_(aff) {
+  var props = PropertiesService.getScriptProperties(), k = 'FEED_' + normAff(aff);
+  var v = props.getProperty(k);
+  if (!v) { v = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8); props.setProperty(k, v); }
+  return v;
+}
+/* What a member sees on the Calendar tab: the club's own events that are not
+   EBOD-only, the season's dates, and the Google Calendar's events that are
+   not hidden from members. */
+function memberEvents_(aff) {
+  var key = 'club:' + aff, cfg = {};
+  readTab('config').forEach(function (r) {
+    if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  var gAll = readGcal_(aff), pulledOk = !!(gAll && gAll.events);
+  var off = {}, have = {}, seen = {}, out = [];
+  (cfg.seasonOff || []).forEach(function (id) { off[id] = 1; });
+  var flat = function (t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var add = function (ev) {
+    if (!ev || !ev.date || !/^\d{4}-\d{2}-\d{2}$/.test(String(ev.date))) return;
+    var k = flat(ev.title) + '|' + ev.date;
+    if (seen[k]) return;
+    seen[k] = 1; out.push(ev);
+  };
+  (cfg.events || []).forEach(function (ev) {
+    if (!ev || ev.ebod || off[ev.id]) return;
+    if (ev.pulled && pulledOk) return;      /* superseded by the stored Google copy */
+    have[ev.id] = 1; add(ev);
+  });
+  /* Google's copy first: when a season date is also on the calendar, that
+     one carries the time and the room. */
+  gcalFor_(gAll || {}, cfg, 'member').events.forEach(add);
+  SEASON_EVENTS_.forEach(function (ev) { if (!have[ev.id] && !off[ev.id]) add(ev); });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+function icsText_(v) {
+  return String(v || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+/* Lines longer than 75 octets are folded, as the format requires. */
+function icsFold_(line) {
+  var out = [], cur = '', n = 0;
+  for (var i = 0; i < line.length; i++) {
+    var ch = line.charAt(i), b = Utilities.newBlob(ch).getBytes().length;
+    if (n + b > 74) { out.push(cur); cur = ' '; n = 1; }
+    cur += ch; n += b;
+  }
+  out.push(cur);
+  return out.join('\r\n');
+}
+/* "5:00 pm", "7pm", "10:30 AM" -> [hours, minutes], or null when there is no
+   clock time (an all-day event). */
+function icsClock_(t) {
+  var m = String(t || '').match(/^\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m?\.?/i);
+  if (!m) return null;
+  var h = Number(m[1]) % 12 + (/p/i.test(m[3]) ? 12 : 0);
+  return [h, Number(m[2] || 0)];
+}
+function memberIcs_(aff) {
+  var tz = Session.getScriptTimeZone() || 'America/Los_Angeles';
+  var name = (findAff(aff) || {}).name || aff;
+  var stamp = Utilities.formatDate(new Date(), 'UTC', "yyyyMMdd'T'HHmmss'Z'");
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var ymd = function (d) { return String(d).replace(/-/g, ''); };
+  var nextDay = function (d) {
+    var p = String(d).split('-'), t = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + 1));
+    return t.getUTCFullYear() + pad(t.getUTCMonth() + 1) + pad(t.getUTCDate());
+  };
+  var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//The Org System//' + icsText_(name) + '//EN',
+           'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:' + icsText_(name),
+           'X-WR-TIMEZONE:' + tz, 'X-PUBLISHED-TTL:PT1H', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H'];
+  memberEvents_(aff).forEach(function (ev) {
+    var uid = String(ev.gid ? ev.id : ev.id || (ev.title + ev.date)).replace(/[^A-Za-z0-9_.-]/g, '') + '@org.deanzapbl.com';
+    var clock = icsClock_(ev.time);
+    L.push('BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + stamp);
+    if (clock && !ev.end) {
+      var s = ymd(ev.date) + 'T' + pad(clock[0]) + pad(clock[1]) + '00';
+      var eh = clock[0] + 1, e2 = (eh < 24 ? ymd(ev.date) + 'T' + pad(eh) + pad(clock[1]) + '00' : ymd(ev.date) + 'T235900');
+      L.push('DTSTART;TZID=' + tz + ':' + s, 'DTEND;TZID=' + tz + ':' + e2);
+    } else {
+      L.push('DTSTART;VALUE=DATE:' + ymd(ev.date), 'DTEND;VALUE=DATE:' + nextDay(ev.end || ev.date));
+    }
+    L.push('SUMMARY:' + icsText_(ev.title));
+    if (ev.where) L.push('LOCATION:' + icsText_(ev.where));
+    L.push('TRANSP:TRANSPARENT', 'END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  return L.map(icsFold_).join('\r\n') + '\r\n';
 }
 
 /* Every path returns JSON. An exception escaping this function makes Apps
@@ -2691,6 +2814,8 @@ function dispatch(action, payload, email, role, id) {
            background if not. No link: members are not given access. */
         myDriveReady: !!sh.drive[me],
         gcal:        gcalFor_(sh.gcal, cfg, role),
+        /* Opens the members' calendar feed (see doGet). */
+        calFeedKey:  feedKey_(aff),
         memberNames: sh.memberNames,
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
         config: officer ? cfg : memberCfg_(cfg, id.name || email),
