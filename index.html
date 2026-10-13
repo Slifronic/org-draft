@@ -1252,7 +1252,7 @@ nav#nav{scroll-behavior:smooth}
 .weekpanel .wk button{margin-top:8px}
 @media (max-width:640px){.weekpanel{grid-template-columns:1fr}}
 /* officers: a count of what is waiting, on the tab itself */
-nav button .navcount{display:inline-block;min-width:18px;padding:1px 6px;margin-left:6px;border-radius:9px;
+.navcount{display:inline-block;min-width:18px;padding:1px 6px;margin-left:6px;border-radius:9px;
   background:var(--flag);color:#fff;font-size:10.5px;line-height:16px;letter-spacing:0;text-align:center}
 @media (min-width:900px){#atbody ul.roster{columns:3;column-gap:28px}#atbody ul.roster li{break-inside:avoid}}
 /* an empty bulletin is a single line with the post button */
@@ -1261,6 +1261,37 @@ nav button .navcount{display:inline-block;min-width:18px;padding:1px 6px;margin-
 /* the assignment form opens when it is wanted */
 .panel.folded>*:not(h2):not(.foldbtn){display:none}
 .panel .foldbtn{margin-top:4px}
+/* phone menu */
+.navphone{display:none}
+.navsheet{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.38);display:flex;align-items:flex-end}
+.navsheet[hidden]{display:none}
+.nsbox{width:100%;max-height:80vh;overflow:auto;background:var(--card);border-radius:16px 16px 0 0;padding:10px 12px calc(14px + env(safe-area-inset-bottom));
+  box-shadow:0 -10px 30px rgba(0,0,0,.25)}
+.nsbox .nshead{display:flex;justify-content:space-between;align-items:center;padding:6px 6px 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.nsbox .nsgo{display:flex;width:100%;justify-content:space-between;align-items:center;text-align:left;min-height:50px;padding:0 14px;margin:2px 0;
+  background:transparent;border:1px solid transparent;border-radius:10px;color:var(--ink);font-size:16px;font-weight:500;text-transform:none;letter-spacing:0}
+.nsbox .nsgo[aria-current=true]{background:var(--paper);border-color:var(--rule);font-weight:700}
+.nsbox .nsgo[aria-disabled=true]{opacity:.45}
+.nsbox .nslbl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);padding:12px 8px 4px}
+@media (max-width:520px){
+  #nav,.navmore{display:none!important}
+  .navrow::after{display:none}
+  .navphone{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;padding:0 4px;
+    background:transparent;border:none;border-bottom:2px solid var(--ink);color:var(--ink);font-size:15px;font-weight:600;letter-spacing:.02em;text-transform:none}
+  .navphone::after{content:'\25BE';font-size:14px;color:var(--slate)}
+}
+.mixlist span{display:block;font-size:14px;line-height:1.5}
+.mixlist b{display:inline-block;min-width:1.4em}
+#formfields .check{font-size:15px;min-height:36px;display:flex;align-items:center;gap:8px}
+@media (max-width:640px){
+  .tourcard{padding:12px 14px;max-width:none}
+  .tourcard p{font-size:14px;margin:6px 0}
+}
+details.subrows>summary{cursor:pointer;padding:8px 0;font-size:14px;color:var(--slate)}
+.attn{display:flex;flex-wrap:wrap;gap:8px}
+.attnitem{background:var(--paper);border:1px solid var(--rule);border-left:3px solid var(--flag);border-radius:8px;
+  padding:9px 12px;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);text-align:left}
+.cupaward{margin-top:10px}
 details.allteams{margin-top:18px}
 details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);padding:10px 0;list-style-position:inside}
 /* attendance: the button follows you down a long roster */
@@ -1373,6 +1404,8 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
     <button data-view="v-access" data-req="master">Access</button>
   </nav>
   <!-- Officers choose which tabs sit in the bar; the rest wait under More. -->
+  <!-- On a phone the strip becomes one button and a list of tabs. -->
+  <button type="button" id="navphone" class="navphone" aria-haspopup="true" aria-expanded="false" aria-controls="navsheet">Menu</button>
   <div class="navmore" id="navmore" hidden>
     <button type="button" id="navmorebtn" aria-haspopup="true" aria-expanded="false" aria-controls="navmenu">More</button>
     <div class="navmenu" id="navmenu" hidden></div>
@@ -1380,6 +1413,7 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
   </div>
 </header>
 
+<div class="navsheet" id="navsheet" hidden role="dialog" aria-modal="true" aria-label="Sections"><div class="nsbox" id="nsbox"></div></div>
 <div class="tourwrap" id="tour" hidden>
   <div class="tourcard">
     <div class="tourstep mono" id="tourstep"></div>
@@ -2969,13 +3003,22 @@ function histRestore(snap){
   }catch(e){}
   RESTORING=false;
 }
+/* Undo used to change only this browser: members kept seeing the reshuffled
+   Orgs, and the next sign-in pulled them back over the undo. The Orgs and the
+   club setup are saved again now. Logged points are added to the sheet one
+   entry at a time and are not taken back this way, so it says so. */
+function histSync(){
+  if(DEMO_ON||A.offline||!canEdit())return '';
+  syncTeams(); syncClub();
+  return ' \u00B7 Orgs and setup saved; logged points are not undone';
+}
 function undo(){
   if(HPTR<=0){histFlash('nothing to undo');return}
-  HPTR--;histRestore(HIST[HPTR]);histFlash('undid');
+  HPTR--;histRestore(HIST[HPTR]);histFlash('undid'+histSync());
 }
 function redo(){
   if(HPTR>=HIST.length-1){histFlash('nothing to redo');return}
-  HPTR++;histRestore(HIST[HPTR]);histFlash('redid');
+  HPTR++;histRestore(HIST[HPTR]);histFlash('redid'+histSync());
 }
 document.addEventListener('keydown',function(e){
   if(!(e.metaKey||e.ctrlKey))return;
@@ -3280,6 +3323,7 @@ function setView(id,fromRoute){
   /* The target picker is built from the club list, so Intake has to have it
      before it can offer anywhere to draft into. */
   if(id==='v-intake'){
+    foldClubSetup();
     if(isMaster()&&!AFFROWS.length)renderAffs();
     renderFormEditor();
   }
@@ -3297,6 +3341,7 @@ function setView(id,fromRoute){
     try{cur.scrollIntoView({inline:'center',block:'nearest'})}catch(e){}
   renderWeek();
   navCounts();
+  renderAttention();
 }
 Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
   b.addEventListener('click',function(){
@@ -3493,6 +3538,11 @@ function enhanceSelects(root){
     function paint(){
       var o=sel.options[sel.selectedIndex];
       btn.textContent=o?o.textContent:''; btn.disabled=sel.disabled;
+      /* A screen reader heard only the value ("Finance, button"); it now hears
+         what the choice is for, from the select's own label. */
+      var lb=sel.getAttribute('aria-label')||'';
+      if(!lb&&sel.id){var l=document.querySelector('label[for="'+sel.id+'"]'); if(l)lb=l.textContent.replace(/\s+/g,' ').trim()}
+      if(lb)btn.setAttribute('aria-label',lb+': '+(o?o.textContent:'none'));
     }
     function build(){
       menu.innerHTML='';
@@ -4276,6 +4326,18 @@ function paintTour(){
   if($(st.v)&&routeAllowed(st.v))setView(st.v);
   $('tourstep').textContent='Step '+(TOURAT+1)+' of '+TOUR.length;
   $('tourh').textContent=st.h;
+  if(st.v==='v-calendar'){
+    var today=todayYMD();
+    var up=calList().filter(function(e){return e.season&&e.date&&String(e.end||e.date)>=today})
+      .sort(function(a,b){return String(a.date).localeCompare(String(b.date))}).slice(0,5);
+    if(up.length){
+      $('tourp').textContent='Coming up: '+up.map(function(e){return String(e.title||'').replace(/\s*\([^)]*\)/g,'')+' '+calDate(e.date).replace(/^[A-Za-z]+, /,'')}).join(', ')+
+        '. Add any of them to your own calendar.';
+      $('tourdots').innerHTML=TOUR.map(function(_,i){return '<i'+(i===TOURAT?' class="on"':'')+'></i>'}).join('');
+      $('tournext').textContent=(TOURAT===TOUR.length-1)?'Finish':'Next';
+      return;
+    }
+  }
   $('tourp').textContent=st.p;
   $('tourdots').innerHTML=TOUR.map(function(_,i){
     return '<i'+(i===TOURAT?' class="on"':'')+'></i>';
@@ -5030,16 +5092,50 @@ function renderWork(){
 }
 /* Setting an assignment is occasional; reviewing them is weekly. The form
    waits behind a button so the hand-ins are what an officer sees first. */
-function foldSetWork(){
-  var p=document.querySelector('#v-work .panel[data-section="set-work"]'); if(!p||p.dataset.fold)return;
+function foldPanel(p,label){
+  if(!p||p.dataset.fold)return;
   p.dataset.fold='1'; p.classList.add('folded');
-  var b=document.createElement('button'); b.type='button'; b.className='foldbtn'; b.textContent='+ New assignment';
+  var b=document.createElement('button'); b.type='button'; b.className='foldbtn ghost'; b.textContent=label;
   b.setAttribute('aria-expanded','false');
   p.querySelector('h2').insertAdjacentElement('afterend',b);
   b.addEventListener('click',function(){
     var open=p.classList.toggle('folded')===false;
-    b.textContent=open?'Close':'+ New assignment'; b.setAttribute('aria-expanded',open?'true':'false');
+    b.textContent=open?'Close':label; b.setAttribute('aria-expanded',open?'true':'false');
   });
+}
+function foldSetWork(){foldPanel(document.querySelector('#v-work .panel[data-section="set-work"]'),'+ New assignment')}
+/* Club setup is done once a season; after that it sat 1,300px above the
+   roster source an officer actually comes to Intake for. */
+function foldClubSetup(){
+  if(!S.orgs.length&&!(S.club&&S.club.formUrl))return;
+  foldPanel($('clubpanel'),'Edit club setup');
+}
+
+/* ================= NEEDS ATTENTION =================
+   An officer opening the page mid-season landed on the Draft board, a
+   season-start tool, with nothing saying what was waiting on them. Their
+   first page now opens with it, each item one tap from where it is dealt with. */
+function renderAttention(){
+  var host=document.querySelector('.view.on'), old=$('attnpanel');
+  if(!canEdit()||!host||host.id!==homeView()||!S.orgs.length){if(old)old.remove();return}
+  var items=[];
+  var waiting=TREQ.loaded?TREQ.list.filter(function(q){return q.status==='pending'}).length:0;
+  if(waiting)items.push(['v-squads',waiting+' team request'+(waiting===1?'':'s')+' waiting for a decision']);
+  var toCheck=SUBS.loaded?(SUBS.rows||[]).filter(function(x){return x.status!=='checked'}).length:0;
+  if(toCheck)items.push(['v-work',toCheck+' hand-in'+(toCheck===1?'':'s')+' to check']);
+  var noTeam=S.people.filter(function(p){return !teamOf(p.name)}).length;
+  if(teamsList().length&&noTeam)items.push(['v-squads',noTeam+' member'+(noTeam===1?' is':'s are')+' not on a team']);
+  var noContact=S.orgs.filter(function(_,i){return !orgContact(i)}).length;
+  if(noContact&&ebodList().length)items.push(['v-draft',noContact+' '+(noContact===1?unitWord():unitsWord())+' without an EBOD contact']);
+  var last=''; S.log.forEach(function(l){var d=String(l.date||'').slice(0,10); if(d>last)last=d});
+  if(last){var days=Math.floor((new Date(todayYMD())-new Date(last))/86400000); if(days>=7)items.push(['v-attend','Nothing logged for '+days+' days \u2014 last on '+calDate(last)])}
+  var el=old||document.createElement('div');
+  el.id='attnpanel'; el.className='panel'; el.setAttribute('aria-label','Needs attention');
+  el.innerHTML='<h2>Needs attention</h2>'+(items.length
+    ?'<div class="attn">'+items.map(function(it){return '<button type="button" class="attnitem" data-v="'+it[0]+'">'+esc(it[1])+' <span aria-hidden="true">\u2192</span></button>'}).join('')+'</div>'
+    :'<p class="empty" style="margin:0">Nothing is waiting on you.</p>');
+  if(!old||el.parentNode!==host){var after=host.querySelector('.demorow');host.insertBefore(el,after?after.nextSibling:host.firstChild)}
+  Array.prototype.forEach.call(el.querySelectorAll('.attnitem'),function(b){b.addEventListener('click',function(){setView(b.dataset.v)})});
 }
 
 /* ================= THIS WEEK =================
@@ -5140,6 +5236,8 @@ function paintSubs(){
     if(w.due){var dp=String(w.due).split('-');end=new Date(+dp[0],+dp[1]-1,+dp[2],23,59,59).getTime()}
     var onTime=rows.filter(function(x){var t=new Date(x.first||x.at).getTime();return !end||(t&&t<=end)}).length;
     var missing=targets.filter(function(n){return !got[normName(n)]});
+    var unchecked=rows.filter(function(x){return x.status!=='checked'});
+    var onTimeOpen=unchecked.filter(function(x){var t=new Date(x.first||x.at).getTime();return !end||(t&&t<=end)});
     var sum='<div class="subsum"><span><b>'+rows.length+'</b> of '+targets.length+' handed in</span>'+
       (w.due?'<span><b>'+onTime+'</b> on time</span><span><b>'+(rows.length-onTime)+'</b> late</span>':'')+
       '<span><b>'+missing.length+'</b> still to come</span></div>'+
@@ -5148,7 +5246,12 @@ function paintSubs(){
     if(!rows.length){body.innerHTML=sum+'<p class="empty">Nobody has handed this in yet.</p>';wireSubCopy(body);return}
     /* What still needs a look comes first. */
     rows.sort(function(a,b){return ((a.status==='checked')-(b.status==='checked'))||String(a.name).localeCompare(String(b.name))});
-    body.innerHTML=sum+rows.map(function(x){
+    /* Everything checked: the list folds away, so the assignment that still
+       needs a look is the one that shows. */
+    var head='<details class="subrows"'+(unchecked.length?' open':'')+'><summary>'+
+      (unchecked.length?'<b>'+unchecked.length+'</b> to check':'All '+rows.length+' checked')+'</summary>'+
+      (onTimeOpen.length>1?'<div class="row" style="margin:6px 0"><button type="button" class="tiny subbulk">Check off all '+onTimeOpen.length+' on time</button></div>':'');
+    body.innerHTML=sum+head+rows.map(function(x){
       var done=x.status==='checked';
       return '<div class="subrow'+(done?' done':'')+'" data-w="'+esc(x.workId)+'" data-n="'+esc(x.name)+'">'+
         '<span class="subname">'+esc(x.name)+'<em> · '+esc(x.org)+'</em></span>'+
@@ -5161,8 +5264,21 @@ function paintSubs(){
           (x.points==null?'':esc(String(x.points)))+'">'+
         '<button class="tiny subok" type="button" data-done="'+(done?1:0)+'" title="'+(done?'Click to mark it not checked again':'Mark it checked')+'">'+(done?'Checked \u2713':'Check off')+'</button>'+
       '</div>';
-    }).join('')+'<div class="msg submsg"></div>';
+    }).join('')+'</details><div class="msg submsg"></div>';
     wireSubCopy(body);
+    var bulk=body.querySelector('.subbulk');
+    if(bulk)bulk.addEventListener('click',function(){
+      var names=onTimeOpen.map(function(x){return x.name}), msg=body.querySelector('.submsg');
+      uiConfirm('Check off '+names.length+' hand-ins?','Everything handed in on time for this assignment that is not checked yet. No points are given; add those one at a time.','Check them off').then(function(ok){
+        if(!ok)return;
+        bulk.disabled=true; msg.textContent='Checking off\u2026'; msg.className='msg show info wait';
+        backendPost('reviewSubmissions',{workId:wid,names:names}).then(function(rr){
+          bulk.disabled=false;
+          if(rr&&rr.ok){msg.textContent='Checked off '+rr.checked+'.';msg.className='msg show good';loadSubs(true)}
+          else{msg.textContent=(rr&&rr.error)||'That did not save. The backend may need its latest version.';msg.className='msg show'}
+        });
+      });
+    });
     Array.prototype.forEach.call(body.querySelectorAll('.subok'),function(b){
       b.addEventListener('click',function(){
         var row=b.parentNode, msg=body.querySelector('.submsg');
@@ -6753,9 +6869,11 @@ function renderTeam(){
 
   h+='<div class="stats">'+
     stat(g.length,'Members')+
+    /* "5 / 2 / 1 / 1 — CONSULTING / CASE / POLARIS / NOT" had to be decoded;
+       each track now has its own line. */
     (tracksOf().length
-      ? stat(allBuckets().map(function(b){return c.byTrack[b.id]||0}).join(' / '),
-             allBuckets().map(function(b){return b.label.split(/[\s\/]+/)[0]}).join(' / '))
+      ? '<div class="stat"><div class="mixlist">'+allBuckets().map(function(b){
+          return '<span><b>'+(c.byTrack[b.id]||0)+'</b> '+esc(b.label)+'</span>'}).join('')+'</div><div class="l">'+esc(S.club.trackWord||'Track')+' mix</div></div>'
       : '')+
     (S.club.useYear?stat(c.y2+' / '+c.y1,S.club.oldWord+' / '+S.club.newWord):'')+
   '</div>';
@@ -7105,7 +7223,7 @@ function squadCard(t){
     h+='<div class="sqpms"><span class="lbl2">PMs</span>';
     if(edit){
       for(var i=0;i<2;i++){
-        h+='<select class="sqpm" data-i="'+i+'"><option value="">PM '+(i+1)+'…</option>'+
+        h+='<select class="sqpm" data-i="'+i+'" aria-label="PM '+(i+1)+', '+esc(t.name)+'"><option value="">PM '+(i+1)+'…</option>'+
           ebodList().map(function(e){return e.name}).concat(allNames()).filter(function(v,j,a){return a.indexOf(v)===j})
             .map(function(nm){return '<option value="'+esc(nm)+'"'+(pms[i]===nm?' selected':'')+'>'+esc(nm)+'</option>'}).join('')+
           '</select>';
@@ -7113,7 +7231,7 @@ function squadCard(t){
     } else h+=pms.filter(String).length?pms.filter(String).map(function(x){return '<b>'+esc(x)+'</b>'}).join(' & '):'<em>to be named</em>';
     h+='</div>';
     if(edit)h+='<div class="field" style="margin-top:8px"><label>Initiatives (comma-separated)</label>'+
-      '<input type="text" class="sqinit" value="'+esc((t.initiatives||[]).join(', '))+'" placeholder="Market research, Brand, Operations"></div>';
+      '<input type="text" class="sqinit" aria-label="Initiatives for '+esc(t.name)+', comma-separated" value="'+esc((t.initiatives||[]).join(', '))+'" placeholder="Market research, Brand, Operations"></div>';
     else if((t.initiatives||[]).length)h+='<div class="sqmeta" style="margin-top:6px">Initiatives: '+esc(t.initiatives.join(' · '))+'</div>';
     if(edit&&mem.length&&(mem.length<10||mem.length>12))
       h+='<p class="hint" style="margin:6px 0 0">EBOD aimed for about 10–12 consultants per client.</p>';
@@ -7125,7 +7243,7 @@ function squadCard(t){
       return '<span class="sqm'+(isMe({name:m})?' me':'')+'"><span class="nm linked" data-person="'+esc(m)+'">'+esc(m)+'</span>'+
         (org!=null&&S.orgs.length?'<em>'+esc(orgLabel(org))+'</em>':'')+
         (k==='consulting'&&(t.initiatives||[]).length?(edit
-          ?'<select class="sqini" data-name="'+esc(m)+'"><option value="">initiative…</option>'+
+          ?'<select class="sqini" data-name="'+esc(m)+'" aria-label="Initiative for '+esc(m)+'"><option value="">initiative…</option>'+
             t.initiatives.map(function(x){return '<option'+(x===ini?' selected':'')+'>'+esc(x)+'</option>'}).join('')+'</select>'
           :(ini?'<em class="ini">'+esc(ini)+'</em>':'')):'')+
         (edit?'<button type="button" class="sqout" data-name="'+esc(m)+'" aria-label="Take '+esc(m)+' off this team">×</button>':'')+
@@ -7138,7 +7256,7 @@ function squadCard(t){
       .sort(function(a,b){return String(a.name).localeCompare(String(b.name))});
     h+='<div class="row sqtools">'+
       (full?'<span class="savenote">Full — FLC teams are capped at '+F26.flcMax+'.</span>':
-      '<select class="sqpick"><option value="">Add a member…</option>'+
+      '<select class="sqpick" aria-label="Add a member to '+esc(t.name)+'"><option value="">Add a member…</option>'+
         free.map(function(p){var pr=k==='flc'&&prefsFor(p.name);
           return '<option value="'+esc(p.name)+'">'+esc(p.name)+' · '+esc(yearLabel(p))+
             (tracksOf().length?' · '+esc(trackLabel(p.track)):'')+
@@ -7266,6 +7384,51 @@ function layoutSquads(){
   }
   navCounts();
 }
+/* ---- the phone menu ----
+   Twelve tabs in a sideways strip meant Homework sat 700px off-screen on a
+   phone. Under 520px the strip is one button naming the tab you are on; it
+   opens every tab as a full-width row, an officer's weekly ones first. */
+var NAV_WEEKLY=['v-attend','v-work','v-squads','v-cup','v-calendar'];
+function navPhone(){
+  var b=$('navphone'); if(!b)return;
+  var cur=document.querySelector('#nav button[aria-current="true"]');
+  var total=0; Array.prototype.forEach.call(document.querySelectorAll('#nav .navcount'),function(c){total+=+c.textContent||0});
+  b.innerHTML='<span>'+esc(cur?navName(cur).replace(/\d+$/,'').trim():'Menu')+
+    (total?' <span class="navcount" aria-label="'+total+' waiting">'+total+'</span>':'')+'</span>';
+  b.setAttribute('aria-label','Sections. Now on '+(cur?navName(cur):'none'));
+}
+function navSheet(open){
+  var sh=$('navsheet'), box=$('nsbox'), b=$('navphone'); if(!sh)return;
+  if(!open){sh.hidden=true;b.setAttribute('aria-expanded','false');return}
+  var btns=navBtns().filter(function(x){return navRoleOk(x)&&x.style.display!=='none'});
+  var row=function(x){
+    var c=x.querySelector('.navcount');
+    return '<button type="button" class="nsgo" data-v="'+esc(x.dataset.view)+'" aria-current="'+(x.getAttribute('aria-current')==='true')+'"'+
+      (x.getAttribute('aria-disabled')==='true'||x.disabled?' aria-disabled="true"':'')+'><span>'+esc(navName(x).replace(/\d+$/,'').trim())+'</span>'+
+      (c?'<span class="navcount">'+esc(c.textContent)+'</span>':'')+'</button>';
+  };
+  var h='<div class="nshead"><span>Go to</span><button type="button" class="tiny ghost" id="nsclose">Close</button></div>';
+  if(canEdit()){
+    var wk=btns.filter(function(x){return NAV_WEEKLY.indexOf(x.dataset.view)>-1}).sort(function(a,b2){return NAV_WEEKLY.indexOf(a.dataset.view)-NAV_WEEKLY.indexOf(b2.dataset.view)});
+    var rest=btns.filter(function(x){return wk.indexOf(x)<0});
+    h+='<div class="nslbl">Every week</div>'+wk.map(row).join('')+'<div class="nslbl">Everything else</div>'+rest.map(row).join('');
+  } else h+=btns.map(row).join('');
+  box.innerHTML=h; sh.hidden=false; b.setAttribute('aria-expanded','true');
+  $('nsclose').addEventListener('click',function(){navSheet(false);b.focus()});
+  Array.prototype.forEach.call(box.querySelectorAll('.nsgo'),function(g){
+    g.addEventListener('click',function(){
+      navSheet(false);
+      var t=document.querySelector('#nav button[data-view="'+g.dataset.v+'"]'); if(t)t.click();
+    });
+  });
+  var cur=box.querySelector('.nsgo[aria-current="true"]')||box.querySelector('.nsgo'); if(cur)cur.focus();
+}
+(function(){
+  var b=$('navphone'), sh=$('navsheet'); if(!b||!sh)return;
+  b.addEventListener('click',function(){navSheet(sh.hidden)});
+  sh.addEventListener('click',function(e){if(e.target===sh)navSheet(false)});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!sh.hidden){navSheet(false);b.focus()}});
+})();
 /* Officers: how much is waiting on them, on the tab itself. */
 function navCounts(){
   var set=function(view,n,what){
@@ -7277,6 +7440,8 @@ function navCounts(){
   };
   set('v-squads',TREQ.loaded?TREQ.list.filter(function(q){return q.status==='pending'}).length:0,'team requests waiting');
   set('v-work',SUBS.loaded?(SUBS.rows||[]).filter(function(x){return x.status!=='checked'}).length:0,'hand-ins to check');
+  navPhone();
+  if($('attnpanel')||(canEdit()&&SUBS.loaded))renderAttention();
 }
 function renderSquads(){
   var box=$('squadbody'); if(!box)return;
@@ -8006,10 +8171,24 @@ function renderTeamBoard(){
         hc.map(function(c){return '<li>'+esc(c.label)+(canEdit()?' <button class="tiny ghost cupkill" data-id="'+esc(c.id)+'" data-label="'+esc(c.label)+'" type="button" title="Remove this cup" aria-label="Remove cup: '+esc(c.label)+'">×</button>':'')+'</li>'}).join('')+
       '</ul>':'')+
       (orgContact(i)?'<div class="cupwhy">EBOD contact: '+esc(orgContact(i))+'</div>':'')+
+      (canEdit()?'<button type="button" class="tiny ghost cupaward" data-i="'+i+'">Award a cup</button>':'')+
     '</div>';
   });
   h+='</div>';
   box.innerHTML=h;
+  /* Awarding from the card itself, rather than picking the Org again in a
+     form underneath all of them. */
+  Array.prototype.forEach.call(box.querySelectorAll('.cupaward'),function(b){
+    b.addEventListener('click',function(){
+      var i=+b.dataset.i;
+      uiPrompt('Award a cup to '+orgLabel(i),'Shown on the '+unitWord()+'\u2019s card for everyone.','What it is for','Full turnout at bootcamp 2','Award').then(function(t){
+        var why=cleanLabel(t||'').trim().slice(0,80); if(!why)return;
+        S.club.cups=(S.club.cups||[]).concat([{id:'c'+Date.now().toString(36),org:i,label:why,at:Date.now(),by:A.name||'EBOD'}]);
+        save(); syncClub(); renderTeamBoard(); renderDraft();
+        cupSay('Cup awarded to '+orgLabel(i)+'.','good');
+      });
+    });
+  });
   Array.prototype.forEach.call(box.querySelectorAll('.cupkill'),function(b){
     b.addEventListener('click',function(){
       uiConfirm('Remove this cup?','“'+b.dataset.label+'” comes off the Org\u2019s shelf for everyone.','Remove',true).then(function(ok){
@@ -8154,7 +8333,8 @@ function renderProfile(){
       (S.club.useMbti&&!ans.mbti&&mbtiTestUrl()?'<p class="hint">No type recorded. '+mbtiTestLink()+'</p>':'')+
       '<h3>Profile picture</h3>'+
       '<p class="hint">Square images look best.</p>'+
-      '<div class="row" style="margin-top:0"><input type="file" id="me-photo" accept="image/*" style="display:block">'+
+      '<div class="row" style="margin-top:0"><input type="file" id="me-photo" accept="image/jpeg,image/png,image/webp">'+
+      '<label class="linkbtn" for="me-photo"><b>Photo</b> Choose a picture</label>'+
       '<button class="ghost" id="me-photo-clear">Remove picture</button></div>'+
       '<div class="msg" id="me-msg"></div>'+
     '</div>';
@@ -8761,9 +8941,14 @@ function renderClubForm(){
     FORM.schema=r; FORM.loaded=true;
     $('formtitle').textContent=r.title;
     $('formsubmit').style.display='';
-    box.innerHTML=r.fields.map(formField).join('')+
-      (mbtiTestUrl()?'<p class="hint" style="margin-top:12px">Need your four letters? '+
-        mbtiTestLink()+'</p>':'');
+    box.innerHTML=r.fields.map(formField).join('');
+    if(mbtiTestUrl()){
+      var mi=-1; r.fields.forEach(function(f,i){if(mi<0&&/mbti|personality|four letters/i.test(f.label))mi=i});
+      var hint=document.createElement('p'); hint.className='hint'; hint.style.marginTop='6px';
+      hint.innerHTML='Need your four letters? '+mbtiTestLink();
+      var at=mi>-1&&$('ff_'+mi)?$('ff_'+mi).closest('.field'):null;
+      if(at)at.appendChild(hint); else box.appendChild(hint);
+    }
     /* Prefill anything that is obviously asking for a name or an email. */
     var first=String(A.name||'').split(' ')[0]||'';
     var last=String(A.name||'').split(' ').slice(1).join(' ');
@@ -10052,8 +10237,14 @@ function demoBackend(action,pl){
     }
     case 'listSubmissions': return {ok:true,submissions:DEMO.subs.slice()};
     case 'reviewSubmission': {
-      DEMO.subs.forEach(function(x){if(x.workId===pl.workId&&normName(x.name)===normName(pl.name)){x.status='checked';x.points=pl.points===''?null:+pl.points}});
-      demoStore(); return {ok:true,status:'checked',points:+pl.points||0};
+      var st=pl.status||'checked';
+      DEMO.subs.forEach(function(x){if(x.workId===pl.workId&&normName(x.name)===normName(pl.name)){x.status=st;if(pl.points!==''&&pl.points!=null)x.points=+pl.points}});
+      demoStore(); return {ok:true,status:st,points:+pl.points||0};
+    }
+    case 'reviewSubmissions': {
+      var want={}, n=0; (pl.names||[]).forEach(function(x){want[normName(x)]=1});
+      DEMO.subs.forEach(function(x){if(x.workId===pl.workId&&want[normName(x.name)]&&x.status!=='checked'){x.status='checked';n++}});
+      demoStore(); return {ok:true,checked:n};
     }
     case 'calendarSync': return {ok:false,error:'The demo is not connected to Google Calendar. In the real app this pushes the season to the chapter calendar.'};
     case 'ensureMyDrive': return {ok:true};

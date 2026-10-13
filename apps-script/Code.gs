@@ -38,7 +38,7 @@ var NEEDS = {
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
   forkClub: 'admin',
   submitTeamRequest: 'member', withdrawTeamRequest: 'member', listTeamRequests: 'member',
-  reviewTeamRequest: 'admin', editTeamRequest: 'admin',
+  reviewTeamRequest: 'admin', editTeamRequest: 'admin', reviewSubmissions: 'admin',
   syncMemberDrives: 'admin', ensureMyDrive: 'member'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
@@ -1757,6 +1757,30 @@ function dispatch(action, payload, email, role, id) {
         }
       }
       return {ok: true, status: rvS, points: awarded};
+    }
+
+    /* Check off many hand-ins to one assignment at once ("everything that came
+       in on time"). One call instead of one per member -- seventy-nine of them
+       took minutes. No points: those are given one at a time, on purpose. */
+    case 'reviewSubmissions': {
+      var bW = String((payload || {}).workId || '');
+      var bNames = ((payload || {}).names || []).slice(0, 500);
+      if (!bW || !bNames.length) return {ok: false, error: 'Nothing to check off.'};
+      var flatB = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var want = {}; bNames.forEach(function (n) { want[flatB(n)] = 1; });
+      var shB = tab('submissions'), vB = shB.getDataRange().getValues();
+      var iB = {}; for (var cB = 0; cB < vB[0].length; cB++) iB[String(vB[0][cB])] = cB;
+      var nowB = new Date(), doneB = 0;
+      for (var rb = 1; rb < vB.length; rb++) {
+        if (normAff(vB[rb][iB.Affiliation]) !== aff) continue;
+        if (String(vB[rb][iB.WorkId]) !== bW) continue;
+        if (!want[flatB(vB[rb][iB.MemberName])]) continue;
+        if (String(vB[rb][iB.Status]) === 'checked') continue;
+        vB[rb][iB.Status] = 'checked'; vB[rb][iB.ReviewedBy] = email; vB[rb][iB.ReviewedAt] = nowB;
+        doneB++;
+      }
+      if (doneB) shB.getRange(1, 1, vB.length, vB[0].length).setValues(vB);
+      return {ok: true, checked: doneB};
     }
 
     /* A signed-in Google address that has not joined a club yet. Same join
