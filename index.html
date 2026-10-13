@@ -110,6 +110,12 @@ nav button:disabled{opacity:.4;cursor:not-allowed}
 /* A member who has not sent the sign-up form sees what is coming, locked. */
 body.formgate #nav button[aria-disabled=true]{opacity:.35;cursor:not-allowed}
 body.formgate #chatbtn,body.formgate #chatpanel{display:none}
+/* The home-screen step: the steps for this phone open, the other platform folded. */
+.hsplat{border-top:1px solid var(--rule);padding:12px 0}
+.hsplat summary{cursor:pointer;font-weight:600;font-size:15px}
+.hsplat ol{margin:10px 0 2px 22px;font-size:15px;line-height:1.6;color:var(--slate)}
+.hsplat ol b{color:var(--ink)}
+.hsvideo{width:100%;max-width:720px;border-radius:10px;border:1px solid var(--rule);background:var(--card);display:block;margin:6px 0 14px}
 nav button:hover:not(:disabled):not([aria-current=true]){color:var(--slate)}
 .navcount{background:var(--paper);border:1px solid var(--rule);padding:0 4px;margin-left:5px;font-size:10px}
 
@@ -1415,6 +1421,7 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
     <button data-view="v-work">Homework</button>
     <button data-view="v-profile">Profile</button>
     <button data-view="v-form" id="navform" style="display:none">Sign-up form</button>
+    <button data-view="v-home" id="navhome" style="display:none">Home screen</button>
     <button data-view="v-access" data-req="master">Access</button>
   </nav>
   <!-- Officers choose which tabs sit in the bar; the rest wait under More. -->
@@ -1927,6 +1934,17 @@ Marcus Lee"></textarea>
     <div class="row"><button id="formsubmit">Submit to the club</button>
       <button id="formskip" class="ghost">Skip for now</button></div>
     <div class="msg" id="formmsg"></div>
+  </div>
+</div>
+
+<div class="view" id="v-home">
+  <div class="panel">
+    <h2>Add it to your home screen</h2>
+    <p class="hint" id="homeintro">One more step: put the Org System on your phone’s home screen, so it opens like an app instead of a link you have to find. It takes about 15 seconds.</p>
+    <video class="hsvideo" id="homevideo" controls playsinline muted preload="none"></video>
+    <div id="homesteps"></div>
+    <div class="row"><button type="button" id="homedone">Done — it’s on my home screen</button></div>
+    <div class="msg" id="homemsg"></div>
   </div>
 </div>
 
@@ -3410,6 +3428,12 @@ function setView(id,fromRoute){
     if($('v-form').classList.contains('on'))return;
     id='v-form'; fromRoute=true;
   }
+  /* Then the home-screen step, held the same way. */
+  else if(id!=='v-home'&&homeGateOn()){
+    HOME_WANTED=id;
+    if($('v-home').classList.contains('on'))return;
+    id='v-home'; fromRoute=true;
+  }
   Array.prototype.forEach.call(document.querySelectorAll('.view'),function(v){v.classList.toggle('on',v.id===id)});
   syncUrl(id,!!fromRoute);
   Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
@@ -3438,6 +3462,7 @@ function setView(id,fromRoute){
   if(id==='v-work'){foldSetWork();renderWork();}
   if(id==='v-profile')renderProfile();
   if(id==='v-form')renderClubForm();
+  if(id==='v-home')renderHomeStep();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
   wireHideControls();
   applyFormGate();
@@ -3454,6 +3479,7 @@ Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b
   b.addEventListener('click',function(){
     if(b.disabled)return;
     if(b.dataset.view!=='v-form'&&formGateOn())formGateNudge();
+    else if(b.dataset.view!=='v-home'&&homeGateOn())homeGateNudge();
     setView(b.dataset.view);
   });
 });
@@ -4459,7 +4485,7 @@ function maybeTour(){
   /* Members only, once, and only when there is something to look at. */
   if((A.offline&&!DEMO.as)||tourSeen())return;
   if(A.role!=='member')return;
-  if(!S.orgs.length||formGateOn())return;
+  if(!S.orgs.length||formGateOn()||homeGateOn())return;
   /* Someone who followed a link to a particular tab came for that tab; the
      tour waits for a visit that starts at the front page. */
   if(!DEMO_ON&&viewForPath()&&viewForPath()!==homeView())return;
@@ -9134,16 +9160,28 @@ function formGateOn(){
 }
 var FORM_INTRO='';
 function applyFormGate(){
-  var on=formGateOn();
+  var on=formGateOn(), home=!on&&homeGateOn();
   /* The tab sits first for a member who owes it, last for an officer. */
   var nb=$('navform'), nv=$('nav');
   if(nb&&nv&&canEdit()&&nv.lastElementChild!==nb)nv.appendChild(nb);
-  document.body.classList.toggle('formgate',on);
+  /* The home-screen tab is there only while it is owed, first in the bar. */
+  var hb=$('navhome');
+  if(hb){
+    hb.style.display=home?'':'none';
+    if(home&&nv&&nv.firstElementChild!==hb)nv.insertBefore(hb,nv.firstElementChild);
+  }
+  document.body.classList.toggle('formgate',on||home);
   navBtns().forEach(function(b){
-    if(b.id==='navform')return;
-    if(on){b.setAttribute('aria-disabled','true');b.title='Send the sign-up form first'}
+    if(b.id==='navform'||b.id==='navhome')return;
+    if(on||home){b.setAttribute('aria-disabled','true');b.title=on?'Send the sign-up form first':'Add it to your home screen first'}
     else if(b.getAttribute('aria-disabled')){b.removeAttribute('aria-disabled');b.removeAttribute('title')}
   });
+  /* A member who owes the step and is looking at anything else is moved to it;
+     where they were is kept and honoured once it is done. */
+  if(home){
+    var cv=document.querySelector('.view.on');
+    if(cv&&cv.id!=='v-home')setView(cv.id,true);
+  }
   var intro=$('formintro'), skip=$('formskip');
   if(intro){
     if(!FORM_INTRO)FORM_INTRO=intro.textContent;
@@ -9173,6 +9211,8 @@ function liftFormGate(toProfile){
   if(toProfile)want='v-profile';
   if(!want||want==='v-form'||!$(want)||!routeAllowed(want))
     want=(S.orgs.length&&myOrgIndex()>-1)?'v-teams':'v-profile';
+  /* The home-screen step is next; the tour waits until it is done. */
+  if(homeGateOn()){HOME_WANTED=want;setView('v-home');return}
   setView(want);
   /* Just through the form is exactly when the tour belongs, wherever they landed. */
   if(!tourSeen()&&A.role==='member'&&S.orgs.length&&!(A.offline&&!DEMO.as))setTimeout(function(){if(!formGateOn())startTour()},700);
@@ -9209,6 +9249,76 @@ function formDone(){
   try{return localStorage.getItem(formDoneKey())==='1'}catch(e){return false}
 }
 function markFormDone(){try{localStorage.setItem(formDoneKey(),'1')}catch(e){}}
+
+/* ---- then the home screen ----
+   The step after the form: the member puts the site on their phone's home
+   screen and says so. Opening it from that icon counts on its own. Members
+   only, like the form; remembered per club and account in this browser. */
+var HOME_WANTED='';
+function homeDoneKey(){return 'orgsys-homedone:'+(A.aff||'')+':'+String(A.email||A.name||'').toLowerCase()}
+function launchedFromHome(){
+  try{return !!(window.navigator.standalone||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))}catch(e){return false}
+}
+function homeDone(){
+  if(DEMO_ON)return DEMO.as==='new'?!!DEMO.homed:true;
+  if(launchedFromHome()){markHomeDone();return true}
+  try{return localStorage.getItem(homeDoneKey())==='1'}catch(e){return false}
+}
+function markHomeDone(){
+  if(DEMO_ON){DEMO.homed=true;return}
+  try{localStorage.setItem(homeDoneKey(),'1')}catch(e){}
+}
+function homeGateOn(){
+  if(A.role!=='member'||A.offline)return false;
+  if(formGateOn())return false;
+  return !homeDone();
+}
+function homeGateNudge(){
+  var m=$('homemsg'); if(!m)return;
+  m.textContent='Add it to your home screen first, then press Done. Every other tab opens straight after.';
+  m.className='msg show info';
+  window.scrollTo(0,0);
+}
+function phoneKind(){
+  var ua=navigator.userAgent||'';
+  if(/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))return 'ios';
+  if(/Android/i.test(ua))return 'android';
+  return 'computer';
+}
+function renderHomeStep(){
+  var box=$('homesteps'); if(!box)return;
+  var kind=phoneKind();
+  var ios='<details class="hsplat"'+(kind!=='android'?' open':'')+'><summary>iPhone (Safari)</summary><ol>'+
+    '<li>Open <b>org.deanzapbl.com</b> in <b>Safari</b>.</li>'+
+    '<li>Tap <b>•••</b> at the bottom, then <b>Share</b>. On older iPhones, Share is right on the toolbar.</li>'+
+    '<li>Scroll down and tap <b>Add to Home Screen</b>.</li>'+
+    '<li>Tap <b>Add</b>. The red De Anza PBL icon is on your home screen.</li></ol></details>';
+  var and='<details class="hsplat"'+(kind==='android'?' open':'')+'><summary>Android (Chrome)</summary><ol>'+
+    '<li>Open <b>org.deanzapbl.com</b> in <b>Chrome</b>.</li>'+
+    '<li>Tap <b>⋮</b> at the top right, then <b>Add to Home screen</b> (some phones say <b>Install app</b>).</li>'+
+    '<li>Tap <b>Add</b>, and <b>Add</b> again if it asks.</li></ol></details>';
+  var pc=kind==='computer'?'<p class="hint" style="margin:0 0 8px">You’re on a computer, so do this on your phone: open <b>org.deanzapbl.com</b> there and follow the steps below, then press Done here.</p>':'';
+  box.innerHTML=pc+(kind==='android'?and+ios:ios+and);
+  var v=$('homevideo');
+  if(v&&!v.getAttribute('src')){v.poster='/media/demos/homescreen.jpg?v='+DEMO_V;v.src='/media/demos/homescreen.mp4?v='+DEMO_V}
+  var b=$('homedone');
+  if(b&&!b.dataset.wired){b.dataset.wired='1';b.addEventListener('click',liftHomeGate)}
+  var m=$('homemsg'); if(m&&!/show/.test(m.className))m.className='msg';
+}
+function liftHomeGate(){
+  markHomeDone();
+  var v=$('homevideo'); if(v)try{v.pause()}catch(e){}
+  applyFormGate();
+  if(!$('v-home').classList.contains('on'))return;
+  /* The address is left alone while the step stands, so it is still the one
+     they arrived on -- that is where they were heading. */
+  var want=viewForPath()||HOME_WANTED; HOME_WANTED='';
+  if(!want||want==='v-home'||want==='v-form'||!$(want)||!routeAllowed(want))
+    want=(S.orgs.length&&myOrgIndex()>-1)?'v-teams':'v-profile';
+  setView(want);
+  if(!tourSeen()&&A.role==='member'&&S.orgs.length&&!(A.offline&&!DEMO.as))
+    setTimeout(function(){if(!formGateOn()&&!homeGateOn())startTour()},700);
+}
 /* Asks once per page load whether this member's answers are already on file
    -- they may have sent the form on another device, or before this page
    existed -- and lets them straight through if so. A failed check leaves the
@@ -10698,7 +10808,7 @@ function initTheme(){
 var ROUTES={'v-intake':'intake','v-roster':'roster','v-draft':'draft','v-teams':'orgs','v-squads':'teams',
             'v-attend':'attendance','v-cup':'cup','v-assist':'assistant','v-profile':'profile',
             'v-calendar':'calendar','v-work':'homework',
-            'v-form':'sign-up-form','v-access':'access'};
+            'v-form':'sign-up-form','v-home':'home-screen','v-access':'access'};
 function pathForView(id){return ROUTES[id]?('/'+ROUTES[id]):'/'}
 function viewForPath(){
   var seg=String(location.pathname||'').replace(/^\/+|\/+$/g,'').toLowerCase();
@@ -10722,7 +10832,7 @@ function syncUrl(id,replace){
   if(gateUp())return;
   /* The same holds while the sign-up form stands in for every page: the
      address they came in on is where they go once it is sent. */
-  if(formGateOn())return;
+  if(formGateOn()||homeGateOn())return;
   var want=pathForView(id)+location.search;
   if(location.pathname+location.search===want)return;
   try{ history[replace?'replaceState':'pushState']({view:id},'',want) }catch(e){}
@@ -10819,7 +10929,7 @@ function initRouting(){
    A short captioned clip for each tab a member uses, recorded from the demo
    club. Silent on purpose: they play muted on a phone in a lecture hall. A
    button at the top of the tab opens the clip over the page. */
-var DEMO_V='20261013c';
+var DEMO_V='20261013d';
 var TAB_DEMOS=[
   ['v-form','signup','Sign up and the sign-up form',62],
   ['v-teams','orgs','Orgs',50],

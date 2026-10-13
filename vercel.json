@@ -113,6 +113,10 @@
     {
       "source": "/homework",
       "destination": "/"
+    },
+    {
+      "source": "/home-screen",
+      "destination": "/"
     }
   ]
 }
