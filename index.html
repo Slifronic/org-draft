@@ -1316,6 +1316,55 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
 /* attendance: the button follows you down a long roster */
 .atbar{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:12px;justify-content:space-between;
   background:var(--card);border-top:1px solid var(--rule);padding:10px 0;margin-top:10px}
+
+/* ============ PHONE REVIEW (Oct 2026) ============
+   Fixes from a pass over every page at 390px and 360px. Last in the sheet on
+   purpose: each rule here overrides a desktop or older phone rule above. */
+.calbar.listmode .calnav{visibility:hidden}
+@media (max-width:640px){
+  /* The assistant button sits over the bottom-right corner of whatever is
+     under it. Room at the end of the page, and it steps aside while reading. */
+  body{padding-bottom:84px}
+  #chatbtn{transition:transform .2s ease,opacity .2s ease}
+  #chatbtn.away{transform:translateY(90px);opacity:0;pointer-events:none}
+  /* Calendar: the title gets the full width; kind and "+ Calendar" go under it. */
+  .calbar.listmode .calnav{display:none}
+  .evrow{align-items:flex-start;row-gap:6px}
+  .evname{flex:1 1 calc(100% - 20px)}
+  .evrow .catchip{margin-left:11px}
+  .evadd{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;font-size:13px}
+  .calmorebtn{width:100%;margin-top:12px}
+  /* Profile and Org tiles: big numbers, not big words. */
+  .profgrid .stat .n{font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+  .stat:has(.mixlist){flex-basis:100%}
+  /* A member's Org roster: one person per row, details on the line below. */
+  table.memtable thead{display:none}
+  table.memtable,table.memtable tbody{display:block}
+  table.memtable tr{display:block;padding:9px 0;border-bottom:1px solid var(--hair)}
+  table.memtable td{display:inline;border:0;padding:0;font-size:14px;color:var(--slate)}
+  table.memtable td.name{display:block;font-size:15px;color:var(--ink);padding-bottom:2px}
+  table.memtable td:not(.name):not(:empty)+td:not(:empty)::before{content:'\00a0·\00a0';color:var(--mute)}
+  table.memtable tr.yrhead{padding:8px 0 4px;border:0}
+  table.memtable tr.yrhead td{display:block;font-size:12px;color:inherit;padding:6px 10px}
+  table.memtable tr.mine td.name,table.memtable tr.mine td{background:transparent}
+  table.memtable tr.mine{background:var(--wash)}
+  table.memtable tr.mine{padding-left:8px;padding-right:8px}
+  /* The section menu: a plain rule under it, not a curved one. */
+  .navphone{border-radius:0}
+  /* The header: the club is already named above, so the role line drops it. */
+  #wrole .waff{display:none}
+  /* Small text, raised to what a phone can read. */
+  .youchip{font-size:11.5px}
+  .demochip .dpi{font-size:11px}
+  .catchip{font-size:12px}
+  .hidebtn{font-size:11px;padding:5px 9px}
+  /* Sign-in links big enough to hit with a thumb. */
+  .gateswitch button{font-size:14px;min-height:44px;padding:10px 12px}
+  .gatefoot a{display:inline-block;padding:8px 0;font-size:13.5px}
+  /* Officers' small controls. */
+  .check input,.at-check,input[type=checkbox]{width:20px;height:20px;flex:0 0 20px}
+  .rmout,.sqout,.npchip button{min-width:32px;min-height:32px;font-size:16px}
+}
 </style>
 </head>
 <body data-role="none">
@@ -1374,7 +1423,7 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
     <div class="gateswitch"><button type="button" id="gateswitch">New here? Create an account</button></div>
     <div style="display:flex;justify-content:center;margin-top:10px">
       <button class="themebtn" id="themebtn2" type="button">Light</button></div>
-    <div class="gatefoot" id="gatefoot"><a href="/orientation">New here? Watch the 3-minute orientation.</a><br>Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
+    <div class="gatefoot" id="gatefoot"><a href="/orientation">Watch the 3-minute orientation</a><br>Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
   </div>
 </div>
 
@@ -2560,7 +2609,7 @@ function setRole(role,claims){
   $('wname').textContent=A.offline?'Local only':(A.name||A.email||'Signed in');
   $('wrole').innerHTML=A.offline?'<b>not synced</b>'
     :(PROVISIONAL?'restoring your session…'
-      :('signed in as <b>'+esc(A.role)+'</b>'+(A.affName?' · '+esc(A.affName):'')));
+      :('signed in as <b>'+esc(A.role)+'</b>'+(A.affName?'<span class="waff"> · '+esc(A.affName)+'</span>':'')));
   $('wrole').className='rolebadge'+(A.role==='master'?' master':'');
   var pic=$('wpic');
   if(pic){ if(A.pic){pic.src=A.pic;pic.style.display=''} else pic.style.display='none' }
@@ -2897,14 +2946,20 @@ function initGsi(){
   gateMsg('');
   try{
     google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:onCredential,auto_select:true});
+    /* As wide as the card, like the Sign in button below it: Google is the
+       way most members sign in, so it should not look like the side door.
+       Google draws it at most 400px wide. */
+    var gc=document.querySelector('.gatecard'), gw=320;
+    if(gc){var cs=getComputedStyle(gc);gw=gc.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)}
+    gw=Math.max(200,Math.min(400,Math.round(gw)||320));
     $('gsibtn').innerHTML='';
-    google.accounts.id.renderButton($('gsibtn'),{theme:'outline',size:'large',text:'signin_with',shape:'rectangular'});
+    google.accounts.id.renderButton($('gsibtn'),{theme:'outline',size:'large',text:'signin_with',shape:'pill',width:gw});
     /* The same credential flow, labelled for the sign-up screen. A Google
        account that has not joined a club yet lands on the join step, which
        is the only thing Google cannot tell us. */
     if($('sugsibtn')){
       $('sugsibtn').innerHTML='';
-      google.accounts.id.renderButton($('sugsibtn'),{theme:'outline',size:'large',text:'signup_with',shape:'rectangular'});
+      google.accounts.id.renderButton($('sugsibtn'),{theme:'outline',size:'large',text:'signup_with',shape:'pill',width:gw});
     }
     google.accounts.id.prompt();
   }catch(e){ gateMsg('Google sign-in failed to start: '+e.message,true) }
@@ -4813,10 +4868,21 @@ function renderList(){
       gone=all.filter(function(e){return isPast(e.date)});
   if(!all.length){box.innerHTML='<p class="empty">Nothing scheduled yet.</p>';return}
   var h='';
-  if(up.length)h+='<div class="s-lbl" style="margin-bottom:8px">Coming up</div>'+up.map(evRow).join('');
+  /* On a phone the whole season was one 4,700px column of weekly meetings.
+     It opens on the next two weeks, with the rest one tap away. */
+  var cut=up.length;
+  if(!CALV.allUp&&window.matchMedia&&window.matchMedia('(max-width:640px)').matches){
+    var lim=new Date(); lim.setDate(lim.getDate()+14);
+    var limKey=ymd(lim.getFullYear(),lim.getMonth(),lim.getDate());
+    cut=up.filter(function(e){return String(e.date)<=limKey}).length;
+    if(cut<6)cut=Math.min(6,up.length);
+  }
+  if(up.length)h+='<div class="s-lbl" style="margin-bottom:8px">Coming up</div>'+up.slice(0,cut).map(evRow).join('')+
+    (cut<up.length?'<button type="button" class="ghost calmorebtn" id="calmoreup">Show '+(up.length-cut)+' later event'+(up.length-cut===1?'':'s')+'</button>':'');
   if(gone.length)h+='<div class="s-lbl" style="margin:18px 0 8px">Already happened</div>'+gone.slice(-8).map(evRow).join('');
   box.innerHTML=h;
   wireEvRows(box);
+  var more=$('calmoreup'); if(more)more.addEventListener('click',function(){CALV.allUp=true;renderList()});
 }
 
 function weekStart(y,m,d){
@@ -4863,7 +4929,9 @@ function renderCalendar(){
   if(sel&&!sel.options.length)
     sel.innerHTML=POINT_CATS.map(function(c){return '<option value="'+c.id+'">'+esc(c.label)+'</option>'}).join('');
   if(!CALV.y){var t=new Date(); CALV.y=t.getFullYear(); CALV.m=t.getMonth()}
-  var nav=$('calnav'); if(nav)nav.style.visibility=(CALV.mode==='list')?'hidden':'visible';
+  var nav=$('calnav'); if(nav)nav.style.visibility='';
+  /* In the list there is no month to step through; on a phone the row goes. */
+  var cbar=document.querySelector('.calbar'); if(cbar)cbar.classList.toggle('listmode',CALV.mode==='list');
   var link=$('cal-open');
   if(link){
     if(S.club.gcalUrl){link.style.display='';link.href=safeUrl(S.club.gcalUrl)}
@@ -5160,7 +5228,7 @@ function renderWork(){
         '<button class="hwsend" type="button" disabled>Hand it in</button>'+
       '</div>':'')+
       (!canEdit()&&kind!=='file'?'<div class="hwlink"><input type="url" class="hwurl mono" placeholder="Paste a shared Google Docs or Slides link" aria-label="Link to your work">'+
-        '<button class="hwsendlink" type="button">Hand in link</button></div>':'')+
+        '<button class="hwsendlink" type="button" disabled>Hand in link</button></div>':'')+
       '<div class="msg hwmsg2"></div>'+
       (canEdit()?'<div class="subs" data-for="'+esc(w.id)+'"><div class="s-lbl">Handed in</div>'+
         '<div class="subbody"><p class="empty wait">Loading…</p></div></div>':'')+
@@ -5196,6 +5264,8 @@ function renderWork(){
       else {msg.textContent=(r&&r.error)||'That did not go through.';msg.className='msg hwmsg2 show'}
     };
     var lb=cardEl.querySelector('.hwsendlink'), li=cardEl.querySelector('.hwurl');
+    /* Like the file button: nothing to hand in, nothing to press. */
+    if(lb&&li)li.addEventListener('input',function(){lb.disabled=!li.value.trim()});
     /* Handing in again replaces what EBOD sees, so it says so first. */
     var sure=function(){
       return hwDoneAt(id)?uiConfirm('Replace what you handed in?','EBOD will see this one instead. Your first on-time hand-in still counts toward your Org\u2019s cup.','Replace it'):Promise.resolve(true);
@@ -5205,7 +5275,7 @@ function renderWork(){
       if(!u){msg.textContent='Paste a full link starting with https://';msg.className='msg hwmsg2 show';return}
       sure().then(function(ok){ if(!ok)return;
         lb.disabled=true; msg.textContent='Handing it in…'; msg.className='msg hwmsg2 show info wait';
-        backendPost('submitWork',{workId:id,link:u}).then(function(r){lb.disabled=false;handed(r)});
+        backendPost('submitWork',{workId:id,link:u}).then(function(r){lb.disabled=!li.value.trim();handed(r)});
       });
     });
     if(!f)return;
@@ -5578,12 +5648,17 @@ function wireHideControls(){
      and those are parts of a section rather than sections themselves — giving
      them a Hide button let somebody hide half of a team card and then look for
      it in a menu of top-level headings. */
+  /* Officers tidy a page of a dozen tools. A member's pages are short, and
+     a hidden section was one they then could not find, so members get none. */
+  var mayHide=canEdit();
   Array.prototype.forEach.call(document.querySelectorAll('.view .panel[data-section]'),function(panel){
     var h=panel.querySelector('h2');
     if(!h)return;
     var key=panelKey(panel);
     panel.dataset.pkey=key;
-    if(!h.querySelector('.hidebtn')){
+    var hb=h.querySelector('.hidebtn');
+    if(!mayHide){if(hb)hb.remove();return}
+    if(!hb){
       var b=document.createElement('button');
       b.type='button'; b.className='hidebtn'; b.textContent='Hide';
       b.title='Move this section behind the Hidden button';
@@ -5599,14 +5674,14 @@ function wireHideControls(){
 }
 function applyHidden(){
   Array.prototype.forEach.call(document.querySelectorAll('.view .panel[data-pkey]'),function(panel){
-    panel.classList.toggle('ishidden',!!HIDDEN[panel.dataset.pkey]);
+    panel.classList.toggle('ishidden',canEdit()&&!!HIDDEN[panel.dataset.pkey]);
   });
   renderHiddenBar();
 }
 function renderHiddenBar(){
   var bar=$('hiddenbar'), menu=$('hiddenmenu'), count=$('hiddencount');
   if(!bar||!menu)return;
-  var keys=Object.keys(HIDDEN);
+  var keys=canEdit()?Object.keys(HIDDEN):[];
   bar.hidden=!keys.length;
   if(count)count.textContent=String(keys.length);
   if(!keys.length){menu.hidden=true;return}
@@ -7020,7 +7095,7 @@ function renderTeam(){
   '</div>';
 
   h+='<div class="'+(canEdit()?'teamgrid':'')+'"><div>';
-  h+='<div class="panel"><h2>Members</h2><div class="tablewrap"><table><thead><tr>'+
+  h+='<div class="panel"><h2>Members</h2><div class="tablewrap"><table'+(canEdit()?'':' class="memtable"')+'><thead><tr>'+
     '<th class="l">Member</th><th class="l">'+(S.club.useYear?'Year':'')+'</th>'+
     (tracksOf().length?'<th class="l">'+esc(S.club.trackWord)+'</th>':'')+
     '<th class="l">Team</th>'+
@@ -9969,6 +10044,18 @@ function wireChat(){
   chatEl('chatclose').addEventListener('click',chatClose);
   chatEl('chatform').addEventListener('submit',function(e){e.preventDefault();chatAsk(chatEl('chatinput').value)});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&CHAT.open)chatClose()});
+  /* On a phone the button covers the corner of whatever is under it. It steps
+     aside while someone scrolls down to read, and comes back when they
+     scroll up, stop near the end, or open it. */
+  var lastY=window.scrollY||0, btn=chatEl('chatbtn');
+  window.addEventListener('scroll',function(){
+    var y=window.scrollY||0, phone=window.matchMedia&&window.matchMedia('(max-width:640px)').matches;
+    var nearEnd=y+window.innerHeight>=document.documentElement.scrollHeight-60;
+    if(!phone||CHAT.open||nearEnd||y<120)btn.classList.remove('away');
+    else if(y>lastY+6)btn.classList.add('away');
+    else if(y<lastY-6)btn.classList.remove('away');
+    if(Math.abs(y-lastY)>6||nearEnd)lastY=y;
+  },{passive:true});
 }
 
 /* ================= EXPORTS ================= */
