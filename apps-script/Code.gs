@@ -529,15 +529,27 @@ function findAff(code) {
   for (var i = 0; i < all.length; i++) if (all[i].code === c) return all[i];
   return null;
 }
-/* The affiliation a Google address belongs to, from the Roles tab. */
+/* The affiliation a Google address belongs to, from the Roles tab. Every
+   signed-in request asks, so the tab is read once and kept for five minutes;
+   any write through the page drops the copy (see doPost). An edit made
+   straight in the sheet shows within those five minutes. */
 function affForEmail(email) {
-  var rows = readTab('roles'), e = String(email || '').toLowerCase();
-  for (var i = 0; i < rows.length; i++)
-    if (String(rows[i].Email).toLowerCase().trim() === e)
-      return {aff: normAff(rows[i].Affiliation || DEFAULT_AFF),
-              role: String(rows[i].Role || 'member').toLowerCase()};
-  return null;
+  var e = String(email || '').toLowerCase().trim();
+  return rolesMap_()[e] || null;
 }
+function rolesMap_() {
+  var c = null, hit = null;
+  try { c = CacheService.getScriptCache(); hit = c.get('rolesmap'); } catch (err) {}
+  if (hit) { try { return JSON.parse(hit); } catch (err) {} }
+  var m = {};
+  readTab('roles').forEach(function (r) {
+    var e = String(r.Email || '').toLowerCase().trim();
+    if (e && !m[e]) m[e] = {aff: normAff(r.Affiliation || DEFAULT_AFF), role: String(r.Role || 'member').toLowerCase()};
+  });
+  try { var j = JSON.stringify(m); if (c && j.length < 90000) c.put('rolesmap', j, 300); } catch (err) {}
+  return m;
+}
+function dropRoles_() { try { CacheService.getScriptCache().remove('rolesmap'); } catch (err) {} }
 
 function findUser(username) {
   var u = normUser(username);
@@ -706,7 +718,10 @@ function doGet(e) {
       var fAff = normAff(p.club || DEFAULT_AFF);
       if (!findAff(fAff) || !p.key || String(p.key) !== feedKey_(fAff))
         return ContentService.createTextOutput('Not found').setMimeType(ContentService.MimeType.TEXT);
-      return ContentService.createTextOutput(memberIcs_(fAff)).setMimeType(ContentService.MimeType.ICAL);
+      /* Kept with the club's other cached reads, so it is rebuilt only after a
+         change (or a calendar refresh), not every time a calendar app asks. */
+      var ics = shared_('ics', fAff, function () { return {t: memberIcs_(fAff)}; }).t;
+      return ContentService.createTextOutput(ics).setMimeType(ContentService.MimeType.ICAL);
     } catch (err) {
       try { console.error('feed: ' + (err && err.stack ? err.stack : err)); } catch (e2) {}
       return ContentService.createTextOutput('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//The Org System//EN\r\nEND:VCALENDAR\r\n')
@@ -774,9 +789,12 @@ function icsText_(v) {
 }
 /* Lines longer than 75 octets are folded, as the format requires. */
 function icsFold_(line) {
+  if (line.length <= 37) return line;          /* cannot reach 75 bytes even at 2 per char */
   var out = [], cur = '', n = 0;
   for (var i = 0; i < line.length; i++) {
-    var ch = line.charAt(i), b = Utilities.newBlob(ch).getBytes().length;
+    var code = line.charCodeAt(i), ch = line.charAt(i), b;
+    if (code >= 0xD800 && code <= 0xDBFF && i + 1 < line.length) { ch += line.charAt(++i); b = 4; }
+    else b = code < 0x80 ? 1 : code < 0x800 ? 2 : 3;
     if (n + b > 74) { out.push(cur); cur = ' '; n = 1; }
     cur += ch; n += b;
   }
@@ -919,19 +937,28 @@ function doPost(e) {
       try { lock = LockService.getScriptLock(); lock.waitLock(20000); }
       catch (err) { return out({ok: false, error: 'Sheet busy, try again.'}); }
     }
+    var res, rebuild = false;
     try {
-      var res = dispatch(action, body.payload, email, role, id);
+      res = dispatch(action, body.payload, email, role, id);
       /* A member's own folder is not part of what the club sees, and it is
          touched on every visit -- bumping for it would empty the cache for
          everyone each time a member opened the page. */
-      if (!READ_ONLY[action] && clubWide_(action, body.payload)) bumpShared_(id.aff || DEFAULT_AFF);
+      if (!READ_ONLY[action] && clubWide_(action, body.payload)) { bumpShared_(id.aff || DEFAULT_AFF); rebuild = true; }
       if (OWN_BITS_[action]) dropMe_(normAff(id.aff || DEFAULT_AFF), email);
-      return out(res);
+      if (!READ_ONLY[action]) dropRoles_();
     } catch (err) {
       return out(failRef_('dispatch:' + action, err));
     } finally {
       try { if (lock) lock.releaseLock(); } catch (err2) {}
     }
+    /* The write emptied the club's cached snapshot. Rebuilding it here, after
+       the lock is let go, costs the officer's background save a few seconds;
+       leaving it cost the next member to open the page the same seconds,
+       with a spinner in front of them. */
+    if (rebuild && res && res.ok !== false) {
+      try { ROWS_ = {}; MEMO_ROWS_ = true; clubSnapshot_(normAff(id.aff || DEFAULT_AFF)); } catch (err3) {}
+    }
+    return out(res);
   } catch (fatal) {
     return out(failRef_('doPost', fatal));
   }
@@ -2748,6 +2775,10 @@ function dispatch(action, payload, email, role, id) {
         if (!mem.length) return {ok: false, error: 'A team needs at least one member.'};
         if (mem.length > TEAMREQ_KINDS[hit.kind]) return {ok: false, error: 'This kind of team takes up to ' + TEAMREQ_KINDS[hit.kind] + '.'};
         hit.members = mem;
+        /* Officers can rename a request, or point it at another event or
+           client, where it sits. Only what was sent is changed. */
+        if (ed.name !== undefined) hit.name = clipE(ed.name);
+        if (ed.target) hit.target = clipE(ed.target);
         hit.editedBy = String(email); hit.editedAt = new Date().toISOString();
         writeReqs_(aff, list);
         return {ok: true, request: hit};

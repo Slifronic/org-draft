@@ -754,7 +754,12 @@ tr.mine td{background:var(--wash)}
 .calid{width:210px;max-width:100%;font-size:12px;padding:5px 8px}
 .ebodtag{color:var(--flag)}
 .field[hidden]{display:none!important}
-.reqhead .rqedit{margin-left:auto}
+/* A request is edited where it sits: name, event or client, members. */
+.reqhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.reqhead .rqname{flex:0 1 260px;font-size:16px}
+.reqhead .rqtarget,.reqrow .rqadd{width:auto;max-width:100%;font-size:13px;padding:5px 28px 5px 10px}
+.reqrow .rqadd{align-self:center}
+.reqrow .sqm em{color:var(--flag)}
 #abbody ul.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 #abbody ul.roster li{border-bottom:none}
 .sqslots{display:grid;gap:6px;margin-top:10px}
@@ -6954,11 +6959,24 @@ function localMemberCard(name){
     points:canSeePersonal(p)?(p.pts||0):null,
     entries:canSeePersonal(p)?(p.evts||0):null,photo:null}};
 }
+/* Cards already opened this visit show at once and refresh behind. */
+var CARD_CACHE={}, CARD_OPEN='';
 function openMemberCard(name){
-  var box=$('cardbody');
+  var box=$('cardbody'), ck=normName(name), hit=CARD_CACHE[ck];
   $('membercard').classList.add('on');
-  box.innerHTML='<p class="empty wait">Loading…</p>';
+  if(hit)draw(hit); else box.innerHTML='<p class="empty wait">Loading…</p>';
   (A.offline?Promise.resolve(null):backendPost('memberCard',{name:name})).then(function(r){
+    if(r&&r.ok){
+      var same=hit&&JSON.stringify(hit)===JSON.stringify(r);
+      CARD_CACHE[ck]=r;
+      if(same)return;
+    } else if(hit)return;
+    /* Another card may have been opened while this one was loading. */
+    if(CARD_OPEN!==ck)return;
+    draw(r);
+  });
+  CARD_OPEN=ck;
+  function draw(r){
     if(!r||!r.ok)r=localMemberCard(name);
     if(!r||!r.ok){box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that member.')+'</p>';return}
     var m=r.member;
@@ -7063,7 +7081,7 @@ function openMemberCard(name){
         });
       });
     }
-  });
+  }
 }
 function wireMemberLinks(root){
   Array.prototype.forEach.call(root.querySelectorAll('.nm.linked'),function(el){
@@ -8073,34 +8091,47 @@ var TREQ={loaded:false,list:[],asked:''};
 /* Teammates picked so far, kept across re-renders (switching the kind of team
    rebuilds the form, and should not throw the names away). */
 var RQ_DRAFT=[];
-/* Which request an officer is changing the members of, if any. */
-var REQEDIT='';
-/* The same dropdown spots as the team cards: one per member, plus empty ones
-   up to the team's size (FLC 4) or one spare. A name that is not registered,
-   such as an email address sent in by mistake, stays selectable so it can be
-   swapped for the right person. */
-function reqSlots(q){
-  var mem=(q.members||[]).slice(), cap=TREQ_CAP[q.kind]||14;
-  var n=Math.min(cap,q.kind==='flc'?Math.max(cap,mem.length):mem.length+1);
-  var names=allNames();
-  var opts=function(cur){
-    var list=names.slice();
-    if(cur&&!list.some(function(x){return normName(x)===normName(cur)}))list.unshift(cur);
-    return list.map(function(nm){return '<option value="'+esc(nm)+'"'+(cur&&normName(nm)===normName(cur)||nm===cur?' selected':'')+'>'+esc(nm)+
-      (/@/.test(nm)?' (an email, not a name)':(findPersonByName(nm)?'':' (not on the roster)'))+'</option>'}).join('');
-  };
-  var h='<div class="sqslots">';
-  for(var i=0;i<n;i++){
-    var m=mem[i]||'';
-    h+='<div class="sqslot'+(m?'':' vacant')+'"><span class="slotno mono">'+(i+1)+'</span>'+
-      '<select class="sqswap rqslot" data-enh="1" aria-label="'+(m?'Member '+(i+1)+', '+esc(m):'Empty spot '+(i+1))+'">'+
-      '<option value=""'+(m?'':' selected')+'>'+(m?'— Take off this team —':'+ Add someone…')+'</option>'+opts(m)+'</select></div>';
-  }
-  return h+'</div>';
-}
-function demoEditReq(id,mem){
-  (DEMO.reqs||[]).forEach(function(q){if(q.id===id)q.members=mem.slice()});
+function demoEditReq(id,mem,patch){
+  patch=patch||{};
+  (DEMO.reqs||[]).forEach(function(q){if(q.id!==id)return;q.members=mem.slice();
+    if(patch.name!=null)q.name=patch.name; if(patch.target)q.target=patch.target});
   demoStore(); return {ok:true};
+}
+/* Every change an officer makes on a request row -- a member off or on, a new
+   name, another event -- goes through here and is saved at once. A request
+   that is already a team changes that team too: anyone added is taken off
+   any other team of the same kind, as approving would have done. */
+function saveReq(q,patch,say){
+  var mem=(patch.members||q.members||[]).slice();
+  if(!mem.length){say('A team needs at least one member. Delete the request instead.');return}
+  if(mem.length>TREQ_CAP[q.kind]){say('This kind of team takes up to '+TREQ_CAP[q.kind]+'.');return}
+  var moved=[], tm=q.status==='approved'&&q.teamId?teamById(q.teamId):null;
+  if(tm){
+    if(patch.members){
+      var names=mem.map(function(m){var p=findPersonByName(m);return p?p.name:m});
+      teamsList().forEach(function(t){
+        if(t.id===tm.id||kindOf(t)!==kindOf(tm))return;
+        var before=(t.members||[]).length;
+        t.members=(t.members||[]).filter(function(m){return !names.some(function(n){return normName(n)===normName(m)})});
+        if(t.members.length<before)moved.push(t.name);
+      });
+      (tm.members||[]).forEach(function(m){if(tm.assign&&!names.some(function(n){return normName(n)===normName(m)}))delete tm.assign[normName(m)]});
+      tm.members=names;
+    }
+    if(patch.name&&q.kind!=='consulting')tm.name=patch.name;
+    saveTeams();
+  }
+  var body={id:q.id,members:mem};
+  if(patch.name!=null)body.name=patch.name;
+  if(patch.target)body.target=patch.target;
+  var go=DEMO_ON?Promise.resolve(demoEditReq(q.id,mem,patch)):backendPost('editTeamRequest',body);
+  go.then(function(r){
+    if(r&&r.ok){
+      q.members=mem; if(patch.name!=null)q.name=patch.name; if(patch.target)q.target=patch.target;
+      renderReqAdmin();
+      say('Saved'+(tm?', and '+tm.name+' updated'+(moved.length?' (moved from '+moved.join(', ')+')':''):'')+'.','good');
+    } else say((r&&r.error)||'That did not save.'+(tm?' The team itself was updated.':''));
+  });
 }
 var TREQ_CAP={consulting:14,flc:4,other:14};
 function selfTeamsOn(){return !(S.club&&S.club.selfTeams===false)}
@@ -8208,22 +8239,38 @@ function renderReqAdmin(){
   if(list.length){
     h+='<div class="reqlist">'+list.map(function(q){
       var checks=q.status==='pending'?reqChecks(q):[];
-      var editing=REQEDIT===q.id, tm=q.teamId?teamById(q.teamId):null;
+      var tm=q.teamId?teamById(q.teamId):null, open=q.status!=='approved', cap=TREQ_CAP[q.kind]||14;
+      var mem=q.members||[];
+      /* Everything is changed right on the row: name, event or client, who
+         is on it. No edit mode to open first. */
+      var title=q.kind==='consulting'?'<b>'+esc(q.name||reqWhat(q))+'</b>'
+        :'<input class="sqname rqname" value="'+esc(q.name||'')+'" placeholder="'+esc(reqWhat(q))+'" aria-label="Team name">';
+      var where='';
+      if(open&&q.kind==='flc')where='<select class="rqtarget" aria-label="FLC event">'+
+        flcEventList().concat(flcEventList().indexOf(q.target)<0&&q.target?[q.target]:[]).map(function(e){
+          return '<option'+(e===q.target?' selected':'')+'>'+esc(e)+'</option>'}).join('')+'</select>';
+      else if(open&&q.kind==='consulting')where='<select class="rqtarget" aria-label="Client">'+
+        clientList().concat(clientList().indexOf(q.target)<0&&q.target?[q.target]:[]).map(function(c){
+          return '<option'+(c===q.target?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select>';
+      var addable=allNames().filter(function(n){return !mem.some(function(m){return normName(m)===normName(n)})});
       return '<div class="reqrow" data-id="'+esc(q.id)+'">'+
-        '<div class="reqhead"><b>'+esc(q.name||reqWhat(q))+'</b> '+reqStatusChip(q)+
-          '<span class="savenote"> '+esc(reqWhat(q))+' · sent by '+esc(q.byName||'')+'</span>'+
-          (editing?'':'<button type="button" class="tiny ghost rqedit">Change members</button>')+'</div>'+
-        (editing?reqSlots(q)+
-          (q.status==='approved'?'<p class="savenote" style="margin:6px 0 0">'+(tm?'Saving also changes the team <b>'+esc(tm.name)+'</b>; anyone added is taken off any other '+(q.kind==='flc'?'FLC':q.kind==='consulting'?'consulting':'')+' team.':'The team this became has since been deleted; only the request changes.')+'</p>':'')+
-          '<div class="row" style="margin-top:8px"><button type="button" class="tiny rqsave">Save members</button><button type="button" class="tiny ghost rqcancel">Cancel</button></div>'
-        :'<div class="sqmembers" style="margin-top:6px">'+(q.members||[]).map(function(m){
-          return '<span class="sqm"><span class="nm'+(findPersonByName(m)?' linked" data-person="'+esc(m):'')+'">'+esc(m)+'</span></span>'}).join('')+'</div>')+
+        '<div class="reqhead">'+title+' '+reqStatusChip(q)+where+
+          '<span class="savenote"> '+(where?'':esc(reqWhat(q))+' · ')+'sent by '+esc(q.byName||'')+'</span></div>'+
+        '<div class="sqmembers" style="margin-top:6px">'+mem.map(function(m){
+          return '<span class="sqm"><span class="nm'+(findPersonByName(m)?' linked" data-person="'+esc(m):'')+'">'+esc(m)+'</span>'+
+            (findPersonByName(m)?'':'<em>not on the roster</em>')+
+            '<button type="button" class="sqout rqx" data-name="'+esc(m)+'" aria-label="Take '+esc(m)+' off">×</button></span>'}).join('')+
+          (mem.length<cap?'<select class="rqadd" aria-label="Add a member"><option value="">+ Add a member…</option>'+
+            addable.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>'}).join('')+'</select>':'')+
+        '</div>'+
+        (q.status==='approved'?'<p class="savenote" style="margin:6px 0 0">'+(tm?'This is the team <b>'+esc(tm.name)+'</b>: changes here change it too.':'The team this became has since been deleted; only the request changes.')+'</p>':'')+
         (q.note?'<p class="hint" style="margin:6px 0 0">“'+esc(q.note)+'”</p>':'')+
         (checks.length?'<ul class="reqchecks">'+checks.map(function(c){return '<li>'+esc(c)+'</li>'}).join('')+'</ul>':
           (q.status==='pending'?'<p class="savenote" style="color:var(--accent)">No clashes found.</p>':''))+
         (q.review?'<p class="savenote">EBOD: '+esc(q.review)+'</p>':'')+
         '<div class="row" style="margin-top:8px">'+
           (q.status==='pending'?'<button type="button" class="tiny rqyes">Approve</button><button type="button" class="tiny ghost rqno">Send back…</button>':'')+
+          (q.status==='approved'&&tm?'<button type="button" class="tiny ghost danger rqteamdel">Delete team</button>':'')+
           '<button type="button" class="tiny ghost danger rqdel">Delete request</button></div>'+
       '</div>';
     }).join('')+'</div>';
@@ -8250,35 +8297,36 @@ function renderReqAdmin(){
         });
       });
     });
-    var ed=row.querySelector('.rqedit');
-    if(ed)ed.addEventListener('click',function(){REQEDIT=q.id;renderReqAdmin()});
-    var cn=row.querySelector('.rqcancel');
-    if(cn)cn.addEventListener('click',function(){REQEDIT='';renderReqAdmin()});
-    var sv=row.querySelector('.rqsave');
-    if(sv)sv.addEventListener('click',function(){
-      var seen={}, mem=Array.prototype.map.call(row.querySelectorAll('.rqslot'),function(x){return cleanLabel(x.value).trim()})
-        .filter(function(m){var k=normName(m)||m.toLowerCase();if(!m||seen[k])return false;seen[k]=1;return true});
-      if(!mem.length){say('A team needs at least one member.');return}
-      if(mem.length>TREQ_CAP[q.kind]){say('This kind of team takes up to '+TREQ_CAP[q.kind]+'.');return}
-      var moved=[], tm=q.status==='approved'&&q.teamId?teamById(q.teamId):null;
-      if(tm){
-        var names=mem.map(function(m){var p=findPersonByName(m);return p?p.name:m});
-        teamsList().forEach(function(t){
-          if(t.id===tm.id||kindOf(t)!==kindOf(tm))return;
-          var before=(t.members||[]).length;
-          t.members=(t.members||[]).filter(function(m){return !names.some(function(n){return normName(n)===normName(m)})});
-          if(t.members.length<before)moved.push(t.name);
-        });
-        (tm.members||[]).forEach(function(m){if(tm.assign&&!names.some(function(n){return normName(n)===normName(m)}))delete tm.assign[normName(m)]});
-        tm.members=names; saveTeams();
-      }
-      sv.disabled=true;
-      var go=DEMO_ON?Promise.resolve(demoEditReq(q.id,mem)):backendPost('editTeamRequest',{id:q.id,members:mem});
-      go.then(function(r){
-        sv.disabled=false;
-        if(r&&r.ok){q.members=mem;REQEDIT='';renderReqAdmin();
-          say('Members saved'+(tm?', and '+tm.name+' updated'+(moved.length?' (moved from '+moved.join(', ')+')':''):'')+'.','good')}
-        else say((r&&r.error)||'That did not save.'+(tm?' The team itself was updated.':''));
+    Array.prototype.forEach.call(row.querySelectorAll('.rqx'),function(b){
+      b.addEventListener('click',function(){
+        saveReq(q,{members:(q.members||[]).filter(function(m){return m!==b.dataset.name})},say);
+      });
+    });
+    var addSel=row.querySelector('.rqadd');
+    if(addSel)addSel.addEventListener('change',function(){
+      if(!addSel.value)return;
+      saveReq(q,{members:(q.members||[]).concat([addSel.value])},say);
+    });
+    var nameIn=row.querySelector('.rqname');
+    if(nameIn){
+      var commit=function(){
+        var v=cleanLabel(nameIn.value).trim().slice(0,60);
+        if(v===String(q.name||'').trim())return;
+        saveReq(q,{name:v},say);
+      };
+      nameIn.addEventListener('change',commit);
+      nameIn.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();nameIn.blur()}});
+    }
+    var tgt=row.querySelector('.rqtarget');
+    if(tgt)tgt.addEventListener('change',function(){if(tgt.value&&tgt.value!==q.target)saveReq(q,{target:tgt.value},say)});
+    var tdel=row.querySelector('.rqteamdel');
+    if(tdel)tdel.addEventListener('click',function(){
+      var tm=teamById(q.teamId); if(!tm)return;
+      uiConfirm('Delete '+tm.name+'?','Its members go back to being unassigned, and this request goes with it. Homework already handed in is kept.','Delete',true).then(function(ok){
+        if(!ok)return;
+        S.club.teams=teamsList().filter(function(x){return x.id!==tm.id}); saveTeams();
+        dropTeamRequests([tm.id]);
+        say('Deleted '+tm.name+'.','good');
       });
     });
     if(yes)yes.addEventListener('click',function(){
@@ -8495,14 +8543,29 @@ function profInitials(nm){
   var parts=String(nm||'?').trim().split(/\s+/);
   return ((parts[0]||'?')[0]+(parts.length>1?parts[parts.length-1][0]:'')).toUpperCase();
 }
-function renderProfile(){
+/* The last answer per account, so opening Profile again shows it at once and
+   only redraws if the sheet says something different. */
+var PROF_CACHE={};
+function renderProfile(fresh){
   var box=$('profbody');
   if(A.offline){
     box.innerHTML='<div class="panel"><h2>Your profile</h2><p class="empty">This browser is not connected to a club sheet, so there is no profile to show.</p></div>';
     return;
   }
-  box.innerHTML='<div class="panel"><p class="empty wait">Loading your profile…</p></div>';
+  var ck=(A.aff||'')+'|'+String(A.email||A.name||'').toLowerCase(), hit=fresh?null:PROF_CACHE[ck];
+  if(hit)draw(hit); else box.innerHTML='<div class="panel"><p class="empty wait">Loading your profile…</p></div>';
   backendPost('myProfile',{name:A.name||A.email}).then(function(r){
+    if(r&&r.ok){
+      var same=hit&&JSON.stringify(hit)===JSON.stringify(r);
+      PROF_CACHE[ck]=r;
+      if(same)return;
+      /* Somebody already typing into their details keeps what they typed. */
+      var ae=document.activeElement;
+      if(hit&&ae&&box.contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;
+    } else if(hit)return;
+    draw(r);
+  });
+  function draw(r){
     if(!r||!r.ok){
       box.innerHTML='<div class="panel"><h2>Your profile</h2><p class="empty">Could not load your profile.</p></div>';
       return;
@@ -8649,7 +8712,7 @@ function renderProfile(){
       backendPost('myFormAnswers',null).then(function(a){
         b.disabled=false; b.textContent='Read my answers from the form';
         if(a&&a.ok){ pm.textContent='Found it. Updating your profile\u2026'; pm.className='msg show good';
-                     renderProfile(); }
+                     renderProfile(true); }
         else { pm.textContent=(a&&a.error)||'Could not read your answers.'; pm.className='msg show'; }
       });
     });
@@ -8683,7 +8746,7 @@ function renderProfile(){
           c.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,160,160);
           var data=c.toDataURL('image/jpeg',0.82);
           backendPost('saveProfile',{photo:data}).then(function(r){
-            if(r&&r.ok){pmsg('Picture saved.','good');renderProfile()}
+            if(r&&r.ok){pmsg('Picture saved.','good');renderProfile(true)}
             else pmsg((r&&r.error)||'That picture did not save.');
           });
         };
@@ -8693,7 +8756,7 @@ function renderProfile(){
       fr.readAsDataURL(f);
     });
     if($('me-photo-clear'))$('me-photo-clear').addEventListener('click',function(){
-      backendPost('saveProfile',{photo:'none'}).then(function(){pmsg('Removed.','info');renderProfile()});
+      backendPost('saveProfile',{photo:'none'}).then(function(){pmsg('Removed.','info');renderProfile(true)});
     });
 
     if($('me-pw-go'))$('me-pw-go').addEventListener('click',function(){
@@ -8708,7 +8771,7 @@ function renderProfile(){
         else {m.textContent=(r&&r.error)||'That did not work.';m.className='msg show'}
       }).catch(function(e){m.textContent=(e&&e.message)||'That did not work.';m.className='msg show'});
     });
-  });
+  }
 }
 
 /* ================= CLUB SETUP =================

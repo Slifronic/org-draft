@@ -22,7 +22,7 @@ jobs:
       # The live site names the backend it uses, whichever branch deployed it.
       - name: Ping the backend
         run: |
-          URL=$(curl -s -m 30 https://org.deanzapbl.com/ | grep -o "var WEBAPP_URL='[^']*'" | cut -d"'" -f2)
+          URL=$(curl -s -m 30 https://org.deanzapbl.com/ | grep -o "https://script.google.com/macros/s/[A-Za-z0-9_-]*/exec" | head -1)
           test -n "$URL" || { echo "Could not read the backend address from the site"; exit 1; }
           curl -sL -m 60 -o /dev/null -w "backend %{http_code} in %{time_total}s\n" \
             -H 'Content-Type: text/plain;charset=utf-8' \
