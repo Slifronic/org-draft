@@ -168,6 +168,16 @@ consider a separate members' calendar for sharing.
 
 ---
 
+## Who the backend runs as
+
+Since Oct 13, 2026 the web app runs as the club's own account, **deanzacapbl@gmail.com**
+(deployment "Club account backend", `WEBAPP_URL` in `index.html`). Everything it creates --
+member folders, hand-ins, forms -- is owned by that account and lives in its Drive. The script
+project and the "Org System Data" sheet are still owned by bryguy.vo@gmail.com and shared with
+deanzacapbl as editor. To publish a backend change: open the project **as deanzacapbl**, paste
+`apps-script/Code.gs`, save, then Deploy → Manage deployments → the club account deployment →
+New version. The older bryguy.vo deployment is no longer used by the site.
+
 ## One-time backend update (Bryant)
 
 `index.html` deploys with Vercel as before. The new features that need the sheet —

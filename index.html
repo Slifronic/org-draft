@@ -101,6 +101,9 @@ nav{display:flex;gap:0;margin-top:22px;flex-wrap:wrap;border-bottom:none}
 nav button{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;padding:12px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--mute);cursor:pointer}
 nav button[aria-current=true]{color:var(--ink);border-bottom-color:var(--accent)}
 nav button:disabled{opacity:.4;cursor:not-allowed}
+/* A member who has not sent the sign-up form sees what is coming, locked. */
+body.formgate #nav button[aria-disabled=true]{opacity:.35;cursor:not-allowed}
+body.formgate #chatbtn,body.formgate #chatpanel{display:none}
 nav button:hover:not(:disabled):not([aria-current=true]){color:var(--slate)}
 .navcount{background:var(--paper);border:1px solid var(--rule);padding:0 4px;margin-left:5px;font-size:10px}
 
@@ -2300,7 +2303,7 @@ var SAVE_KEY='orgsystem.v1';
    on screen. It is filed per club now. The bare key is still read once, so a
    draft saved before this change is not thrown away. */
 function saveKey(){return SAVE_KEY+':'+(A.aff||'default')}
-var WEBAPP_URL='https://script.google.com/macros/s/AKfycbwNGnp7lMZaX-jKnC7wlez_LECLTq-WINWmIPcW8WddGGKVveqkInQPo0fFO53OBt_5YA/exec';
+var WEBAPP_URL='https://script.google.com/macros/s/AKfycby1mYJ3PlDt2YlCnGGRLZqQSrW5o1sBvB4xjpjJBgyo4Rhmk7VegwAiSw2WRKBpcDyfXQ/exec';
 
 /* ================= IDENTITY & ROLES =================
    Google Identity Services hands this page a JWT signed by Google. The page
@@ -2475,6 +2478,7 @@ function signOut(){
   A.token=null;A.session=null;A.role='none';A.email='';A.name='';A.pic='';A.offline=false;A.via='';
   PROVISIONAL=false; storeWho(null); storeGoogleToken(null);
   A.aff='';A.affName='';A.needsAff=false;
+  FORM_PENDING=false; FORM_CHECKED=false; FORM_WANTED=''; applyFormGate();
   storeSession(null);storeAff('');
   document.body.dataset.role='none';
   var w=$('whoami'); if(w)w.style.display='none';
@@ -2922,7 +2926,8 @@ var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
 var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
                    myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
                    setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1,myFormAnswers:1,
-                   submitWork:1,calendarSync:1,submitTeamRequest:1,withdrawTeamRequest:1,listTeamRequests:1};
+                   submitWork:1,calendarSync:1,submitTeamRequest:1,withdrawTeamRequest:1,listTeamRequests:1,
+                   ensureMyDrive:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -3099,6 +3104,15 @@ function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'}
 
 /* ---------------- navigation ---------------- */
 function setView(id,fromRoute){
+  /* Until a member has sent the sign-up form, it is the only page there is.
+     Every way of reaching a tab -- the bar, a link, the address, the back
+     button, the tour -- comes through here, so this is the one place it is
+     held. Where they were heading is kept and honoured once it is in. */
+  if(id!=='v-form'&&formGateOn()){
+    FORM_WANTED=id;
+    if($('v-form').classList.contains('on'))return;
+    id='v-form'; fromRoute=true;
+  }
   Array.prototype.forEach.call(document.querySelectorAll('.view'),function(v){v.classList.toggle('on',v.id===id)});
   syncUrl(id,!!fromRoute);
   Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
@@ -3128,10 +3142,15 @@ function setView(id,fromRoute){
   if(id==='v-form')renderClubForm();
   if(id==='v-draft'&&isMaster()&&$('dr-club')&&!$('dr-club').options.length)renderAffs();
   wireHideControls();
+  applyFormGate();
   window.scrollTo(0,0);
 }
 Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
-  b.addEventListener('click',function(){if(!b.disabled)setView(b.dataset.view)});
+  b.addEventListener('click',function(){
+    if(b.disabled)return;
+    if(b.dataset.view!=='v-form'&&formGateOn())formGateNudge();
+    setView(b.dataset.view);
+  });
 });
 function unlockNav(){
   Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
@@ -4092,8 +4111,8 @@ function maybeTour(){
   /* Members only, once, and only when there is something to look at. */
   if((A.offline&&!DEMO.as)||tourSeen())return;
   if(A.role!=='member')return;
-  if(!S.orgs.length)return;
-  setTimeout(startTour,700);
+  if(!S.orgs.length||formGateOn())return;
+  setTimeout(function(){if(!formGateOn())startTour()},700);
 }
 function initTour(){
   var n=$('tournext'), k=$('tourskip');
@@ -8396,11 +8415,17 @@ function renderClubForm(){
     $('formsubmit').style.display='none'; return;
   }
   box.innerHTML='<p class="empty wait">Loading the form…</p>';
+  FORM.loaded=false;
   backendPost('formSchema',{formUrl:S.club.formUrl}).then(function(r){
     if(!r||!r.ok){
+      /* A member held at the form still needs a way through when it will not
+         load here: fill it in on Google, then have the page look for it. */
       box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that form.')+
-        ' <a href="'+esc(safeUrl(S.club.formUrl))+'" target="_blank" rel="noopener">Open it directly instead</a>.</p>';
-      $('formsubmit').style.display='none'; return;
+        ' <a href="'+esc(safeUrl(S.club.formUrl))+'" target="_blank" rel="noopener">Open it directly instead</a>.</p>'+
+        (formGateOn()?'<div class="row"><button type="button" id="formrecheck" class="ghost">I sent it there — check again</button></div>':'');
+      $('formsubmit').style.display='none';
+      if($('formrecheck'))$('formrecheck').addEventListener('click',recheckFormSent);
+      return;
     }
     FORM.schema=r; FORM.loaded=true;
     $('formtitle').textContent=r.title;
@@ -8421,59 +8446,139 @@ function renderClubForm(){
     });
   });
 }
-/* Shown once, right after joining: the club's form is the thing that puts a
-   new member on the roster, so it is offered rather than buried. */
-/* Set when somebody has just joined or just made an account, so the form is
-   opened for them once rather than every time they sign in. */
+/* Set when somebody has just joined or just made an account: they have
+   certainly not sent the form yet, so there is nothing to ask the backend. */
 var FORM_PENDING=false;
 function offerClubForm(){ FORM_PENDING=true; maybeOfferForm(); }
 
-/* The club arrives from the backend a second or two after sign-in, and the
-   first version of this ran on a 1400ms timer — shorter than the round trip
-   more often than not, so it read an empty formUrl and did nothing. It is
-   called when the club actually lands now, and the tab stays available to
-   anybody whose club has a form rather than appearing only in the one moment
-   after joining. */
+/* ---- the sign-up form comes first ----
+   The form is what puts a new member on the roster -- Orgs and teams are
+   formed from its answers -- so a member whose club has one cannot reach the
+   rest of the site until it is sent. Officers are never held: they run the
+   club, and they see the tab only to check what members are asked. A club
+   with no form linked holds nobody, because there is nothing to fill in.
+   This is a page-level gate, not a permission: the backend still decides
+   what each account may read. */
+var FORM_WANTED='';
+function formGateOn(){
+  if(A.role!=='member'||A.offline)return false;
+  if(!S.club||!S.club.formUrl)return false;
+  return !formDone();
+}
+var FORM_INTRO='';
+function applyFormGate(){
+  var on=formGateOn();
+  document.body.classList.toggle('formgate',on);
+  navBtns().forEach(function(b){
+    if(b.id==='navform')return;
+    if(on){b.setAttribute('aria-disabled','true');b.title='Send the sign-up form first'}
+    else if(b.getAttribute('aria-disabled')){b.removeAttribute('aria-disabled');b.removeAttribute('title')}
+  });
+  var intro=$('formintro'), skip=$('formskip');
+  if(intro){
+    if(!FORM_INTRO)FORM_INTRO=intro.textContent;
+    intro.textContent=on
+      ?'Fill this in first: it is what puts you on the roster, and EBOD forms Orgs and teams from these answers. The rest of the site opens as soon as it is sent. Your name and email are already in.'
+      :FORM_INTRO;
+  }
+  /* Skipping is for officers previewing the form, never for the member it holds. */
+  if(skip)skip.style.display=(on||!canEdit())?'none':'';
+  if(on&&typeof CHAT!=='undefined'&&CHAT.open&&typeof chatClose==='function')chatClose();
+}
+/* Somebody pressed a tab, or followed a link, while the form still stands. */
+function formGateNudge(){
+  var m=$('formmsg'); if(!m)return;
+  m.textContent='Send the sign-up form first. Every other tab opens as soon as it is in.';
+  m.className='msg show info';
+  window.scrollTo(0,0);
+}
+/* Where a member lands once the form is behind them: wherever they were
+   heading, if they are allowed there, otherwise their usual first page. */
+function liftFormGate(toProfile){
+  FORM_PENDING=false;
+  applyFormGate();
+  var btn=$('navform'); if(btn)btn.style.display='none';
+  if(!$('v-form').classList.contains('on'))return;
+  var want=FORM_WANTED; FORM_WANTED='';
+  if(toProfile)want='v-profile';
+  if(!want||want==='v-form'||!$(want)||!routeAllowed(want))
+    want=(S.orgs.length&&myOrgIndex()>-1)?'v-teams':'v-profile';
+  setView(want);
+  maybeTour();
+}
+
+/* The club arrives from the backend a second or two after sign-in, so this
+   runs when it actually lands (and again whenever the club changes), not on
+   a timer. */
 function maybeOfferForm(){
   var btn=$('navform'); if(!btn)return;
-  if(!S.club||!S.club.formUrl){btn.style.display='none';return}
-  if(canEdit()){btn.style.display='';return}
-  /* A member who has filled it in never needs it again: it goes, as it does
-     the moment they submit. Everyone else gets it as the FIRST tab, because
-     for a new member it is the first thing to do -- it is what puts them on
-     the roster -- and at the end of the row it read as optional. */
-  if(formDone()){btn.style.display='none';FORM_PENDING=false;return}
+  if(!S.club||!S.club.formUrl){btn.style.display='none';applyFormGate();return}
+  if(canEdit()){btn.style.display='';applyFormGate();return}
+  /* A member who has sent it never needs it again: the tab goes, as it does
+     the moment they submit. Everyone else gets it as the FIRST tab. */
+  if(formDone()){btn.style.display='none';FORM_PENDING=false;applyFormGate();return}
   var nav=$('nav'); if(nav&&nav.firstElementChild!==btn)nav.insertBefore(btn,nav.firstElementChild);
   btn.style.display='';
-  if(FORM_PENDING){ FORM_PENDING=false; FORM_LANDED=true; setView('v-form'); return; }
+  applyFormGate();
+  /* Whatever page was showing, the form takes its place now. */
+  var cur=document.querySelector('.view.on');
+  if(formGateOn()&&(!cur||cur.id!=='v-form'))setView(cur?cur.id:'v-profile',true);
+  if(FORM_PENDING){ FORM_PENDING=false; FORM_CHECKED=true; return; }
   checkFormDone();
 }
 /* Remembered per club and per account, so a phone that has already sent the
    form does not ask the backend again on every visit. */
-var FORM_LANDED=false, FORM_CHECKING=false;
+var FORM_CHECKED=false, FORM_CHECKING=false;
 function formDoneKey(){return 'orgsys-formdone:'+(A.aff||'')+':'+String(A.email||A.name||'').toLowerCase()}
-function formDone(){try{return localStorage.getItem(formDoneKey())==='1'}catch(e){return false}}
+function formDone(){
+  /* The demo's new member has sent it only once they have, whatever an
+     earlier run of the demo left in this browser. */
+  if(DEMO_ON&&DEMO.as==='new')return !!DEMO.onboarded;
+  try{return localStorage.getItem(formDoneKey())==='1'}catch(e){return false}
+}
 function markFormDone(){try{localStorage.setItem(formDoneKey(),'1')}catch(e){}}
 /* Asks once per page load whether this member's answers are already on file
-   -- they may have filled the form on another device, or before this page
-   existed. Only once that is known does the page decide to open the form for
-   them, so nobody is dropped onto a form they have already sent. */
+   -- they may have sent the form on another device, or before this page
+   existed -- and lets them straight through if so. A failed check leaves the
+   form standing and is tried again the next time the club refreshes. */
 function checkFormDone(){
-  if(FORM_CHECKING||FORM_LANDED)return;
+  if(FORM_CHECKING||FORM_CHECKED)return;
   FORM_CHECKING=true;
   backendPost('myProfile',null).then(function(r){
     FORM_CHECKING=false;
-    var a=r&&r.ok&&r.answers;
-    if(a&&(a.at||a.year||a.track||a.mbti)){ markFormDone(); $('navform').style.display='none'; return; }
     if(!r||!r.ok)return;
-    /* Land on the form only from the page they would have landed on anyway,
-       never out from under a link they followed to somewhere specific. */
-    var cur=document.querySelector('.view.on');
-    var id=cur?cur.id:'';
-    if(!FORM_LANDED&&(!id||id==='v-teams'||id==='v-cup'||id==='v-draft')){
-      FORM_LANDED=true; setView('v-form');
-    }
+    FORM_CHECKED=true;
+    var a=r.answers;
+    if(a&&(a.at||a.year||a.track||a.mbti)){ markFormDone(); liftFormGate(); }
   });
+}
+/* For a form filled in on Google itself: its row in the club's response
+   sheet is what proves it was sent. */
+function recheckFormSent(){
+  var m=$('formmsg'), b=$('formrecheck');
+  if(b)b.disabled=true;
+  m.textContent='Looking for your answers…';m.className='msg show info wait';
+  backendPost('myFormAnswers',null).then(function(a){
+    if(b)b.disabled=false;
+    if(a&&a.ok){ markFormDone(); m.textContent='Found them. Welcome in.';m.className='msg show good'; liftFormGate(); }
+    else { m.textContent=(a&&a.error)||'Nothing yet. Give the club’s sheet a minute and try again.';m.className='msg show'; }
+  });
+}
+/* The answers the backend can file on the account even when the club's
+   response sheet cannot be read back, picked out by what each question asks. */
+function formSummary(answers){
+  var out={};
+  (FORM.schema&&FORM.schema.fields||[]).forEach(function(f){
+    var v=answers[f.id]; if(v==null||v==='')return;
+    v=Array.isArray(v)?v.join(', '):String(v);
+    var L=String(f.label||'').toLowerCase();
+    if(!out.mbti&&/mbti|personality|16 ?personalities|four letters/.test(L))out.mbti=v;
+    else if(!out.year&&/\byear\b|tenure|how long/.test(L))out.year=v;
+    else if(!out.track&&/track|division|which side|interest/.test(L))out.track=v;
+    else if(!out.avail&&/availab|when are you|free time|schedule/.test(L))out.avail=v;
+    else if(!out.notes&&/anything|note|comment|else/.test(L))out.notes=v;
+  });
+  return out;
 }
 function submitClubForm(){
   var m=$('formmsg');
@@ -8485,30 +8590,35 @@ function submitClubForm(){
       var picked=Array.prototype.filter.call(document.getElementsByName(id),function(x){return x.checked})
         .map(function(x){return x.value});
       val=picked.length?(f.type===4?picked:picked[0]):'';
-    } else { var el=$(id); val=el?el.value:''; }
+    } else { var el=$(id); val=el?String(el.value||'').trim():''; }
     if(f.required&&(!val||!val.length))missing.push(f.label);
     if(val&&val.length)answers[f.id]=val;
   });
-  if(missing.length){m.textContent='Still needed: '+missing.slice(0,3).join(', ')+'.';m.className='msg show';return}
+  if(missing.length){
+    m.textContent='Still needed: '+missing.slice(0,3).join(', ')+(missing.length>3?' and '+(missing.length-3)+' more':'')+'.';
+    m.className='msg show';return;
+  }
+  var go=$('formsubmit'); go.disabled=true;
   m.textContent='Sending…';m.className='msg show info wait';
-  backendPost('submitForm',{action:FORM.schema.action,answers:answers}).then(function(r){
+  backendPost('submitForm',{action:FORM.schema.action,answers:answers,summary:formSummary(answers)}).then(function(r){
     if(r&&r.ok){
+      /* It is in the club's form now, so this device stops asking at once,
+         whatever happens to the read-back below. */
+      markFormDone();
       m.textContent='Sent. Reading your answers back…';m.className='msg show info wait';
       /* The response has just landed in the club's spreadsheet. Pulling it
          straight back is what puts it on the account, which is the whole
          point of filling the form in while signed in. */
       backendPost('myFormAnswers',null).then(function(a){
+        go.disabled=false;
         m.textContent=(a&&a.ok)
           ? 'Sent, and saved to your profile.'
           : 'Sent. It will appear on your profile once the club’s sheet catches up.';
         m.className='msg show good';
-        FORM_PENDING=false;
-        markFormDone();
-        $('navform').style.display='none';
-        setTimeout(function(){setView('v-profile')},1200);
+        setTimeout(function(){liftFormGate(true)},1200);
       });
     }
-    else {m.textContent=(r&&r.error)||'That did not send.';m.className='msg show';}
+    else {go.disabled=false;m.textContent=(r&&r.error)||'That did not send. Check your connection and try again.';m.className='msg show';}
   });
 }
 
@@ -9865,6 +9975,9 @@ function syncUrl(id,replace){
      they reload, land on /draft, and are shown the card again. The address
      they arrived on is left alone and honoured once they are in. */
   if(gateUp())return;
+  /* The same holds while the sign-up form stands in for every page: the
+     address they came in on is where they go once it is sent. */
+  if(formGateOn())return;
   var want=pathForView(id)+location.search;
   if(location.pathname+location.search===want)return;
   try{ history[replace?'replaceState':'pushState']({view:id},'',want) }catch(e){}
