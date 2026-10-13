@@ -42,19 +42,24 @@ Nothing in the demo is saved or sent anywhere. Use "Reset demo" in the demo bar 
    when you are usually available. Your answers are saved to your profile.
 3. **Take the walkthrough** that opens the first time you sign in (Orgs → Teams → Homework →
    Calendar → Org Cup → Profile).
-4. **Competing at FLC?** On the **Teams** tab, rank your three events, optionally name a
-   teammate, and confirm you can be there Nov 13–15. Under **Hotel**, tick *I need a bed*,
-   pick a rooming group (women's / men's / all-gender), name up to 3 roommates and add a
-   note only EBOD sees. Press *Send my choices*. Your room appears there once EBOD sets it.
+4. **Competing at FLC?** On the **Teams** tab, rank your three events, optionally pick a
+   teammate, and confirm you can be there Nov 13–15. Everyone going stays at the conference
+   hotel, so there is no "need a bed" question: under **Hotel room**, pick a rooming group
+   (women's / men's / all-gender), pick up to 3 roommates and add a note only EBOD sees.
+   Going without competing? Leave the events empty. Press *Send my choices*. Your room
+   appears there once EBOD sets it. Teammates and roommates are picked from a list of
+   everyone who registered: start typing a name. Someone who has not registered can still be
+   added with Enter; EBOD sees them flagged.
    **Already have a team?** *Form your own team*: pick FLC event, consulting client or
-   track, name it, list teammates, *Send to EBOD for review*. It shows *Waiting*,
-   *Approved* or *Sent back* (with EBOD's reason).
+   track, name it, pick teammates from the list, *Send to EBOD for review*. It shows
+   *Waiting*, *Approved* or *Sent back* (with EBOD's reason).
 5. **After bootcamp 1 (Oct 20):** *Orgs* shows your Org, its 2nd years and your EBOD contact.
    *Teams* shows your consulting team (PMs, your initiative) and FLC team.
 6. **Homework:** open *Homework*, upload a file or paste a shared link before the due date.
    Re-handing in replaces your earlier version; the first on-time hand-in still counts.
-7. **Calendar:** every event has *+ Calendar* to add it to your own Google Calendar, and
-   *Add the org calendar* (once EBOD has shared it) subscribes you to the whole chapter calendar.
+7. **Calendar:** shows everything on the chapter's Google Calendar that EBOD has not hidden,
+   kept up to date on its own. Every event has *+ Calendar* to add it to your own Google
+   Calendar, and *Add the org calendar* (once EBOD has shared it) subscribes you to it.
 8. **Not sure how a tab works?** Press *Watch* at the top of it for a short captioned clip.
    All of them are also on `/orientation` under *Tab by tab*.
 
@@ -80,9 +85,19 @@ All EBOD sign in with the **PBL Google account** (or their own address once gran
 3. *Assign EBOD contacts* (round-robin), then change any from the card's dropdown.
 4. Move people on each Org's page with the *Move* dropdown. *Reshuffle draft* starts over.
 
+**Choosing your tabs.** Officers see a lot of tabs. *Edit tabs* (right end of the tab bar)
+lists them with checkboxes: untick the ones you rarely use and they move under *More*, one
+click away. It is saved for your account in that browser. Members never see officer-only
+tabs at all.
+
 **Teams**
 1. *Teams → Set up every client team and place consulting-track members.* Then on each card
    pick the two PMs, type the initiatives (comma-separated) and set each consultant's initiative.
+   Every spot on a card is a dropdown of everyone registered: pick a name in someone's spot to
+   swap them, *Take off this team* to empty it, or fill an empty spot (an FLC team always shows
+   all 4 spots; other teams show one spare). Picking someone already on another team of the
+   same kind moves them, and the message says from where. The note above the cards lists who
+   is not on any team yet.
 2. The *FLC preferences* panel lists everyone who sent choices. *Form FLC teams from
    preferences* fills each event's teams from first, then second, then third choices, keeps
    requested teammates together where it can, and lists anyone it could not place. Selection
@@ -93,7 +108,7 @@ All EBOD sign in with the **PBL Google account** (or their own address once gran
    said they can't go, in another waiting request). *Approve* makes the team (consulting
    members join that client's team; anyone on another team of that kind is moved) or
    *Send back…* with a reason. Untick the box at the top to stop members sending teams.
-5. *FLC hotel rooms*: set people per room, *Form rooms from requests* (one rooming group
+5. *FLC hotel rooms*: everyone going gets a bed. Set people per room, *Form rooms from requests* (one rooming group
    per room, requested roommates together, as few rooms as possible), then move people,
    change a room's group and type the hotel room number at check-in. *Download FLC teams
    and rooms (CSV)* gives the registration / hotel list. Rooming notes are officers-only.
@@ -104,18 +119,32 @@ All EBOD sign in with the **PBL Google account** (or their own address once gran
 2. Under each assignment: handed in / on time / late / still to come, the names not in yet,
    and each hand-in with *Check off* (optional commitment points).
 
+**Attendance** (its own tab): *Take attendance* checks people in for one event. *Who was
+absent* lists everyone on the roster who was not checked in: pick *One meeting*, or *A date
+range* to see who missed the most (choose which meetings count and a minimum, e.g. missed at
+least 2). *Copy names* and *Download CSV* take the list into an email or the sheet.
+
 **Org Cups** are automatic from on-time homework; *Award a cup* on the Org Cup tab for
 anything else (turnout, a mock case win).
 
-**Calendar**: season dates are already there. Add rooms/times as new events; hide a built-in
-date with its ×. The field beside *Sync with Google Calendar* holds the chapter calendar —
-on the PBL club it suggests **deanzacapbl@gmail.com** (the PBL account's calendar). The
-first sync links it: page events go in (an event already there under much the same name,
-e.g. "IM Orientation MEETING", is matched, not duplicated), and its events come back.
-Anything that isn't clearly member-facing (EBOD, ICC, scope calls…) comes back
-**EBOD only**; press *Show to members* on any that should be public. Meeting links come
-back as "Online". The linked calendar's sharing is never changed, and members don't get
-the "Add this calendar" link for it.
+**Calendar**: the page shows the whole connected Google Calendar, so members see every
+event on it **unless you hide it**. The field beside *Connect & refresh* holds the chapter
+calendar; on the PBL club it suggests **deanzacapbl@gmail.com**. Press *Connect & refresh*
+once to link it. After that it refreshes itself every half hour (30 days back, about 8
+months ahead), so nothing needs pressing for members to see new events.
+- **Hide** on any event keeps that one occurrence from members; **Hide every one** on a
+  repeating event (EBOD meetings, ICC) hides all of it, future ones included. *Show to
+  members* / *Show every one* undoes it. Hidden events stay visible to officers, marked.
+- **Preview as a member** shows the calendar exactly as members see it.
+- The line under the calendar says what is connected, how many events are shared and
+  hidden, and when it last refreshed.
+- Adding an event here puts just that event on the Google Calendar straight away.
+  Built-in season dates go across only when you press *Connect & refresh* (an event already
+  there under much the same name, e.g. "IM Orientation MEETING", is matched, not duplicated).
+- Meeting links come back as "Online". Multi-day events (breaks, conferences) show on every
+  day. The linked calendar's sharing is never changed.
+- Upgrading from the earlier version: events that used to come back as "EBOD only" are now
+  shared. Open the calendar once and hide what members should not see.
 
 **Shareable org calendar link**: under *Shareable link to the org calendar*, paste the
 calendar's share link (Google Calendar → the calendar's *Settings* → *Integrate calendar*:
@@ -141,7 +170,15 @@ club roster — need the updated **`apps-script/Code.gs`**:
 3. Deploy → Manage deployments → edit the web app → *New version* → Deploy (keep the same
    URL so `WEBAPP_URL` in `index.html` does not change).
 
-This version also adds: hotel answers in FLC preferences, *Teams members sent in*
+**October 2026 update — redeploy the script.** This version shares the connected calendar
+with members (stored under its own `gcal:<club>` row in Config, refreshed every half hour
+from `getAll`), adds officers' hide choices (`calHide` on the club record), sends members the
+list of registered names (names only) for the teammate and roommate pickers, treats everyone
+attending FLC as needing a bed, and stops `getAll` sending the raw form-responses tab to
+every member. Until it is redeployed the calendar shows only what the last manual sync
+saved, and the pickers fall back to the drafted roster.
+
+The earlier version added: hotel answers in FLC preferences, *Teams members sent in*
 (`submitTeamRequest` / `listTeamRequests` / `reviewTeamRequest`, stored under their own
 `teamreqs:<club>` row in Config), linking an existing calendar, and EBOD-only events kept
 out of what members download. **Redeploy before members use the hotel or self-formed team

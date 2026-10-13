@@ -84,6 +84,20 @@ h1{font-size:clamp(28px,4.6vw,42px);font-weight:700;letter-spacing:-.03em;line-h
 h1 span{color:var(--slate);font-weight:400}
 .sub{margin-top:9px;color:var(--slate);max-width:64ch;font-size:14px}
 nav{display:flex;gap:0;margin-top:22px;flex-wrap:wrap;border-bottom:none}
+.navrow{display:flex;align-items:flex-end;gap:0 4px;margin-top:22px}
+.navrow nav{margin-top:0;flex:1 1 auto;min-width:0}
+#nav button.navhid,#nav button.noreq{display:none}
+.navmore{position:relative;flex:0 0 auto}
+.navmore>button{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;
+  padding:12px 14px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--mute);cursor:pointer;white-space:nowrap}
+.navmore>button:hover,.navmore>button[aria-expanded=true]{color:var(--ink)}
+.navmenu{position:absolute;right:0;top:100%;z-index:70;min-width:230px;max-height:70vh;overflow:auto;background:var(--card);
+  border:1px solid var(--rule);border-radius:4px;box-shadow:0 14px 34px rgba(0,0,0,.28);padding:6px}
+.navmenu .nmlbl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);padding:8px 8px 4px}
+.navmenu .nmgo{display:block;width:100%;text-align:left;background:transparent;border:none;border-radius:3px;padding:7px 8px;font-size:13.5px;color:var(--ink);cursor:pointer}
+.navmenu .nmgo:hover{background:var(--wash)}
+.navmenu .nmchk{display:flex;gap:8px;align-items:center;padding:5px 8px;font-size:13.5px}
+.navmenu .nmfoot{padding:8px 8px 4px;border-top:1px solid var(--hair);margin-top:6px}
 nav button{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;padding:12px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--mute);cursor:pointer}
 nav button[aria-current=true]{color:var(--ink);border-bottom-color:var(--accent)}
 nav button:disabled{opacity:.4;cursor:not-allowed}
@@ -718,6 +732,38 @@ tr.mine td{background:var(--wash)}
 .evchip.ebod{opacity:.6;border-style:dashed}
 .calid{width:210px;max-width:100%;font-size:12px;padding:5px 8px}
 .ebodtag{color:var(--flag)}
+.field[hidden]{display:none!important}
+#abbody ul.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+#abbody ul.roster li{border-bottom:none}
+.sqslots{display:grid;gap:6px;margin-top:10px}
+.sqslot{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:6px 8px;align-items:center}
+.sqslot .slotno{font-size:11px;color:var(--mute);text-align:right}
+.sqslot select.sqswap{width:100%;min-width:0;font:inherit;font-size:13.5px;color:var(--ink);background:var(--paper);
+  border:1px solid var(--rule);border-radius:3px;padding:7px 8px}
+.sqslot.vacant select.sqswap{border-style:dashed;color:var(--mute)}
+.sqslot.me select.sqswap{border-color:var(--accent)}
+.sqslot .slotorg{font-size:12px;color:var(--mute);white-space:nowrap}
+.sqslot .sqini,.sqslot .selwrap{grid-column:2 / -1}
+.npick{position:relative;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:38px;padding:5px 8px;
+  border:1px solid var(--rule);border-radius:3px;background:var(--paper)}
+.npick:focus-within{border-color:var(--ink)}
+.npchips{display:contents}
+.npchip{display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--rule);border-radius:999px;
+  padding:2px 4px 2px 10px;font-size:13px;color:var(--ink)}
+.npchip button{border:none;background:transparent;color:var(--mute);cursor:pointer;font-size:15px;line-height:1;padding:0 4px}
+.npchip button:hover{color:var(--flag)}
+.npick .npin{flex:1 1 120px;min-width:120px;border:none!important;background:transparent!important;padding:4px 2px!important;outline:none;box-shadow:none!important}
+.npick.full .npin{display:none}
+.nplist{position:absolute;left:-1px;right:-1px;top:calc(100% + 2px);z-index:40;max-height:260px;overflow:auto;background:var(--card);
+  border:1px solid var(--rule);border-radius:3px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
+.npopt{padding:8px 12px;font-size:13.5px;cursor:pointer;color:var(--ink)}
+.npopt.on,.npopt:hover{background:var(--wash)}
+.npnew{color:var(--mute);font-style:italic}
+.npnone{padding:8px 12px;font-size:13px;color:var(--mute)}
+.evhide{flex:0 0 auto;white-space:nowrap}
+.calstatus{margin:12px 0 0}
+.calprev{font-size:12.5px;padding:0 2px;white-space:nowrap}
+.calsync{flex-wrap:wrap}
 /* teams members send in */
 .reqlist{display:grid;gap:10px;margin-top:10px}
 .reqrow{border:1px solid var(--rule);border-radius:10px;padding:10px 12px;background:var(--paper)}
@@ -1247,13 +1293,15 @@ tr.mine td{background:var(--warmwash)}
     </div>
   </div>
   <h1><span id="h1title">Org System</span></h1>
-  <nav id="nav">
+  <div class="navrow">
+  <nav id="nav" aria-label="Sections">
     <button data-view="v-intake" aria-current="true" data-req="admin">Intake</button>
     <button data-view="v-roster" data-req="admin">Roster</button>
     <button data-view="v-draft" disabled data-req="admin">Draft</button>
     <button data-view="v-teams" disabled id="navorgs">Orgs</button>
     <button data-view="v-squads">Teams</button>
     <button data-view="v-cup">Org Cup</button>
+    <button data-view="v-attend" data-req="admin">Attendance</button>
     <button data-view="v-assist" disabled data-req="admin">Assistant</button>
     <button data-view="v-calendar">Calendar</button>
     <button data-view="v-work">Homework</button>
@@ -1261,6 +1309,12 @@ tr.mine td{background:var(--warmwash)}
     <button data-view="v-form" id="navform" style="display:none">Sign-up form</button>
     <button data-view="v-access" data-req="master">Access</button>
   </nav>
+  <!-- Officers choose which tabs sit in the bar; the rest wait under More. -->
+  <div class="navmore" id="navmore" hidden>
+    <button type="button" id="navmorebtn" aria-haspopup="true" aria-expanded="false" aria-controls="navmenu">More</button>
+    <div class="navmenu" id="navmenu" hidden></div>
+  </div>
+  </div>
 </header>
 
 <div class="tourwrap" id="tour" hidden>
@@ -1597,6 +1651,23 @@ tr.mine td{background:var(--warmwash)}
   <div class="row"><button id="atadd">Log attendance</button></div>
   <div class="msg" id="atmsg"></div>
 </div>
+<div class="panel" data-section="absences">
+  <h2>Who was absent</h2>
+  <p class="hint">Everyone on the roster who was not checked in. Look at one meeting, or across a stretch of dates to see who has missed the most.</p>
+  <div class="row" style="margin-top:0">
+    <div class="field" style="flex:1;min-width:150px"><label for="ab-mode">Look at</label>
+      <select id="ab-mode"><option value="one">One meeting</option><option value="range">A date range</option></select></div>
+    <div class="field" style="flex:2;min-width:240px" id="ab-onebox"><label for="ab-session">Meeting</label><select id="ab-session"></select></div>
+    <div class="field" style="flex:2;min-width:200px" id="ab-actbox" hidden><label for="ab-act">Which meetings count</label><select id="ab-act"></select></div>
+    <div class="field" id="ab-frombox" hidden><label for="ab-from">From</label><input type="date" id="ab-from"></div>
+    <div class="field" id="ab-tobox" hidden><label for="ab-to">To</label><input type="date" id="ab-to"></div>
+    <div class="field" id="ab-minbox" style="width:120px" hidden><label for="ab-min">Missed at least</label><input type="number" id="ab-min" min="1" max="99" value="1"></div>
+  </div>
+  <div class="row" style="margin-top:10px"><input type="text" id="ab-search" placeholder="Search names…" aria-label="Search absent members" style="max-width:320px"></div>
+  <div id="abbody" style="margin-top:10px"></div>
+  <div class="row"><button type="button" class="ghost" id="ab-copy">Copy names</button><button type="button" class="ghost" id="ab-csv">Download CSV</button></div>
+  <div class="msg" id="abmsg"></div>
+</div>
 </div>
 
 <!-- ============ ORG CUP ============ -->
@@ -1785,12 +1856,14 @@ Marcus Lee"></textarea>
       <div class="calsync">
         <input type="text" id="cal-id" data-req="admin" class="calid" placeholder="Chapter calendar ID" aria-label="Google Calendar ID to sync with"
           title="The chapter calendar to sync with. Leave it as it is to keep the current one.">
-        <button class="tiny ghost" id="cal-sync" data-req="admin" type="button">Sync with Google Calendar</button>
+        <button class="tiny ghost" id="cal-sync" data-req="admin" type="button" title="Sends events added here to Google Calendar and reads the calendar back now. It also refreshes on its own every half hour.">Connect &amp; refresh</button>
+        <label class="check calprev" data-req="admin"><input type="checkbox" id="cal-preview"> Preview as a member</label>
         <a class="tiny ghost" id="cal-sub" href="#" target="_blank" rel="noopener" style="display:none">Add this calendar to mine</a>
         <a class="tiny calcta" id="cal-join" href="#" target="_blank" rel="noopener" style="display:none">Add the org calendar</a>
         <button class="tiny ghost" id="cal-copy" type="button" style="display:none">Copy link</button>
       </div>
     </div>
+    <p class="hint calstatus" id="cal-status" hidden></p>
     <div id="calbody" style="margin-top:14px"></div>
   </div>
 </div>
@@ -2045,6 +2118,8 @@ function cloneClub(c){
     clients:(c.clients||[]).map(function(x){return cleanLabel(x)}),
     flcEvents:(c.flcEvents||[]).map(function(x){return cleanLabel(x)}),
     cups:(c.cups||[]).slice(), seasonOff:(c.seasonOff||[]).slice(),
+    /* Which of the connected Google Calendar's events members do not see. */
+    calHide:{ids:((c.calHide&&c.calHide.ids)||[]).slice(),series:((c.calHide&&c.calHide.series)||[]).slice()},
     gcalId:cleanLabel(c.gcalId), gcalUrl:safeUrl(c.gcalUrl), gcalLinked:!!c.gcalLinked, calShare:safeUrl(c.calShare), theme:cleanLabel(c.theme),
     /* FLC hotel rooms: who sleeps where, and how many a room takes. */
     rooms:(c.rooms||[]).map(cloneRoom), roomCap:clampRoomCap(c.roomCap),
@@ -2356,6 +2431,7 @@ function applyRole(){
   if(S.orgs.length){renderDraft(); if($('v-teams').classList.contains('on'))renderTeam()}
   renderBoard();
   wireHideControls();
+  applyNavHide();
 }
 
 function onCredential(resp){
@@ -2492,7 +2568,11 @@ function resumeSession(){
   return backendPost('getAll',null).then(function(r){
     if(!r||!r.ok){
       A.session=null;A.token=null;A.via='';
-      storeSession(null);storeGoogleToken(null);storeWho(null);
+      /* Only a real answer saying no ends the session. No answer at all is
+         the network or Apps Script having a moment, and signing everybody
+         out over that sent them back through the sign-in card for nothing. */
+      if(r){storeSession(null);storeGoogleToken(null);storeWho(null)}
+      else gateMsg('Could not reach the club sheet. Check your connection and reload; you are still signed in.',true);
       showGate(true);return false;
     }
     PROVISIONAL=false;
@@ -2862,11 +2942,17 @@ function backendPost(action,payload){
   if(A.session)body.session=A.session; else if(A.token)body.token=A.token;
   if(A.aff)body.aff=A.aff;
   netStart();
+  /* A call Apps Script never answers used to hold the busy bar forever. It
+     now gives up and reads as "no answer", like any other failed call. Calls
+     that move files or talk to Google Calendar get longer. */
+  var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var tmo=ctl?setTimeout(function(){ctl.abort()},SLOW_CALLS[action]?150000:45000):null;
   return fetch(WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify(body)})
+    body:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
     .then(function(r){return r.ok?r.json():null}).catch(function(){return null})
-    .then(function(v){netEnd();return v});
+    .then(function(v){if(tmo)clearTimeout(tmo);netEnd();return v});
 }
+var SLOW_CALLS={calendarSync:1,submitWork:1,cloneForm:1,republishForm:1,forkClub:1,purgeClub:1};
 /* The bar only appears for a call that is still going after a quarter of a
    second, so quick saves do not flicker it on and off. */
 var NET_N=0, NET_T=null;
@@ -2955,6 +3041,8 @@ function mergeBackendData(data){
       changed=true;
     }
   }
+  if(data.ok&&data.gcal){setGcal(data.gcal);changed=true}
+  if(data.ok&&data.memberNames)REG.names=data.memberNames.slice(0,2000);
   if(data.ok&&data.teamBoard)TEAMBOARD=data.teamBoard;
   if(data.ok&&data.orgBoard)ORGBOARD=data.orgBoard;
   if(data.pointsLog&&data.pointsLog.length){
@@ -3005,8 +3093,9 @@ function setView(id,fromRoute){
   Array.prototype.forEach.call(document.querySelectorAll('#nav button'),function(b){
     b.setAttribute('aria-current',b.dataset.view===id?'true':'false');
   });
+  applyNavHide();
   if(id==='v-teams')renderTeam();
-  if(id==='v-attend')renderAttend();
+  if(id==='v-attend'){renderAttend();renderAbsences()}
   if(id==='v-cup'){renderCup();renderTeamBoard()}
   if(id==='v-squads')renderSquads();
   if(id==='v-assist'){computeSwaps();renderAssistant()}
@@ -3038,7 +3127,80 @@ function unlockNav(){
     var need=b.getAttribute('data-req');
     b.disabled=need?!roleAtLeast(need):false;
   });
+  applyNavHide();
 }
+
+/* ---------------- which tabs sit in the bar ----------------
+   An officer has a dozen tabs and uses a handful most weeks. They choose which
+   ones stay in the bar; the rest wait under More, one click away. It is a
+   personal preference, like hiding a section, so it lives in this browser,
+   per account, and never syncs. A tab a member's role cannot open is left out
+   of their bar entirely rather than shown greyed out. */
+var NAVHIDE={}, NAVHIDE_FOR='';
+function navBtns(){return Array.prototype.slice.call(document.querySelectorAll('#nav button'))}
+function navHideKey(){return 'orgsystem.navhide.'+String(A.email||A.name||'me').toLowerCase()}
+function saveNavHide(){try{localStorage.setItem(navHideKey(),JSON.stringify(NAVHIDE))}catch(e){}}
+function navRoleOk(b){var need=b.getAttribute('data-req');return !(need&&!roleAtLeast(need))}
+function navUsable(b){return navRoleOk(b)&&b.style.display!=='none'}
+function navName(b){return String(b.textContent||'').replace(/\s+/g,' ').trim()}
+function applyNavHide(){
+  if(NAVHIDE_FOR!==navHideKey()){
+    NAVHIDE_FOR=navHideKey();
+    try{NAVHIDE=JSON.parse(localStorage.getItem(NAVHIDE_FOR)||'{}')||{}}catch(e){NAVHIDE={}}
+  }
+  var officer=canEdit()&&A.role!=='none', tucked=0;
+  navBtns().forEach(function(b){
+    var hide=officer&&!!NAVHIDE[b.dataset.view]&&b.getAttribute('aria-current')!=='true';
+    b.classList.toggle('navhid',hide);
+    b.classList.toggle('noreq',A.role!=='none'&&!navRoleOk(b));
+    if(hide&&navUsable(b))tucked++;
+  });
+  var more=$('navmore'), btn=$('navmorebtn'), menu=$('navmenu');
+  if(!more)return;
+  more.hidden=!officer;
+  if(!officer){menu.hidden=true;return}
+  btn.textContent=tucked?'More ('+tucked+')':'Edit tabs';
+  if(!menu.hidden)renderNavMenu();
+}
+function renderNavMenu(){
+  var menu=$('navmenu'); if(!menu)return;
+  var usable=navBtns().filter(navUsable);
+  var tucked=usable.filter(function(b){return b.classList.contains('navhid')});
+  var h='';
+  if(tucked.length)h+='<div class="nmlbl">Open</div>'+tucked.map(function(b){
+    return '<button type="button" class="nmgo" data-v="'+esc(b.dataset.view)+'"'+(b.disabled?' disabled':'')+'>'+esc(navName(b))+'</button>'}).join('');
+  h+='<div class="nmlbl">Show in the bar</div>'+usable.map(function(b){
+    return '<label class="check nmchk"><input type="checkbox" data-v="'+esc(b.dataset.view)+'"'+(NAVHIDE[b.dataset.view]?'':' checked')+'> '+esc(navName(b))+'</label>'}).join('')+
+    '<div class="nmfoot"><button type="button" class="tiny ghost" id="nmall">Show every tab</button></div>';
+  menu.innerHTML=h;
+  Array.prototype.forEach.call(menu.querySelectorAll('.nmgo'),function(g){
+    g.addEventListener('click',function(){menu.hidden=true;$('navmorebtn').setAttribute('aria-expanded','false');setView(g.dataset.v)});
+  });
+  Array.prototype.forEach.call(menu.querySelectorAll('input[data-v]'),function(c){
+    c.addEventListener('change',function(){
+      if(c.checked)delete NAVHIDE[c.dataset.v]; else NAVHIDE[c.dataset.v]=1;
+      saveNavHide(); applyNavHide();
+    });
+  });
+  $('nmall').addEventListener('click',function(){NAVHIDE={};saveNavHide();applyNavHide()});
+}
+(function(){
+  var btn=$('navmorebtn'), menu=$('navmenu');
+  if(!btn)return;
+  btn.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    var open=menu.hidden;
+    if(open)renderNavMenu();
+    menu.hidden=!open; btn.setAttribute('aria-expanded',String(open));
+  });
+  document.addEventListener('click',function(ev){
+    if(menu.hidden||menu.contains(ev.target))return;
+    menu.hidden=true; btn.setAttribute('aria-expanded','false');
+  });
+  document.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'&&!menu.hidden){menu.hidden=true;btn.setAttribute('aria-expanded','false');btn.focus()}
+  });
+})();
 
 /* ---------------- scoped tabs ---------------- */
 Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){
@@ -3988,15 +4150,65 @@ function initBoot(){
    moment this page is deployed, without anybody importing anything. An
    officer can hide one (seasonOff); one that has been synced to Google comes
    back in S.club.events under the same id and is not shown twice. */
+/* Everything on the connected Google Calendar comes back from the backend on
+   its own (GCAL), refreshed there every half hour, so nobody has to press
+   anything for members to see it. It is shared with members unless an
+   officer hides it: one occurrence (calHide.ids) or every occurrence of a
+   repeating event (calHide.series). Members never receive what is hidden;
+   officers get it marked, so they can bring it back. */
+var GCAL={ready:false,events:[],syncedAt:0,calId:'',error:''};
+function setGcal(g){
+  GCAL={ready:true,events:(g&&g.events)||[],syncedAt:+(g&&g.syncedAt)||0,calId:(g&&g.calId)||'',error:(g&&g.error)||''};
+}
+function calHideState(){
+  var h=(S.club&&S.club.calHide)||{};
+  return {ids:(h.ids||[]).slice(),series:(h.series||[]).slice()};
+}
+function isCalHidden(e){
+  var h=calHideState();
+  if(e.pulled)return h.ids.indexOf(e.id)>-1||(!!e.gid&&h.series.indexOf(e.gid)>-1);
+  return !!e.ebod;
+}
 function calList(){
-  var own=((S.club&&S.club.events)||[]), have={}, off={};
+  var own=((S.club&&S.club.events)||[]), have={}, off={}, gids={};
   own.forEach(function(e){have[e.id]=1});
   ((S.club&&S.club.seasonOff)||[]).forEach(function(id){off[id]=1});
   var season=F26.season.filter(function(e){return !have[e.id]&&!off[e.id]})
     .map(function(e){var c={};for(var k in e)c[k]=e[k];c.season=true;return c});
-  return own.filter(function(e){return !off[e.id]}).concat(season).sort(function(a,b){
-    return String(a.date||'').localeCompare(String(b.date||''));
+  /* Older syncs kept Google's events on the club record, marked pulled.
+     Once the backend sends its own copy, those are superseded. */
+  var mine=own.filter(function(e){return !off[e.id]&&!(GCAL.ready&&e.pulled)});
+  mine.forEach(function(e){if(e.gid)gids[e.gid+'|'+e.date]=1});
+  var pulled=GCAL.ready?GCAL.events.filter(function(e){return !gids[e.gid+'|'+e.date]&&
+      (canEdit()||!isCalHidden({pulled:true,id:e.id,gid:e.gid}))}).map(function(e){
+    var c={};for(var k in e)c[k]=e[k];c.pulled=true;c.cat=c.cat||'meet';
+    c.ebod=canEdit()?isCalHidden(c):false;
+    return c;
+  }):[];
+  var all=mine.concat(season).concat(pulled);
+  if(canEdit()&&CALV.preview)all=all.filter(function(e){return !(e.pulled?isCalHidden(e):e.ebod)});
+  return all.sort(function(a,b){
+    return String(a.date||'').localeCompare(String(b.date||''))||String(a.time||'').localeCompare(String(b.time||''));
   });
+}
+/* An all-day event can span days (a break, a conference). It is drawn on
+   each of them, capped so a malformed one cannot fill a year. */
+function eventDays(e){
+  var out=[String(e.date||'')];
+  if(!e.end||e.end<=e.date)return out;
+  var p=String(e.date).split('-'), d=new Date(+p[0],+p[1]-1,+p[2]);
+  for(var i=0;i<45;i++){
+    d.setDate(d.getDate()+1);
+    var k=ymd(d.getFullYear(),d.getMonth(),d.getDate());
+    if(k>e.end)break;
+    out.push(k);
+  }
+  return out;
+}
+function eventsByDay(){
+  var byDay={};
+  calList().forEach(function(e){eventDays(e).forEach(function(k){(byDay[k]=byDay[k]||[]).push(e)})});
+  return byDay;
 }
 function calDate(d){
   if(!d)return '';
@@ -4029,7 +4241,9 @@ function gcalLink(e){
     var eh=String((+t.h+1)%24).padStart(2,'0');
     end=d+'T'+eh+t.mi+'00';
   } else {
-    var nx=new Date(+p[0],+p[1]-1,+p[2]+1);
+    /* All day, through the last day of a span; Google's end date is exclusive. */
+    var q=String(e.end&&e.end>e.date?e.end:e.date).split('-');
+    var nx=new Date(+q[0],+q[1]-1,+q[2]+1);
     start=d; end=ymd(nx.getFullYear(),nx.getMonth(),nx.getDate()).replace(/-/g,'');
   }
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE'+
@@ -4065,8 +4279,7 @@ function renderMonth(){
   var t=$('cal-title');
   if(t)t.textContent=first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
 
-  var byDay={};
-  calList().forEach(function(e){ (byDay[e.date]=byDay[e.date]||[]).push(e) });
+  var byDay=eventsByDay();
 
   var today=todayYMD();
   var h='<div class="calgrid"><div class="calhead">'+
@@ -4096,7 +4309,7 @@ function renderMonth(){
    stays on screen while you read it. */
 function showDay(key){
   var box=$('dayview'); if(!box)return;
-  var evs=calList().filter(function(e){return e.date===key});
+  var evs=calList().filter(function(e){return eventDays(e).indexOf(key)>-1});
   var p=key.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]);
   var h='<div class="dayhead"><b>'+esc(d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}))+'</b>'+
         (canEdit()?'<button class="tiny ghost" id="dayadd" type="button">Add on this day</button>':'')+'</div>';
@@ -4118,21 +4331,51 @@ function evRow(e){
       (e.where?'<em> · '+esc(e.where)+'</em>':'')+
       (e.time?'<em> · '+esc(e.time)+'</em>':'')+
       (e.season?'<em> · Fall 2026 season</em>':'')+
-      (e.ebod?'<em class="ebodtag"> · EBOD only</em>':'')+'</span>'+
+      (e.end?'<em> · through '+esc(calDate(e.end))+'</em>':'')+
+      (e.ebod?'<em class="ebodtag"> · hidden from members</em>':'')+'</span>'+
     '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>'+
     (link?'<a class="evadd" href="'+esc(link)+'" target="_blank" rel="noopener" title="Add to your own Google Calendar">+ Calendar</a>':'')+
-    /* Brought back from the chapter calendar: officers decide what members see. */
-    (canEdit()&&e.pulled?'<button class="tiny ghost evshow" type="button">'+(e.ebod?'Show to members':'EBOD only')+'</button>':'')+
-    (canEdit()?'<button class="evkill" type="button" title="Remove">×</button>':'')+
+    (canEdit()?evHideControls(e):'')+
+    /* Google's own events are hidden, not removed: removing one here would
+       only bring it back on the next refresh. */
+    (canEdit()&&!e.pulled?'<button class="evkill" type="button" title="Remove">×</button>':'')+
   '</div>';
 }
+/* Officers decide what members see. A repeating event (a weekly EBOD
+   meeting) can be hidden in one go, so the calendar stays tidy as the
+   season adds occurrences. */
+function evHideControls(e){
+  if(e.season)return '';
+  var h=calHideState(), series=e.pulled&&e.gid&&h.series.indexOf(e.gid)>-1;
+  if(series)return '<button class="tiny ghost evhide" data-act="showall" type="button" title="Members see every occurrence again">Show every one</button>';
+  var b='<button class="tiny ghost evhide" data-act="'+(e.ebod?'show':'hide')+'" type="button">'+(e.ebod?'Show to members':'Hide')+'</button>';
+  if(e.pulled&&e.rec)b+='<button class="tiny ghost evhide" data-act="hideall" type="button" title="Hide every occurrence of '+esc(e.title)+', including future ones">Hide every one</button>';
+  return b;
+}
+function calHideApply(e,act){
+  var h=calHideState(), drop=function(a,v){return a.filter(function(x){return x!==v})};
+  if(!e.pulled){
+    (S.club.events||[]).forEach(function(x){if(x.id===e.id)x.ebod=(act==='hide')});
+  } else if(act==='hide')h.ids=drop(h.ids,e.id).concat([e.id]);
+  else if(act==='show')h.ids=drop(h.ids,e.id);
+  else if(act==='hideall'){h.series=drop(h.series,e.gid).concat([e.gid]);
+    var mine=GCAL.events.filter(function(x){return x.gid===e.gid}).map(function(x){return x.id});
+    h.ids=h.ids.filter(function(id){return mine.indexOf(id)<0});}
+  else if(act==='showall')h.series=drop(h.series,e.gid);
+  /* Hides for events that have dropped out of the window are trimmed, so the
+     list on the club record does not grow all year. */
+  var live={};GCAL.events.forEach(function(x){live[x.id]=1});
+  if(GCAL.events.length)h.ids=h.ids.filter(function(id){return live[id]});
+  S.club.calHide={ids:h.ids.slice(-600),series:h.series.slice(-200)};
+  save(); syncClub(); renderCalendar();
+}
 function wireEvRows(box){
-  Array.prototype.forEach.call(box.querySelectorAll('.evshow'),function(b){
+  Array.prototype.forEach.call(box.querySelectorAll('.evhide'),function(b){
     b.addEventListener('click',function(ev){
       ev.stopPropagation();
-      var id=b.parentNode.dataset.id;
-      (S.club.events||[]).forEach(function(e){if(e.id===id)e.ebod=!e.ebod});
-      save(); syncClub(); renderCalendar();
+      var id=b.closest('.evrow').dataset.id, e=calList().filter(function(x){return x.id===id})[0];
+      if(!e&&CALV.preview){CALV.preview=false;e=calList().filter(function(x){return x.id===id})[0]}
+      if(e)calHideApply(e,b.dataset.act);
     });
   });
   Array.prototype.forEach.call(box.querySelectorAll('.evkill'),function(b){
@@ -4165,8 +4408,7 @@ function weekStart(y,m,d){
    month's chips, so an event looks the same wherever it is read. */
 function renderSpan(days,startDate){
   var box=$('calbody');
-  var byDay={};
-  calList().forEach(function(e){ (byDay[e.date]=byDay[e.date]||[]).push(e) });
+  var byDay=eventsByDay();
   var today=todayYMD(), cells=[];
   for(var i=0;i<days;i++){
     var d=new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+i);
@@ -4225,6 +4467,7 @@ function renderCalendar(){
   var cs=$('cal-share');
   if(cs&&document.activeElement!==cs)cs.value=S.club.calShare||'';
   paintShareHint();
+  paintCalStatus();
   var base=new Date(CALV.y,CALV.m,CALV.d||1);
   if(CALV.mode==='month')renderMonth();
   else if(CALV.mode==='week')renderSpan(7,weekStart(CALV.y,CALV.m,CALV.d||1));
@@ -4232,6 +4475,31 @@ function renderCalendar(){
   else renderList();
 }
 
+function timeAgo(ms){
+  var m=Math.round((Date.now()-ms)/60000);
+  if(m<1)return 'just now';
+  if(m<60)return m+' min ago';
+  var h=Math.round(m/60); if(h<24)return h+' hour'+(h===1?'':'s')+' ago';
+  return new Date(ms).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+/* One line that says where the events come from and what members can see,
+   so nobody has to guess whether the calendar is connected. */
+function paintCalStatus(){
+  var el=$('cal-status'); if(!el)return;
+  var cid=GCAL.calId||(S.club&&S.club.gcalId)||'';
+  if(!GCAL.ready||!cid){
+    el.textContent=canEdit()&&!A.offline&&!DEMO_ON?'Not connected to Google Calendar yet. Check the calendar ID next to the button, then press Connect & refresh.':'';
+    el.hidden=!el.textContent; return;
+  }
+  var ago=GCAL.syncedAt?timeAgo(GCAL.syncedAt):'';
+  if(!canEdit()){el.textContent='From the chapter’s Google Calendar'+(ago?' · updated '+ago:'')+'.';el.hidden=false;return}
+  var hid=GCAL.events.filter(function(e){return isCalHidden({pulled:true,id:e.id,gid:e.gid})}).length, shown=GCAL.events.length-hid;
+  el.innerHTML='Connected to <b>'+esc(cid)+'</b> · '+shown+' event'+(shown===1?'':'s')+' shared with members'+
+    (hid?', '+hid+' hidden':'')+(ago?' · refreshed '+esc(ago):'')+'. New events on that calendar appear here within half an hour. '+
+    'Use <b>Hide</b> on anything members should not see, or <b>Hide every one</b> for a repeating meeting.'+
+    (GCAL.error?' <span style="color:var(--flag)">'+esc(GCAL.error)+'</span>':'');
+  el.hidden=false;
+}
 /* A calendar feed (.ics) opens as a subscription in Google Calendar; a
    Google Calendar link opens as it is. Either way the raw link is what gets
    copied, so it works in Apple or Outlook calendars too. */
@@ -4276,7 +4544,8 @@ function initCalendar(){
     var m=$('evmsg');
     if(!t||!d){m.textContent='An event needs a name and a date.';m.className='msg show';return}
     S.club.events=S.club.events||[];
-    S.club.events.push({id:'e'+Date.now().toString(36),title:cleanLabel(t).slice(0,80),
+    var nid='e'+Date.now().toString(36);
+    S.club.events.push({id:nid,title:cleanLabel(t).slice(0,80),
       date:d,time:cleanLabel($('ev-time').value).slice(0,20),
       where:cleanLabel($('ev-where').value).slice(0,60),cat:$('ev-kind').value||'meet'});
     $('ev-title').value=''; $('ev-time').value=''; $('ev-where').value='';
@@ -4284,7 +4553,12 @@ function initCalendar(){
     var p=String(d).split('-');
     if(p.length===3){CALV.y=+p[0];CALV.m=+p[1]-1}
     save(); syncClub(); renderCalendar();
+    /* Straight onto the connected Google Calendar too, and only this event,
+       so adding one thing never sends anything else along with it. */
+    if(S.club.gcalId&&!DEMO_ON&&!A.offline)runCalSync({pushOnly:[nid],quiet:true});
   });
+  var pv=$('cal-preview');
+  if(pv)pv.addEventListener('change',function(){CALV.preview=pv.checked;renderCalendar()});
 
   /* One step means a different distance in each view, which is the only thing
      the arrows can sensibly mean. */
@@ -4318,40 +4592,51 @@ function initCalendar(){
      posted here, and anything somebody put straight into Google turns up here.
      Nothing is deleted on either side by a sync. */
   var sync=$('cal-sync');
-  if(sync)sync.addEventListener('click',function(){
-    var m=$('evmsg');
-    sync.disabled=true; m.textContent='Talking to Google Calendar…'; m.className='msg show info';
-    var late=setTimeout(function(){
-      m.textContent='Still going. Creating a calendar for the first time can take a minute.';
-      m.className='msg show info';
-    },12000);
-    var want=String(($('cal-id')||{}).value||'').trim();
-    var body={events:calList().map(function(e){var c={};for(var k in e)if(k!=='season')c[k]=e[k];return c})};
-    if(want&&want!==S.club.gcalId)body.calendarId=want;
-    backendPost('calendarSync',body).then(function(r){
-      clearTimeout(late);
-      sync.disabled=false;
-      if(r&&r.ok){
-        S.club.events=r.events||S.club.events;
-        S.club.gcalId=r.calendarId||''; S.club.gcalUrl=r.calendarUrl||''; S.club.gcalLinked=!!r.linked;
-        save(); syncClub(); renderCalendar();
-        var held=(S.club.events||[]).filter(function(e){return e.ebod}).length;
-        var note='Synced with '+S.club.gcalId+' — '+r.pushed+' sent, '+(r.adopted||0)+' matched to events already there, '+r.pulled+' brought back'+
-          (held?' ('+held+' kept for EBOD only; use “Show to members” on any that should be public)':'')+'.';
-        /* A run is capped so it cannot be killed mid-way; anything left over
-           goes on the next press rather than silently not happening. */
-        if(r.remaining)note+=' '+r.remaining+' still to send — press it again.';
-        if(r.shareError)note+=' The club account could not be given access ('+r.shareError+').';
-        else if(r.sharedWith)note+=' '+r.sharedWith+' can edit it.';
-        else if(!r.linked)note+=' Set a club Google account under Intake so the chapter owns its calendar.';
-        m.textContent=note; m.className='msg show '+(r.shareError?'':'good');
-      } else {
-        m.textContent=(r&&r.error)||'That did not sync.'; m.className='msg show';
-      }
-    });
-  });
+  if(sync)sync.addEventListener('click',function(){runCalSync({})});
 
   renderCalendar();
+}
+/* Sends the page's own events to Google (all of them, or just pushOnly) and
+   reads the whole calendar back. Google's own events are never sent: they
+   live in GCAL and come back from the backend. */
+var CALSYNCING=false;
+function runCalSync(o){
+  o=o||{};
+  if(CALSYNCING)return;
+  var m=$('evmsg'), sync=$('cal-sync');
+  CALSYNCING=true; if(sync)sync.disabled=true;
+  if(!o.quiet){m.textContent='Talking to Google Calendar…'; m.className='msg show info';}
+  var late=o.quiet?null:setTimeout(function(){
+    m.textContent='Still going. Creating a calendar for the first time can take a minute.';
+    m.className='msg show info';
+  },12000);
+  var want=String(($('cal-id')||{}).value||'').trim();
+  var body={events:calList().filter(function(e){return !e.pulled}).map(function(e){var c={};for(var k in e)if(k!=='season')c[k]=e[k];return c})};
+  if(o.pushOnly)body.pushOnly=o.pushOnly;
+  if(want&&want!==S.club.gcalId)body.calendarId=want;
+  backendPost('calendarSync',body).then(function(r){
+    if(late)clearTimeout(late);
+    CALSYNCING=false; if(sync)sync.disabled=false;
+    if(r&&r.ok){
+      S.club.events=r.events||S.club.events;
+      S.club.gcalId=r.calendarId||''; S.club.gcalUrl=r.calendarUrl||''; S.club.gcalLinked=!!r.linked;
+      if(r.gcal)setGcal(r.gcal);
+      save(); syncClub(); renderCalendar();
+      if(o.quiet){if(r.pushed){m.textContent='Added, and put on '+S.club.gcalId+'.';m.className='msg show good'}return}
+      var hid=GCAL.events.filter(function(e){return isCalHidden({pulled:true,id:e.id,gid:e.gid})}).length;
+      var note='Connected to '+S.club.gcalId+'. '+(r.pushed?r.pushed+' sent to Google, ':'')+(r.adopted?r.adopted+' matched to events already there, ':'')+
+        GCAL.events.length+' read back, '+(GCAL.events.length-hid)+' shared with members'+(hid?' and '+hid+' hidden':'')+'.';
+      /* A run is capped so it cannot be killed mid-way; anything left over
+         goes on the next press rather than silently not happening. */
+      if(r.remaining)note+=' '+r.remaining+' still to send. Press it again.';
+      if(r.shareError)note+=' '+r.shareError;
+      else if(r.sharedWith)note+=' '+r.sharedWith+' can edit it.';
+      else if(!r.linked)note+=' Set a club Google account under Intake so the chapter owns its calendar.';
+      m.textContent=note; m.className='msg show '+(r.shareError?'':'good');
+    } else if(!o.quiet){
+      m.textContent=(r&&r.error)||'That did not reach Google Calendar.'; m.className='msg show';
+    }
+  });
 }
 
 /* ================= HOMEWORK =================
@@ -5147,6 +5432,119 @@ function atVisibleChecks(){
   });
 }
 
+/* ---- Who was absent ----
+   Absent means on the roster and not checked in. A "meeting" is one batch of
+   check-ins: the same action, the same event label, the same day -- which is
+   exactly what Log attendance writes in one go. Entries read back from the
+   sheet carry the day they were logged, which is the meeting day in practice. */
+var AB={rows:[],mode:'one'};
+function dayOf(d){
+  var str=String(d||''), m=str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m)return m[0];
+  var t=new Date(str); return isNaN(t.getTime())?'':ymd(t.getFullYear(),t.getMonth(),t.getDate());
+}
+function isAttendAction(a){return !!a&&/attend|meeting|check.?in/i.test(String(a.label||''))}
+function abSessions(){
+  var by={};
+  S.log.forEach(function(l){
+    var day=dayOf(l.date), a=actById(l.actionId), key=l.actionId+'|'+(l.label||'')+'|'+day;
+    var g=by[key]||(by[key]={key:key,actionId:l.actionId,label:l.label||(a?a.label:'Entry'),day:day,att:isAttendAction(a),names:{}});
+    g.names[normName(l.name)]=1;
+  });
+  return Object.keys(by).map(function(k){return by[k]}).sort(function(a,b){
+    return (b.day||'').localeCompare(a.day||'')||(b.att?1:0)-(a.att?1:0)||a.label.localeCompare(b.label)});
+}
+function abSay(t,kind){var m=$('abmsg');if(!m)return;m.textContent=t||'';m.className='msg'+(t?' show':'')+(kind?' '+kind:'')}
+function renderAbsences(){
+  var body=$('abbody'); if(!body)return;
+  var mode=$('ab-mode').value||'one'; AB.mode=mode;
+  ['ab-onebox'].forEach(function(id){$(id).hidden=mode!=='one'});
+  ['ab-actbox','ab-frombox','ab-tobox','ab-minbox'].forEach(function(id){$(id).hidden=mode!=='range'});
+  var ses=abSessions();
+  /* The meeting list and the action list follow the log as it grows. */
+  var sel=$('ab-session'), keep=sel.value;
+  sel.innerHTML=ses.length?ses.map(function(g){
+    var n=Object.keys(g.names).length;
+    return '<option value="'+esc(g.key)+'">'+esc((g.day?calDate(g.day):'No date')+' · '+g.label+' · '+n+' checked in')+'</option>'}).join('')
+    :'<option value="">No meetings logged yet</option>';
+  if(keep&&ses.some(function(g){return g.key===keep}))sel.value=keep;
+  else{var firstAtt=ses.filter(function(g){return g.att})[0]; if(firstAtt)sel.value=firstAtt.key}
+  var as=$('ab-act'), akeep=as.value, used={};
+  ses.forEach(function(g){used[g.actionId]=1});
+  as.innerHTML='<option value="__att">Every attendance check-in</option><option value="__all">Everything in the log</option>'+
+    Object.keys(used).map(function(id){var a=actById(id);return a?'<option value="'+esc(id)+'">'+esc(a.label)+' only</option>':''}).join('');
+  if(akeep&&as.querySelector('option[value="'+(window.CSS&&CSS.escape?CSS.escape(akeep):akeep)+'"]'))as.value=akeep;
+  var days=ses.map(function(g){return g.day}).filter(String).sort();
+  if(!$('ab-to').value){var lastDay=days[days.length-1]||'';$('ab-to').value=lastDay>todayYMD()?lastDay:todayYMD()}
+  if(!$('ab-from').value)$('ab-from').value=days[0]||todayYMD();
+
+  if(!S.people.length){body.innerHTML='<p class="empty">Run the draft first: absences are counted against the roster.</p>';AB.rows=[];return}
+  if(!ses.length){body.innerHTML='<p class="empty">Nothing logged yet. Take attendance above and the absences show up here.</p>';AB.rows=[];return}
+  var q=normName($('ab-search').value||''), match=function(n){return !q||normName(n).indexOf(q)>-1};
+  var h='';
+  if(mode==='one'){
+    var g=ses.filter(function(x){return x.key===sel.value})[0]||ses[0];
+    var absent=S.people.filter(function(p){return !g.names[normName(p.name)]});
+    AB.rows=absent.filter(function(p){return match(p.name)}).map(function(p){return {name:p.name,org:p.org}});
+    h+='<p class="savenote" style="margin:0 0 6px"><b>'+absent.length+'</b> of '+S.people.length+' absent from '+esc(g.label)+(g.day?' on '+esc(calDate(g.day)):'')+'.</p>';
+    if(!AB.rows.length)h+='<p class="empty">'+(absent.length?'Nobody absent matches that search.':'Everyone on the roster was checked in.')+'</p>';
+    else S.orgs.forEach(function(grp,i){
+      var here=AB.rows.filter(function(r){return r.org===i}); if(!here.length)return;
+      h+='<div class="orgno" style="margin-top:12px"><span>'+esc(orgLabel(i))+' · '+here.length+' absent</span></div><ul class="roster">'+
+        here.sort(function(a,b){return a.name.localeCompare(b.name)}).map(function(r){
+          return '<li><span class="nm linked" data-person="'+esc(r.name)+'">'+esc(r.name)+'</span></li>'}).join('')+'</ul>';
+    });
+  } else {
+    var from=$('ab-from').value||'0000', to=$('ab-to').value||'9999', act=$('ab-act').value||'__att', min=Math.max(1,+$('ab-min').value||1);
+    var pickd=ses.filter(function(g){
+      if(g.day&&(g.day<from||g.day>to))return false;
+      if(act==='__att')return g.att; if(act==='__all')return true; return g.actionId===act;
+    });
+    if(!pickd.length){body.innerHTML='<p class="empty">No meetings match those dates and that kind. Widen the dates or pick “Everything in the log”.</p>';AB.rows=[];return}
+    var rows=S.people.map(function(p){
+      var k=normName(p.name), miss=0, last='';
+      pickd.forEach(function(g){if(g.names[k]){if(g.day>last)last=g.day}else miss++});
+      return {name:p.name,org:p.org,missed:miss,of:pickd.length,last:last};
+    }).filter(function(r){return r.missed>=min&&match(r.name)})
+      .sort(function(a,b){return b.missed-a.missed||a.name.localeCompare(b.name)});
+    AB.rows=rows;
+    h+='<p class="savenote" style="margin:0 0 6px">'+pickd.length+' meeting'+(pickd.length===1?'':'s')+' between '+esc(calDate(from))+' and '+esc(calDate(to))+
+      ' · <b>'+rows.length+'</b> member'+(rows.length===1?'':'s')+' missed at least '+min+'.</p>';
+    if(!rows.length)h+='<p class="empty">Nobody missed that many.</p>';
+    else h+='<div class="tablewrap scrollcard" style="max-height:420px"><table><thead><tr><th class="l">Member</th><th class="l">'+esc(S.club.unit||'Org')+'</th>'+
+      '<th>Missed</th><th>Of</th><th class="l">Last checked in</th></tr></thead><tbody>'+
+      rows.map(function(r){
+        return '<tr><td class="l name"><span class="linked" data-person="'+esc(r.name)+'">'+esc(r.name)+'</span></td><td class="l">'+esc(r.org!=null?orgLabel(r.org):'')+'</td>'+
+          '<td class="num"'+(r.missed>=Math.max(2,Math.ceil(r.of/2))?' style="color:var(--flag);font-weight:600"':'')+'>'+r.missed+'</td><td class="num">'+r.of+'</td>'+
+          '<td class="l">'+(r.last?esc(calDate(r.last)):'<span style="color:var(--mute)">not in this range</span>')+'</td></tr>'}).join('')+
+      '</tbody></table></div>';
+  }
+  body.innerHTML=h;
+  wireMemberLinks(body);
+}
+function initAbsences(){
+  if(!$('ab-mode'))return;
+  ['ab-mode','ab-session','ab-act','ab-from','ab-to','ab-min'].forEach(function(id){$(id).addEventListener('change',function(){abSay('');renderAbsences()})});
+  $('ab-search').addEventListener('input',renderAbsences);
+  $('ab-copy').addEventListener('click',function(){
+    if(!AB.rows.length){abSay('Nothing to copy.');return}
+    var t=AB.rows.map(function(r){return r.name}).join('\n');
+    var done=function(){abSay('Copied '+AB.rows.length+' name'+(AB.rows.length===1?'':'s')+'.','good')};
+    try{navigator.clipboard.writeText(t).then(done,function(){uiPrompt('Copy these names','','Names',t.replace(/\n/g,', '),'Done')})}
+    catch(e){uiPrompt('Copy these names','','Names',t.replace(/\n/g,', '),'Done')}
+  });
+  $('ab-csv').addEventListener('click',function(){
+    if(!AB.rows.length){abSay('Nothing to download.');return}
+    var head=AB.mode==='one'?['Name',S.club.unit||'Org']:['Name',S.club.unit||'Org','Missed','Of','Last checked in'];
+    var rows=[head.map(csvCell).join(',')].concat(AB.rows.map(function(r){
+      var base=[csvCell(r.name),csvCell(r.org!=null?orgLabel(r.org):'')];
+      if(AB.mode!=='one')base=base.concat([r.missed,r.of,csvCell(r.last)]);
+      return base.join(',');
+    }));
+    download(rows.join('\n'),'absences-'+todayYMD()+'.csv');
+  });
+}
+
 function addLog(names,actionId,label,date){
   var added=[];
   names.forEach(function(nm){
@@ -5155,6 +5553,7 @@ function addLog(names,actionId,label,date){
   });
   scoreAll();refreshScored();
   syncLogEntries(added);
+  if($('v-attend')&&$('v-attend').classList.contains('on'))renderAbsences();
 }
 function quickAdd(){
   if(!S.orgs.length){cupSay('Run the draft first \u2014 there is no roster to score against.');return}
@@ -6161,7 +6560,7 @@ function prefsFromRoster(roster){
     var pr=u.prefs; if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
     /* Someone going only for the hotel, or saying they cannot go, sent
        something too -- it is not only event choices that count. */
-    if(pr&&((pr.flc&&pr.flc.length)||pr.hotel||pr.attend===false)){
+    if(pr&&((pr.flc&&pr.flc.length)||pr.hotel||pr.group||pr.attend===false)){
       pr.flc=pr.flc||[];
       PREFS.byName[normName(nm)]=pr; PREFS.names[normName(nm)]=nm;
     }
@@ -6256,6 +6655,83 @@ function sqSay(t,kind){var m=$('sqmsg'); if(!m)return; m.textContent=t; m.classN
 function saveTeams(){ save(); syncClub(); renderSquads(); renderTeamBoard(); if($('v-teams').classList.contains('on'))renderTeam(); }
 function personOrg(name){var o=null;S.people.forEach(function(p){if(normName(p.name)===normName(name))o=p.org});return o}
 function rosterNames(){return S.people.map(function(p){return p.name}).sort()}
+/* Everyone a teammate or roommate can be picked from: the drafted roster plus
+   everyone who has registered, so the list works before the Orgs exist too.
+   The backend sends registered names only, never addresses. */
+var REG={names:[]};
+function allNames(){
+  var seen={}, out=[];
+  var reg=REG.names.length?REG.names:(DEMO_ON?demoAccounts().map(function(u){return ((u.first||'')+' '+(u.last||'')).trim()}):[]);
+  rosterNames().concat(reg).forEach(function(n){
+    n=cleanLabel(n); var k=normName(n); if(!k||seen[k])return; seen[k]=1; out.push(n);
+  });
+  return out.sort(function(a,b){return a.localeCompare(b)});
+}
+/* A type-to-find picker over allNames(). Chosen names sit as chips; the list
+   opens on focus and narrows as you type. A name that is not registered can
+   still be added with Enter, and EBOD sees it flagged as unknown. */
+var NP_N=0;
+function namePicker(host,o){
+  o=o||{}; var max=o.max||1, vals=(o.values||[]).filter(Boolean).slice(0,max), hi=0, shown=[];
+  var id=o.id||('np'+(++NP_N));
+  host.className='npick'; host.innerHTML='<div class="npchips"></div>'+
+    '<input type="text" class="npin" id="'+id+'" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+id+'-list">'+
+    '<div class="nplist" id="'+id+'-list" role="listbox" hidden></div>';
+  var chips=host.querySelector('.npchips'), inp=host.querySelector('.npin'), list=host.querySelector('.nplist');
+  var taken=function(n){return vals.some(function(v){return normName(v)===normName(n)})||(o.exclude&&o.exclude(n))};
+  function paint(){
+    chips.innerHTML=vals.map(function(v,i){
+      return '<span class="npchip">'+esc(v)+'<button type="button" data-i="'+i+'" aria-label="Remove '+esc(v)+'">×</button></span>'}).join('');
+    var full=vals.length>=max&&max>1;
+    inp.placeholder=full?'':(vals.length&&max===1?'Change…':(o.placeholder||'Start typing a name'));
+    inp.disabled=full; host.classList.toggle('full',full);
+  }
+  function open(){
+    var q=normName(inp.value);
+    shown=allNames().filter(function(n){
+      if(taken(n))return false; if(!q)return true;
+      var k=normName(n); return k.indexOf(q)===0||k.indexOf(' '+q)>-1;
+    }).slice(0,60);
+    var raw=cleanLabel(inp.value).trim();
+    var extra=raw&&!shown.some(function(n){return normName(n)===normName(raw)})?raw:'';
+    if(hi>=shown.length+(extra?1:0))hi=0;
+    list.innerHTML=(shown.length?shown.map(function(n,i){
+        return '<div role="option" class="npopt'+(i===hi?' on':'')+'" data-v="'+esc(n)+'" aria-selected="'+(i===hi)+'">'+esc(n)+'</div>'}).join('')
+      :(raw?'':'<div class="npnone">Nobody else to add</div>'))+
+      (extra?'<div role="option" class="npopt npnew'+(hi===shown.length?' on':'')+'" data-v="'+esc(extra)+'">Add “'+esc(extra)+'” (not registered)</div>':'');
+    list.hidden=false; inp.setAttribute('aria-expanded','true');
+  }
+  function close(){list.hidden=true;inp.setAttribute('aria-expanded','false')}
+  function pick(v){
+    v=cleanLabel(v).trim().slice(0,60); if(!v)return;
+    if(max===1)vals=[v]; else if(vals.length<max&&!taken(v))vals.push(v);
+    inp.value=''; hi=0; paint(); if(o.onChange)o.onChange(vals.slice());
+    /* Closed after a pick, so the list never sits over the button the
+       person reaches for next; typing or the down arrow opens it again. */
+    close();
+  }
+  inp.addEventListener('focus',open);
+  inp.addEventListener('click',function(){if(list.hidden)open()});
+  inp.addEventListener('input',function(){hi=0;open()});
+  inp.addEventListener('blur',function(){setTimeout(close,120)});
+  inp.addEventListener('keydown',function(e){
+    var n=list.querySelectorAll('.npopt').length;
+    if(e.key==='ArrowDown'){e.preventDefault();if(list.hidden)open();hi=n?(hi+1)%n:0;open()}
+    else if(e.key==='ArrowUp'){e.preventDefault();hi=n?(hi-1+n)%n:0;open()}
+    else if(e.key==='Enter'){var on=list.querySelector('.npopt.on');if(on){e.preventDefault();pick(on.dataset.v)}}
+    else if(e.key==='Escape')close();
+    else if(e.key==='Backspace'&&!inp.value&&vals.length){vals.pop();paint();if(o.onChange)o.onChange(vals.slice());open()}
+  });
+  list.addEventListener('mousedown',function(e){
+    var opt=e.target.closest('.npopt'); if(!opt)return; e.preventDefault(); pick(opt.dataset.v);
+  });
+  chips.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-i]'); if(!b)return;
+    vals.splice(+b.dataset.i,1); paint(); if(o.onChange)o.onChange(vals.slice()); inp.focus();
+  });
+  paint();
+  return {get:function(){return vals.slice()},set:function(v){vals=(v||[]).slice(0,max);paint()}};
+}
 
 function squadCard(t){
   var k=kindOf(t), mine=isMyTeam(t), edit=canEdit(), mem=t.members||[];
@@ -6275,7 +6751,7 @@ function squadCard(t){
     if(edit){
       for(var i=0;i<2;i++){
         h+='<select class="sqpm" data-i="'+i+'"><option value="">PM '+(i+1)+'…</option>'+
-          ebodList().map(function(e){return e.name}).concat(rosterNames()).filter(function(v,j,a){return a.indexOf(v)===j})
+          ebodList().map(function(e){return e.name}).concat(allNames()).filter(function(v,j,a){return a.indexOf(v)===j})
             .map(function(nm){return '<option value="'+esc(nm)+'"'+(pms[i]===nm?' selected':'')+'>'+esc(nm)+'</option>'}).join('')+
           '</select>';
       }
@@ -6287,6 +6763,7 @@ function squadCard(t){
     if(edit&&mem.length&&(mem.length<10||mem.length>12))
       h+='<p class="hint" style="margin:6px 0 0">EBOD aimed for about 10–12 consultants per client.</p>';
   }
+  if(edit)return h+teamSlots(t,k)+'<div class="row sqtools"><button type="button" class="tiny danger sqkill">Delete team</button></div></div>';
   h+='<div class="sqmembers">'+
     (mem.length?mem.map(function(m){
       var org=personOrg(m), ini=(t.assign||{})[normName(m)]||'';
@@ -6316,6 +6793,67 @@ function squadCard(t){
   return h+'</div>';
 }
 
+/* Officers edit a team as a column of dropdowns: one per member, plus empty
+   spots to fill -- up to four for an FLC team, one more for any other. Picking
+   a name in a member's spot swaps them; "Take off this team" empties it;
+   picking someone already on another team of the same kind moves them here,
+   because a member is on one team of each kind. */
+function teamSlots(t,k){
+  var mem=t.members||[], cap=k==='flc'?F26.flcMax:0;
+  var n=cap?Math.max(cap,mem.length):mem.length+1;
+  var other={};
+  teamsList().forEach(function(x){
+    if(x.id===t.id||kindOf(x)!==k)return;
+    (x.members||[]).forEach(function(m){other[normName(m)]=x.name});
+  });
+  var free=[], busy=[];
+  allNames().forEach(function(nm){if(onTeam(t,nm))return;(other[normName(nm)]?busy:free).push(nm)});
+  var label=function(nm){
+    var p=findPersonByName(nm), pr=k==='flc'&&prefsFor(nm);
+    return esc(nm)+(p?' · '+esc(yearLabel(p)):'')+(other[normName(nm)]?' · on '+esc(other[normName(nm)]):'')+
+      (pr&&(pr.flc||[]).length?' · wants '+esc(pr.flc.join(' > ')):'');
+  };
+  var opts=free.map(function(nm){return '<option value="'+esc(nm)+'">'+label(nm)+'</option>'}).join('')+
+    (busy.length?'<option value="" disabled>── on another '+(k==='flc'?'FLC ':k==='consulting'?'consulting ':'')+'team: picking moves them ──</option>'+
+      busy.map(function(nm){return '<option value="'+esc(nm)+'">'+label(nm)+'</option>'}).join(''):'');
+  var rows='';
+  for(var i=0;i<n;i++){
+    var m=mem[i]||'', org=m?personOrg(m):null, ini=m?((t.assign||{})[normName(m)]||''):'';
+    rows+='<div class="sqslot'+(m?'':' vacant')+(m&&isMe({name:m})?' me':'')+'">'+
+      '<span class="slotno mono">'+(i+1)+'</span>'+
+      '<select class="sqswap" data-enh="1" data-cur="'+esc(m)+'" aria-label="'+(m?'Spot '+(i+1)+', '+esc(m):'Empty spot '+(i+1))+'">'+
+        (m?'<option value="'+esc(m)+'" selected>'+esc(m)+'</option><option value="">— Take off this team —</option>'
+          :'<option value="" selected>+ Add someone…</option>')+opts+'</select>'+
+      (m&&org!=null&&S.orgs.length?'<em class="slotorg">'+esc(orgLabel(org))+'</em>':'')+
+      (m&&k==='consulting'&&(t.initiatives||[]).length?'<select class="sqini" data-name="'+esc(m)+'"><option value="">initiative…</option>'+
+        t.initiatives.map(function(x){return '<option'+(x===ini?' selected':'')+'>'+esc(x)+'</option>'}).join('')+'</select>':'')+
+    '</div>';
+  }
+  return '<div class="sqslots">'+rows+'</div>'+
+    (cap&&mem.length>=cap?'<p class="savenote" style="margin:6px 0 0">Full: FLC teams take up to '+cap+'. Swap someone with their dropdown.</p>':'');
+}
+function moveIntoTeam(t,cur,v){
+  var k=kindOf(t), mem=(t.members||[]).slice(), moved='';
+  if(!v){
+    mem=mem.filter(function(m){return normName(m)!==normName(cur)});
+    if(t.assign)delete t.assign[normName(cur)];
+    t.members=mem; return {msg:cur+' is off '+t.name+'.'};
+  }
+  if(k==='flc'&&!cur&&mem.length>=F26.flcMax)return {error:'FLC teams are capped at '+F26.flcMax+'.'};
+  teamsList().forEach(function(x){
+    if(x.id===t.id||kindOf(x)!==k||!onTeam(x,v))return;
+    x.members=(x.members||[]).filter(function(m){return normName(m)!==normName(v)});
+    if(x.assign)delete x.assign[normName(v)];
+    moved=x.name;
+  });
+  var at=-1;
+  if(cur)mem.forEach(function(m,i){if(normName(m)===normName(cur))at=i});
+  if(at>-1){mem[at]=v;if(t.assign)delete t.assign[normName(cur)]}
+  else mem.push(v);
+  t.members=mem;
+  return {msg:(cur?cur+' swapped for '+v:v+' added to '+t.name)+(moved?', moved from '+moved:'')+'.'};
+}
+
 function renderPrefsPanel(){
   var box=$('sqprefs'); if(!box)return;
   if(!canEdit()){box.innerHTML='';box.hidden=true;return}
@@ -6329,13 +6867,13 @@ function renderPrefsPanel(){
     'Selection criteria are still EBOD’s call — adjust by hand afterwards.</p>';
   if(names.length){
     h+='<div class="tablewrap scrollcard" style="max-height:260px"><table><thead><tr><th class="l">Member</th><th class="l">Year</th>'+
-      '<th class="l">1st</th><th class="l">2nd</th><th class="l">3rd</th><th class="l">Teammate</th><th class="l">Nov 13–15</th><th class="l">Hotel</th><th class="l">On</th></tr></thead><tbody>';
+      '<th class="l">1st</th><th class="l">2nd</th><th class="l">3rd</th><th class="l">Teammate</th><th class="l">Nov 13–15</th><th class="l">Room group</th><th class="l">On</th></tr></thead><tbody>';
     names.sort().forEach(function(k){
       var pr=PREFS.byName[k], p=findPersonByName(k)||{name:PREFS.names[k]||k}, on=teamsOf(p.name).filter(function(t){return kindOf(t)==='flc'})[0];
       h+='<tr><td class="l name">'+esc(p.name)+'</td><td class="l">'+esc(p.year?yearLabel(p):'')+'</td>'+
         [0,1,2].map(function(i){return '<td class="l">'+esc((pr.flc||[])[i]||'—')+'</td>'}).join('')+
         '<td class="l">'+esc(pr.mate||'—')+'</td><td class="l">'+(pr.attend===false?'<span style="color:var(--flag)">can’t go</span>':'yes')+'</td>'+
-        '<td class="l">'+(pr.attend===false?'—':(pr.hotel?esc(GROUP_LABEL[pr.group]||'yes, group not set'):'no'))+'</td>'+
+        '<td class="l">'+(pr.attend===false?'—':esc(GROUP_LABEL[pr.group]||'not chosen yet'))+'</td>'+
         '<td class="l">'+(on?esc(on.name):'<span style="color:var(--mute)">—</span>')+'</td></tr>';
     });
     h+='</tbody></table></div>';
@@ -6383,8 +6921,9 @@ function renderSquads(){
   if(canEdit()){
     var free=S.people.filter(function(p){return !teamOf(p.name)});
     h+='<p class="hint" style="margin:0 0 12px">'+(free.length
-      ?free.length+' member'+(free.length===1?' is':'s are')+' not on any team yet.'
-      :'Everyone on the roster is on a team.')+'</p>';
+      ?free.length+' member'+(free.length===1?' is':'s are')+' not on any team yet: '+
+        esc(free.slice(0,40).map(function(p){return p.name}).join(', '))+(free.length>40?' and '+(free.length-40)+' more':'')+'.'
+      :'Everyone on the roster is on a team.')+' Each spot below is a dropdown: pick a name to add, swap or move someone.</p>';
   }
   [['consulting','Consulting'],['flc','FLC (case competition)'],['other','Other teams']].forEach(function(sec){
     var list=teams.filter(function(t){return kindOf(t)===sec[0]});
@@ -6402,11 +6941,14 @@ function renderSquads(){
       var v=cleanLabel(nm.value).slice(0,60); if(!v){nm.value=t.name;return}
       t.name=v; saveTeams();
     });
-    var pick=card.querySelector('.sqpick');
-    if(pick)pick.addEventListener('change',function(){
-      if(!pick.value)return;
-      if(kindOf(t)==='flc'&&(t.members||[]).length>=F26.flcMax){sqSay('FLC teams are capped at '+F26.flcMax+'.');return}
-      t.members=(t.members||[]).concat([pick.value]); saveTeams();
+    Array.prototype.forEach.call(card.querySelectorAll('.sqswap'),function(sel){
+      sel.addEventListener('change',function(){
+        var cur=sel.dataset.cur||'', v=sel.value;
+        if(normName(v)===normName(cur))return;
+        var r=moveIntoTeam(t,cur,v);
+        if(r.error){sqSay(r.error);renderSquads();return}
+        saveTeams(); sqSay(r.msg,'good');
+      });
     });
     Array.prototype.forEach.call(card.querySelectorAll('.sqpm'),function(sel){
       sel.addEventListener('change',function(){
@@ -6422,14 +6964,6 @@ function renderSquads(){
     Array.prototype.forEach.call(card.querySelectorAll('.sqini'),function(sel){
       sel.addEventListener('change',function(){
         t.assign=t.assign||{}; t.assign[normName(sel.dataset.name)]=cleanLabel(sel.value); saveTeams();
-      });
-    });
-    Array.prototype.forEach.call(card.querySelectorAll('.sqout'),function(x){
-      x.addEventListener('click',function(){
-        var n=normName(x.dataset.name);
-        t.members=(t.members||[]).filter(function(m){return normName(m)!==n});
-        if(t.assign)delete t.assign[n];
-        saveTeams();
       });
     });
     var k=card.querySelector('.sqkill');
@@ -6491,7 +7025,7 @@ function renderMyPrefs(){
   if(canEdit()){box.hidden=true;box.innerHTML='';return}
   box.hidden=false;
   var evs=flcEventList();
-  var cur=MYPREFS||{flc:[],mate:'',attend:true,hotel:false,group:'',roomies:[],rnote:''};
+  var cur=MYPREFS||{flc:[],mate:'',attend:true,group:'',roomies:[],rnote:''};
   var sel=function(i){
     return '<div class="field" style="flex:1;min-width:140px"><label for="mp-flc'+i+'">'+['1st','2nd','3rd'][i]+' choice</label>'+
       '<select id="mp-flc'+i+'"><option value="">—</option>'+evs.map(function(e){
@@ -6504,36 +7038,39 @@ function renderMyPrefs(){
     (rm.no?' · room '+esc(rm.no):' · room number at check-in')+
     '<br><span class="savenote">'+(mates.length?'With '+esc(mates.join(', ')):'Nobody else in it yet')+'.</span></div>';
   h+='<p class="hint">Competing at FLC (Nov 13–15, Emeryville)? Rank the events you want. EBOD forms teams of up to '+F26.flcMax+
-    ', up to '+F26.flcTeamsPerEvent+' per event, from these. Going without competing? Leave the events empty and fill in the hotel part.</p>'+
+    ', up to '+F26.flcTeamsPerEvent+' per event, from these. Going without competing? Leave the events empty and fill in your room.</p>'+
     '<div class="row" style="margin-top:0">'+sel(0)+sel(1)+sel(2)+'</div>'+
-    '<div class="row"><div class="field" style="flex:2;min-width:200px"><label for="mp-mate">Someone you would like on your team (optional)</label>'+
-      '<input type="text" id="mp-mate" value="'+esc(cur.mate||'')+'" placeholder="Their name"></div>'+
+    '<div class="row"><div class="field" style="flex:2;min-width:220px"><label for="mp-mate">Someone you would like on your team (optional)</label>'+
+      '<div id="mp-mate-box"></div></div>'+
       '<label class="check" style="padding:9px 0"><input type="checkbox" id="mp-attend"'+(cur.attend===false?'':' checked')+'> I can be there Nov 13–15</label></div>'+
-    '<fieldset class="hotelset" id="mp-hotelset"'+(cur.attend===false?' disabled':'')+'><legend>Hotel</legend>'+
-      '<label class="check"><input type="checkbox" id="mp-hotel"'+(cur.hotel?' checked':'')+'> I need a bed at the conference hotel</label>'+
-      '<div class="row" id="mp-hotelrow"'+(cur.hotel?'':' hidden')+'>'+
+    /* Everyone going stays at the conference hotel, so there is no "do you
+       need a bed" question: going means a room. */
+    '<fieldset class="hotelset" id="mp-hotelset"'+(cur.attend===false?' disabled':'')+'><legend>Hotel room</legend>'+
+      '<p class="hint" style="margin:0 0 4px">Everyone going stays at the conference hotel. EBOD books the rooms from these answers.</p>'+
+      '<div class="row" style="margin-top:4px">'+
         '<div class="field" style="flex:1;min-width:180px"><label for="mp-group">Rooming group</label><select id="mp-group">'+
           '<option value="">Choose…</option>'+['w','m','x'].map(function(g){
             return '<option value="'+g+'"'+(cur.group===g?' selected':'')+'>'+esc(GROUP_LABEL[g])+'</option>'}).join('')+'</select></div>'+
-        '<div class="field" style="flex:2;min-width:200px"><label for="mp-roomies">Up to 3 people you would like to room with (optional)</label>'+
-          '<input type="text" id="mp-roomies" value="'+esc((cur.roomies||[]).join(', '))+'" placeholder="Names, separated by commas"></div>'+
+        '<div class="field" style="flex:2;min-width:220px"><label for="mp-roomies">Up to 3 people you would like to room with (optional)</label>'+
+          '<div id="mp-roomies-box"></div></div>'+
         '<div class="field" style="flex:1 1 100%"><label for="mp-rnote">Anything EBOD should know for rooming (optional, only officers see this)</label>'+
           '<input type="text" id="mp-rnote" maxlength="160" value="'+esc(cur.rnote||'')+'" placeholder="e.g. light sleeper, need a ground floor"></div>'+
       '</div></fieldset>'+
     '<div class="row"><button type="button" id="mp-save">Send my choices</button></div><div class="msg" id="mp-msg"></div>';
   box.innerHTML=h;
+  var notMe=function(n){return isMe({name:n})};
+  var matePick=namePicker($('mp-mate-box'),{id:'mp-mate',max:1,values:cur.mate?[cur.mate]:[],exclude:notMe,placeholder:'Find a member'});
+  var roomPick=namePicker($('mp-roomies-box'),{id:'mp-roomies',max:3,values:cur.roomies||[],exclude:notMe,placeholder:'Find members'});
   $('mp-attend').addEventListener('change',function(){$('mp-hotelset').disabled=!this.checked});
-  $('mp-hotel').addEventListener('change',function(){$('mp-hotelrow').hidden=!this.checked});
   $('mp-save').addEventListener('click',function(){
     var flc=[0,1,2].map(function(i){return $('mp-flc'+i).value}).filter(String)
       .filter(function(v,i,a){return a.indexOf(v)===i});
-    var attend=$('mp-attend').checked, hotel=attend&&$('mp-hotel').checked, group=$('mp-group').value;
+    var attend=$('mp-attend').checked, group=$('mp-group').value;
     var m=$('mp-msg');
-    if(attend&&!flc.length&&!hotel){m.textContent='Pick at least a first choice, or say you need a hotel bed.';m.className='msg show';return}
-    if(hotel&&!group){m.textContent='Choose a rooming group so EBOD can put you in a room.';m.className='msg show';return}
-    var pr={flc:flc,mate:cleanLabel($('mp-mate').value).slice(0,60),attend:attend,hotel:hotel,group:hotel?group:'',
-      roomies:hotel?$('mp-roomies').value.split(',').map(function(x){return cleanLabel(x).trim()}).filter(function(x){return x&&!isMe({name:x})}).slice(0,3):[],
-      rnote:hotel?String($('mp-rnote').value||'').replace(/[<>\u0000-\u001F]/g,'').slice(0,160):'',at:Date.now()};
+    if(attend&&!group){m.textContent='Choose a rooming group so EBOD can put you in a room.';m.className='msg show';$('mp-group').focus();return}
+    var pr={flc:flc,mate:cleanLabel(matePick.get()[0]||'').slice(0,60),attend:attend,hotel:attend,group:attend?group:'',
+      roomies:attend?roomPick.get().map(function(x){return cleanLabel(x).trim()}).filter(function(x){return x&&!isMe({name:x})}).slice(0,3):[],
+      rnote:attend?String($('mp-rnote').value||'').replace(/[<>\u0000-\u001F]/g,'').slice(0,160):'',at:Date.now()};
     m.textContent='Sending…';m.className='msg show info wait';
     backendPost('saveProfile',{prefs:JSON.stringify(pr)}).then(function(r){
       if(r&&r.ok){MYPREFS=pr;m.textContent=attend?'Sent. EBOD will see your choices when they form the FLC teams and rooms.':'Sent. EBOD will know you cannot make it.';m.className='msg show good';PREFS.loaded=false}
@@ -6547,15 +7084,15 @@ function renderMyPrefs(){
     backendPost('getProfile',null).then(function(r){
       var pr=r&&r.ok&&r.profile&&r.profile.Prefs;
       if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
-      if(pr&&(pr.flc||pr.hotel)){MYPREFS=pr;renderMyPrefs()}
+      if(pr&&(pr.flc||pr.hotel||pr.group||pr.attend===false)){MYPREFS=pr;renderMyPrefs()}
     });
   }
 }
 var MYPREFS=null, MYPREFS_ASKED='';
 
 /* ---- FLC hotel rooms ----
-   Members say whether they need a bed, which rooming group they are in, and
-   who they would like to room with. EBOD forms the rooms: one group per
+   Everyone going stays at the hotel. Members say which rooming group they are
+   in and who they would like to room with. EBOD forms the rooms: one group per
    room, requested roommates kept together where they fit, then packed so as
    few rooms as possible are booked. Who sleeps where is on the club record
    so each member can see their own room; the rooming notes stay on profiles,
@@ -6563,9 +7100,10 @@ var MYPREFS=null, MYPREFS_ASKED='';
 function roomsList(){return (S.club&&S.club.rooms)||[]}
 function roomCap(){return clampRoomCap(S.club&&S.club.roomCap)}
 function roomOf(name){var n=normName(name);return roomsList().filter(function(r){return (r.members||[]).some(function(m){return normName(m)===n})})[0]||null}
-/* Everyone who said they can go and need a bed, by the name the roster uses. */
+/* Everyone who said they can go, by the name the roster uses. Going means a
+   room at the conference hotel; there is no separate "need a bed" answer. */
 function hotelNeeds(){
-  return Object.keys(PREFS.byName).filter(function(k){var pr=PREFS.byName[k];return pr.hotel&&pr.attend!==false})
+  return Object.keys(PREFS.byName).filter(function(k){var pr=PREFS.byName[k];return pr.attend!==false})
     .map(function(k){var p=findPersonByName(k);return {name:p?p.name:(PREFS.names[k]||k),pr:PREFS.byName[k],known:!!p}});
 }
 function formRooms(){
@@ -6601,7 +7139,7 @@ function formRooms(){
   return {rooms:rooms,unset:unset,unknown:needs.filter(function(x){return !x.known}).map(function(x){return x.name})};
 }
 function exportFlc(){
-  var rows=[['Name','Year','Going','FLC event','FLC team','Hotel','Rooming group','Room','Room #','Roommates asked for'].join(',')];
+  var rows=[['Name','Year','Going','FLC event','FLC team','Rooming group','Room','Room #','Roommates asked for'].join(',')];
   var seen={}, names=[];
   Object.keys(PREFS.byName).forEach(function(k){seen[k]=1;names.push(k)});
   teamsList().filter(function(t){return kindOf(t)==='flc'}).forEach(function(t){
@@ -6612,7 +7150,7 @@ function exportFlc(){
     var pr=PREFS.byName[k]||{}, p=findPersonByName(k), nm=p?p.name:(PREFS.names[k]||k);
     var t=teamsOf(nm).filter(function(x){return kindOf(x)==='flc'})[0], r=roomOf(nm);
     rows.push([csvCell(nm),csvCell(p&&p.year?yearLabel(p):''),csvCell(pr.attend===false?'no':'yes'),
-      csvCell(t?t.event:''),csvCell(t?t.name:''),csvCell(pr.hotel||r?'yes':'no'),csvCell(GROUP_LABEL[(r&&r.group)||pr.group]||''),
+      csvCell(t?t.event:''),csvCell(t?t.name:''),csvCell(GROUP_LABEL[(r&&r.group)||pr.group]||''),
       csvCell(r?r.name:''),csvCell(r?r.no:''),csvCell((pr.roomies||[]).join('; '))].join(','));
   });
   download(rows.join('\n'),'flc-teams-and-rooms.csv');
@@ -6623,13 +7161,13 @@ function renderRoomsPanel(){
   var box=$('sqrooms'); if(!box)return;
   if(!canEdit()){box.innerHTML='';box.hidden=true;return}
   box.hidden=false;
-  if(!PREFS.loaded){box.innerHTML='<h2>FLC hotel rooms</h2><p class="empty wait">Reading who needs a bed…</p>';return}
+  if(!PREFS.loaded){box.innerHTML='<h2>FLC hotel rooms</h2><p class="empty wait">Reading who is going…</p>';return}
   var cap=roomCap(), needs=hotelNeeds(), rooms=roomsList();
   var count={w:0,m:0,x:0,'':0};needs.forEach(function(x){count[['w','m','x'].indexOf(x.pr.group)>-1?x.pr.group:'']++});
   var placed={};rooms.forEach(function(r){(r.members||[]).forEach(function(m){placed[normName(m)]=1})});
   var waiting=needs.filter(function(x){return !placed[normName(x.name)]});
-  var h='<h2>FLC hotel rooms</h2><p class="hint">'+needs.length+' member'+(needs.length===1?' has':'s have')+
-    ' asked for a bed. Forming rooms keeps each room to one rooming group, keeps requested roommates together where they fit, and packs rooms of up to '+cap+
+  var h='<h2>FLC hotel rooms</h2><p class="hint">'+needs.length+' member'+(needs.length===1?' is':'s are')+
+    ' going, and everyone going gets a bed. Forming rooms keeps each room to one rooming group, keeps requested roommates together where they fit, and packs rooms of up to '+cap+
     ' so as few as possible are booked. Move anyone by hand afterwards.</p>';
   if(needs.length)h+='<p class="savenote">'+['w','m','x'].filter(function(g){return count[g]}).map(function(g){
       return esc(GROUP_LABEL[g])+': '+count[g]+' → at least '+Math.ceil(count[g]/cap)+' room'+(Math.ceil(count[g]/cap)===1?'':'s')}).join(' · ')+
@@ -6718,6 +7256,9 @@ function renderRoomsPanel(){
    team or sends it back with a reason. Requests live in their own store on
    the backend, so an officer saving the club cannot write one over. */
 var TREQ={loaded:false,list:[],asked:''};
+/* Teammates picked so far, kept across re-renders (switching the kind of team
+   rebuilds the form, and should not throw the names away). */
+var RQ_DRAFT=[];
 var TREQ_CAP={consulting:14,flc:4,other:14};
 function selfTeamsOn(){return !(S.club&&S.club.selfTeams===false)}
 /* Only once somebody is signed in. Before that there is nobody to ask for,
@@ -6896,9 +7437,8 @@ function renderReqMember(){
         '<select id="rq-target">'+(cur==='other'?'<option value="">No particular track</option>':'')+targets.map(function(t){return '<option>'+esc(t)+'</option>'}).join('')+'</select></div>'+
       '<div class="field" style="flex:2;min-width:200px"><label for="rq-name">Team name'+(cur==='consulting'?' (the client’s team keeps its name)':' (optional)')+'</label>'+
         '<input type="text" id="rq-name" maxlength="60"'+(cur==='consulting'?' disabled':'')+' placeholder="'+(cur==='flc'?'e.g. Finance Fours':'Your team’s name')+'"></div></div>'+
-    '<div class="row"><div class="field" style="flex:1 1 100%"><label for="rq-mem">Teammates — you are included (up to '+(TREQ_CAP[cur]-1)+' more, separated by commas)</label>'+
-      '<input type="text" id="rq-mem" list="rq-names" placeholder="Their names as they signed up"><datalist id="rq-names">'+
-        rosterNames().filter(function(n){return !isMe({name:n})}).map(function(n){return '<option value="'+esc(n)+'">'}).join('')+'</datalist></div>'+
+    '<div class="row"><div class="field" style="flex:1 1 100%"><label for="rq-mem">Teammates — you are included (up to '+(TREQ_CAP[cur]-1)+' more)</label>'+
+      '<div id="rq-mem-box"></div></div>'+
       '<div class="field" style="flex:1 1 100%"><label for="rq-note">Note for EBOD (optional)</label><input type="text" id="rq-note" maxlength="200" placeholder="Anything they should know"></div></div>'+
     '<div class="row"><button type="button" id="rq-send">Send to EBOD for review</button></div><div class="msg" id="rq-msg"></div>';
   var row=function(q,own){
@@ -6911,20 +7451,24 @@ function renderReqMember(){
   if(mine.length)h+='<h3 class="sqsec" style="margin-top:16px">What you sent</h3><div class="reqlist">'+mine.map(function(q){return row(q,true)}).join('')+'</div>';
   if(listed.length)h+='<h3 class="sqsec" style="margin-top:16px">Teams that list you</h3><div class="reqlist">'+listed.map(function(q){return row(q,false)}).join('')+'</div>';
   box.innerHTML=h;
+  var memPick=namePicker($('rq-mem-box'),{id:'rq-mem',max:TREQ_CAP[cur]-1,values:RQ_DRAFT.slice(0,TREQ_CAP[cur]-1),
+    exclude:function(n){return isMe({name:n})},placeholder:'Find members who signed up',onChange:function(v){RQ_DRAFT=v}});
   $('rq-kind').addEventListener('change',function(){box.dataset.kind=this.value;renderReqMember()});
   $('rq-send').addEventListener('click',function(){
     var m=$('rq-msg'), kind=$('rq-kind').value;
-    var mem=$('rq-mem').value.split(',').map(function(x){return cleanLabel(x).trim()}).filter(function(x){return x&&!isMe({name:x})});
+    var mem=memPick.get().map(function(x){return cleanLabel(x).trim()}).filter(function(x){return x&&!isMe({name:x})});
     var req={kind:kind,target:$('rq-target').value,name:kind==='consulting'?'':cleanLabel($('rq-name').value),
       members:mem,note:String($('rq-note').value||'').replace(/[<>]/g,'').slice(0,200),me:A.name||''};
     if(kind!=='other'&&!req.target){m.textContent='Pick the '+(kind==='flc'?'event':'client')+'.';m.className='msg show';return}
     if(mem.length+1>TREQ_CAP[kind]){m.textContent='That is '+(mem.length+1)+' people with you; this kind of team takes up to '+TREQ_CAP[kind]+'.';m.className='msg show';return}
-    var unknown=mem.filter(function(x){return S.people.length&&!findPersonByName(x)});
+    var known=allNames().map(normName);
+    var unknown=mem.filter(function(x){return known.length&&known.indexOf(normName(x))<0});
     m.textContent='Sending…';m.className='msg show info wait';
     var send=DEMO_ON?Promise.resolve(demoSubmitReq(req)):backendPost('submitTeamRequest',req);
     send.then(function(r){
       if(r&&r.ok){
-        m.textContent='Sent. EBOD will review it'+(unknown.length?' — they may ask about '+unknown.join(', ')+', who are not on the roster under those names':'')+'.';
+        RQ_DRAFT=[];
+        m.textContent='Sent. EBOD will review it'+(unknown.length?' — they may ask about '+unknown.join(', ')+', who have not registered under those names':'')+'.';
         m.className='msg show good';
         loadTeamReqs(true).then(function(){renderReqMember();var mm=$('rq-msg');if(mm){mm.textContent=m.textContent;mm.className=m.className}});
       } else {m.textContent=(r&&r.error)||'That did not send. The backend may need its latest version.';m.className='msg show'}
@@ -8793,7 +9337,8 @@ function demoPeople(){
         var evs=shuffle(F26.flcEvents.slice());
         var gr=Math.random();
         p.prefs={flc:evs.slice(0,3),mate:'',attend:Math.random()>.06,
-          hotel:Math.random()>.15,group:gr<.48?'w':(gr<.93?'m':'x'),roomies:[],rnote:i===23?'Light sleeper':''};
+          /* The draw is still made so the seeded demo stays the same club. */
+          hotel:Math.random()>-1,group:gr<.48?'w':(gr<.93?'m':'x'),roomies:[],rnote:i===23?'Light sleeper':''};
       }
       out.push(p);
     }
@@ -8801,7 +9346,7 @@ function demoPeople(){
     var flc=out.filter(function(p){return p.prefs});
     for(var j=0;j+1<flc.length&&j<10;j+=2){flc[j].prefs.mate=flc[j+1].name;flc[j+1].prefs.flc=flc[j].prefs.flc.slice()}
     /* And roommate requests, inside a rooming group, for forming the rooms. */
-    var stay=flc.filter(function(p){return p.prefs.hotel});
+    var stay=flc.filter(function(p){return p.prefs.attend!==false});
     ['w','m'].forEach(function(g){
       var gs=stay.filter(function(p){return p.prefs.group===g});
       for(var q=0;q+2<gs.length&&q<9;q+=3){gs[q].prefs.roomies=[gs[q+1].name,gs[q+2].name]}
@@ -8940,6 +9485,31 @@ function demoSignIn(name,role){
   setRole(role,null);
   showGate(false);
 }
+/* What the chapter's connected Google Calendar looks like in the demo: the
+   weekly meetings, a campus holiday that spans days, and one-off events. The
+   EBOD series starts out hidden from members, as an officer would leave it. */
+function demoGcal(){
+  var out=[], t=new Date(), start=new Date(t.getFullYear(),t.getMonth(),t.getDate()-t.getDay()-7);
+  var add=function(d,gid,title,time,where,rec,end){
+    var k=ymd(d.getFullYear(),d.getMonth(),d.getDate());
+    var e={id:'gd'+gid.slice(5,9)+k.replace(/-/g,''),gid:gid,title:title,date:k,time:time||'',where:where||''};
+    if(rec)e.rec=1; if(end)e.end=end; out.push(e);
+  };
+  for(var w=0;w<8;w++){
+    var b=new Date(start.getFullYear(),start.getMonth(),start.getDate()+w*7);
+    var at=function(n){return new Date(b.getFullYear(),b.getMonth(),b.getDate()+n)};
+    add(at(1),'demo-ebod@google.com','EBOD','6:00 pm','Online',1);
+    add(at(2),'demo-imtu@google.com','IM meeting','5:00 pm','Room L83',1);
+    add(at(3),'demo-iccr@google.com','ICC Rep Meeting','1:30 pm','Online',1);
+    add(at(4),'demo-imth@google.com','IM meeting','5:00 pm','Room L83',1);
+  }
+  var one=function(n){return new Date(start.getFullYear(),start.getMonth(),start.getDate()+n)};
+  add(one(10),'demo-club@google.com','De Anza Club Day','9:00 am','Main Quad');
+  add(one(17),'demo-scop@google.com','ReStore project scope call','1:00 pm','Online');
+  var h=one(25), he=one(26);
+  add(h,'demo-hold@google.com','[De Anza] Campus holiday — no classes','','',0,ymd(he.getFullYear(),he.getMonth(),he.getDate()));
+  return out.sort(function(a,b){return a.date<b.date?-1:1});
+}
 function buildDemoState(fresh){
   var unseed=seedRandom(20260903);
   try{
@@ -8950,6 +9520,9 @@ function buildDemoState(fresh){
     S.club.mbtiTestUrl='https://www.16personalities.com/free-personality-test';
     S.club.formUrl='https://docs.google.com/forms/d/demo/viewform';
     S.club.calShare='https://calendar.google.com/calendar/embed?src=demo%40deanzapbl.example';
+    S.club.gcalId='demo-chapter@deanzapbl.example';
+    setGcal({events:demoGcal(),syncedAt:Date.now()-6*60000,calId:S.club.gcalId});
+    S.club.calHide={ids:[],series:['demo-ebod@google.com']};
     S.actions=cloneActions();
     S.people=[];S.orgs=[];S.orgNames=[];S.log=[];
     applyClubChrome();renderClubSetup();syncRuleInputs();
@@ -9019,6 +9592,7 @@ function buildDemo(){
     if(saved.state.people&&saved.state.people.length)restore(saved.state);
     else{S.club=mergeClub(DEFAULT_CLUB,saved.state.club);S.people=[];S.orgs=[];S.orgNames=[];S.log=saved.state.log||[];}
     applyClubChrome();renderClubSetup();
+    if(S.club.gcalId)setGcal({events:demoGcal(),syncedAt:Date.now()-6*60000,calId:S.club.gcalId});
     done();
     return;
   }
@@ -9205,6 +9779,7 @@ function initRouting(){
   initRouting();
   initTour();
   initCalendar();
+  initAbsences();
   initWork();
   initSquads();
   initCups();

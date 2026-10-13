@@ -859,9 +859,10 @@ function orgBoard_(aff, cfg) {
 
 /* FLC preferences arrive as JSON text from the member's own page. Parsed and
    rebuilt here so only the known shape is stored: up to three event names,
-   one requested teammate, whether they can attend, and the hotel answers --
-   whether they need a bed, which rooming group, up to three roommates asked
-   for, and a short note only officers read. */
+   one requested teammate, whether they can attend, and the rooming answers --
+   which rooming group, up to three roommates asked for, and a short note only
+   officers read. Everyone who attends stays at the conference hotel, so
+   "hotel" simply follows "attend"; it is kept for pages still sending it. */
 function cleanPrefs_(raw) {
   var o;
   try { o = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return null; }
@@ -871,7 +872,7 @@ function cleanPrefs_(raw) {
   var roomies = (o.roomies || []).slice(0, 3).map(function (v) { return txt(v, 60); }).filter(String);
   var group = ['w', 'm', 'x'].indexOf(String(o.group)) > -1 ? String(o.group) : '';
   return JSON.stringify({flc: flc, mate: txt(o.mate, 60), attend: o.attend !== false,
-    hotel: o.hotel === true, group: group, roomies: roomies, rnote: txt(o.rnote, 160),
+    hotel: o.attend !== false, group: group, roomies: roomies, rnote: txt(o.rnote, 160),
     at: Number(o.at) || Date.now()});
 }
 
@@ -899,16 +900,6 @@ function withLock_(fn) {
   try { return fn(); } finally { l.releaseLock(); }
 }
 
-/* Whether an event brought back from a shared chapter calendar is one the
-   whole membership should see. The chapter's real calendar also carries
-   officer meetings, ICC and client calls with meeting links in them; those
-   come back marked for officers only, and an officer can show any of them. */
-function memberFacing_(title) {
-  var t = String(title || '');
-  if (/\b(EBOD|E-?board|ICC|exec|officers?|scope call|1:1|interview|budget|intro(ductory)? call)\b/i.test(t)) return false;
-  return /\b(IM|general meeting|orientation|bootcamp|workshop|social|mixer|mock|FLC|SFBLC|NLC|conference|competition|finals?|info session|deadline|registration)\b/i.test(t);
-}
-
 /* Officers see the whole club record. Members get the same record without
    the events kept for officers. */
 function memberCfg_(cfg) {
@@ -917,6 +908,116 @@ function memberCfg_(cfg) {
   for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) c[k] = cfg[k];
   c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
   return c;
+}
+
+/* ---- the chapter's Google Calendar, as members see it ----
+   Everything on the connected calendar is shared with members unless an
+   officer hides it -- one occurrence, or every occurrence of a repeating
+   event. What came back from Google lives under a key of its own rather than
+   on the club record: a season of weekly meetings is a few hundred rows, and
+   the club record is one spreadsheet cell, which Sheets caps at 50,000
+   characters. The hide list is small and stays on the club record
+   (cfg.calHide), where officers already save. */
+var GCAL_BACK_DAYS = 30, GCAL_AHEAD_DAYS = 240, GCAL_STALE_MS = 30 * 60 * 1000, GCAL_MAX_CHARS = 45000;
+function readGcal_(aff) {
+  var r = cfgRow_('gcal:' + aff);
+  try { return JSON.parse(r.val || '{}') || {}; } catch (e) { return {}; }
+}
+function writeGcal_(aff, g) {
+  /* Kept under the cell limit by dropping the furthest-out events first: the
+     next refresh brings them back as they come into range. */
+  while (g.events && g.events.length && JSON.stringify(g).length > GCAL_MAX_CHARS) g.events.pop();
+  var r = cfgRow_('gcal:' + aff), j = JSON.stringify(g);
+  if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow(['gcal:' + aff, j]);
+}
+function gcalHidden_(cfg, ev) {
+  var h = (cfg && cfg.calHide) || {};
+  return (h.ids || []).indexOf(ev.id) > -1 || (!!ev.gid && (h.series || []).indexOf(ev.gid) > -1);
+}
+/* Reads the calendar over the window and returns plain rows. Events the page
+   itself put there (ownGids) are skipped: the page already shows them. */
+function pullGcal_(cal, ownGids) {
+  var tz = Session.getScriptTimeZone(), out = [], seen = {};
+  var from = new Date(); from.setDate(from.getDate() - GCAL_BACK_DAYS);
+  var to = new Date(); to.setDate(to.getDate() + GCAL_AHEAD_DAYS);
+  cal.getEvents(from, to).forEach(function (gev) {
+    var gid = gev.getId(), st = gev.getStartTime(), all = gev.isAllDayEvent();
+    var day = Utilities.formatDate(all ? gev.getAllDayStartDate() : st, tz, 'yyyy-MM-dd');
+    if (ownGids[gid + '|' + day] || seen[gid + '|' + day]) return;
+    seen[gid + '|' + day] = true;
+    /* A meeting link is not a place, and members should not be handed one
+       from an officer's calendar. */
+    var where = String(gev.getLocation() || '');
+    if (/^https?:|teams\.microsoft|zoom\.us|meet\.google/i.test(where)) where = 'Online';
+    var row = {
+      id: 'g' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(
+        Utilities.DigestAlgorithm.MD5, gid + '|' + day)).replace(/[^a-z0-9]/gi, '').slice(0, 14),
+      gid: gid, title: String(gev.getTitle() || 'Event').slice(0, 80), date: day,
+      time: all ? '' : Utilities.formatDate(st, tz, 'h:mm a').toLowerCase(),
+      where: where.slice(0, 60)
+    };
+    if (all) {
+      /* Google's all-day end is the day after; the page wants the last day. */
+      var last = new Date(gev.getAllDayEndDate().getTime() - 86400000);
+      var lastDay = Utilities.formatDate(last, tz, 'yyyy-MM-dd');
+      if (lastDay > day) row.end = lastDay;
+    }
+    try { if (gev.isRecurringEvent()) row.rec = 1; } catch (e) {}
+    out.push(row);
+  });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+/* Brings the stored copy up to date when it is older than GCAL_STALE_MS.
+   Cheap to call: it only talks to Google when the copy is stale, and only
+   one request at a time does that -- anyone else is answered from the copy
+   already there instead of queueing behind it. */
+function refreshGcal_(aff, cfg, force) {
+  var g = readGcal_(aff);
+  if (!cfg || !cfg.gcalId) return g;
+  if (!force && g.syncedAt && (new Date().getTime() - g.syncedAt) < GCAL_STALE_MS && g.calId === cfg.gcalId) return g;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(force ? 10000 : 50)) return g;
+  try {
+    var cal = null;
+    try { cal = CalendarApp.getCalendarById(cfg.gcalId); } catch (e) { cal = null; }
+    if (!cal) { g.error = 'The connected calendar cannot be opened.'; return g; }
+    var own = {};
+    (cfg.events || []).forEach(function (ev) { if (ev && ev.gid && !ev.pulled) own[ev.gid + '|' + ev.date] = true; });
+    g = {calId: cfg.gcalId, syncedAt: new Date().getTime(), events: pullGcal_(cal, own)};
+    writeGcal_(aff, g);
+    return g;
+  } catch (e) {
+    g.error = String(e.message || e);
+    return g;
+  } finally { lock.releaseLock(); }
+}
+/* What the page gets: officers see every event with its hidden state;
+   members only ever receive what is shared with them. */
+function gcalFor_(g, cfg, role) {
+  var isAdmin = RANK[role] >= RANK.admin, list = [];
+  (g.events || []).forEach(function (ev) {
+    var hid = gcalHidden_(cfg, ev);
+    if (hid && !isAdmin) return;
+    var c = {}; for (var k in ev) c[k] = ev[k];
+    if (hid) c.hidden = 1;
+    list.push(c);
+  });
+  return {events: list, syncedAt: g.syncedAt || 0, calId: g.calId || '', error: isAdmin ? (g.error || '') : ''};
+}
+
+/* The names members registered under, for picking teammates and roommates.
+   Names only: no addresses, no roles, nothing a member could not already
+   read off the roster once the Orgs are formed. */
+function memberNames_(aff) {
+  var seen = {}, out = [];
+  accountsFor(aff).forEach(function (u) {
+    var nm = String(((u.first || '') + ' ' + (u.last || '')).trim()).replace(/[<>\u0000-\u001F]/g, '').slice(0, 60);
+    var k = nm.toLowerCase().replace(/[^a-z]/g, '');
+    if (!k || seen[k]) return;
+    seen[k] = 1; out.push(nm);
+  });
+  return out.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
 }
 
 /* A hand-in that is a link rather than a file. Same one-row-per-member rule
@@ -1246,9 +1347,14 @@ function dispatch(action, payload, email, role, id) {
          runs past its limit gets killed with nothing saved. Twenty a run, the
          rest next time, and the caller is told how many are left. */
       var PUSH_MAX = 20, started = new Date().getTime();
+      /* An officer adding one event sends just that one; the rest wait for
+         an explicit Connect & refresh, so nothing is pushed by surprise. */
+      var pushOnly = (payload || {}).pushOnly;
+      pushOnly = Array.isArray(pushOnly) ? pushOnly.map(String) : null;
       for (var pi = 0; pi < incoming.length; pi++) {
         var ev = incoming[pi];
-        if (ev.gid) continue;
+        if (ev.gid || ev.pulled) continue;
+        if (pushOnly && pushOnly.indexOf(String(ev.id)) < 0) continue;
         if (pushed >= PUSH_MAX || (new Date().getTime() - started) > 60000) { remaining++; continue; }
         var w = whenOf(ev);
         if (!w) continue;
@@ -1275,41 +1381,21 @@ function dispatch(action, payload, email, role, id) {
         } catch (e) {}
       }
 
-      /* Back, over a window narrow enough to stay quick. */
-      var from = new Date(); from.setDate(from.getDate() - 14);
-      var to   = new Date(); to.setDate(to.getDate() + 120);
-      var tz = Session.getScriptTimeZone();
-      try {
-        cal.getEvents(from, to).forEach(function (gev) {
-          var gid = gev.getId(), st = gev.getStartTime();
-          var day = Utilities.formatDate(st, tz, 'yyyy-MM-dd');
-          if (byGid[gid + '|' + day]) return;
-          byGid[gid + '|' + day] = true;
-          var title = String(gev.getTitle() || 'Event').slice(0, 80);
-          /* A meeting link is not a place, and members should not be handed
-             one from an officer's calendar. */
-          var where = String(gev.getLocation() || '');
-          if (/^https?:|teams\.microsoft|zoom\.us|meet\.google/i.test(where)) where = 'Online';
-          var row = {
-            id: 'g' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(
-              Utilities.DigestAlgorithm.MD5, gid + '|' + day)).replace(/[^a-z0-9]/gi, '').slice(0, 14),
-            title: title, date: day,
-            time: gev.isAllDayEvent() ? '' : Utilities.formatDate(st, tz, 'h:mm a').toLowerCase(),
-            where: where.slice(0, 60),
-            cat: 'meet', gid: gid, pulled: true
-          };
-          if (cCfg.gcalLinked && !memberFacing_(title)) row.ebod = true;
-          incoming.push(row);
-          pulled++;
-        });
-      } catch (e) {}
-
-      cCfg.events = incoming;
+      /* The club record keeps only the page's own events. Everything else on
+         the calendar is read back into its own store (see refreshGcal_), shared
+         with members unless an officer has hidden it. Older versions kept
+         those on the club record, marked pulled; they are dropped here. */
+      var own = incoming.filter(function (ev) { return !ev.pulled; });
+      cCfg.events = own;
       saveCfg();
+      var gNow = {}, gErr = '';
+      try { gNow = refreshGcal_(aff, cCfg, true); gErr = gNow.error || ''; }
+      catch (e) { gErr = String(e.message || e); }
+      pulled = (gNow.events || []).length;
 
-      return {ok: true, events: incoming, pushed: pushed, pulled: pulled, adopted: adopted, remaining: remaining,
-              calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '', linked: !!cCfg.gcalLinked,
-              sharedWith: calOwner, shareError: calShareErr};
+      return {ok: true, events: own, gcal: gcalFor_(gNow, cCfg, role), pushed: pushed, pulled: pulled, adopted: adopted,
+              remaining: remaining, calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '', linked: !!cCfg.gcalLinked,
+              sharedWith: calOwner, shareError: calShareErr || gErr};
     }
 
     /* ---- handing in work ----
@@ -2221,10 +2307,16 @@ function dispatch(action, payload, email, role, id) {
       readTab('config').forEach(function (r) {
         if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
       });
+      /* The connected calendar refreshes itself here, at most every half hour,
+         so members see what is on it without an officer pressing anything. */
+      var gAll = {};
+      try { gAll = refreshGcal_(aff, cfg, false); } catch (e) { gAll = {}; }
       /* This carries everything whoami answers as well, so signing in is one
          round trip rather than two. Apps Script costs about a second per call
          plus a redirect, and that second call was pure latency. */
       return {
+        gcal:        gcalFor_(gAll, cfg, role),
+        memberNames: memberNames_(aff),
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
         config: RANK[role] >= RANK.admin ? cfg : memberCfg_(cfg),
         aff: aff, affName: (findAff(aff) || {}).name || aff,
@@ -2233,7 +2325,9 @@ function dispatch(action, payload, email, role, id) {
           return {code: a.code, name: a.name}; }) : null,
         teamBoard:  teamBoard_(aff, cfg),
         orgBoard:   orgBoard_(aff, cfg),
-        roster:     readTab('roster'),
+        /* The raw form-responses tab used to ride along here, for every club,
+           to any signed-in member. Nothing in the page read it; officers get
+           the roster they need from clubRoster, scoped to their own club. */
         teams:      readScoped('teams', aff),
         pointsLog:  readScoped('pointsLog', aff),
         attendance: readScoped('attendance', aff)
