@@ -53,7 +53,10 @@ Nothing in the demo is saved or sent anywhere. Use "Reset demo" in the demo bar 
    *Teams* shows your consulting team (PMs, your initiative) and FLC team.
 6. **Homework:** open *Homework*, upload a file or paste a shared link before the due date.
    Re-handing in replaces your earlier version; the first on-time hand-in still counts.
-7. **Calendar:** every event has *+ Calendar* to add it to your own Google Calendar.
+7. **Calendar:** every event has *+ Calendar* to add it to your own Google Calendar, and
+   *Add the org calendar* (once EBOD has shared it) subscribes you to the whole chapter calendar.
+8. **Not sure how a tab works?** Press *Watch* at the top of it for a short captioned clip.
+   All of them are also on `/orientation` under *Tab by tab*.
 
 ## For EBOD
 
@@ -113,6 +116,17 @@ Anything that isn't clearly member-facing (EBOD, ICC, scope calls…) comes back
 **EBOD only**; press *Show to members* on any that should be public. Meeting links come
 back as "Online". The linked calendar's sharing is never changed, and members don't get
 the "Add this calendar" link for it.
+
+**Shareable org calendar link**: under *Shareable link to the org calendar*, paste the
+calendar's share link (Google Calendar → the calendar's *Settings* → *Integrate calendar*:
+the public URL, or the iCal address for an `.ics` feed) and *Save link*. *Use the synced
+calendar* fills in the synced one. Members then get *Add the org calendar* and *Copy link*.
+The link only works for people who can see that calendar, so make it public or share it
+with the chapter under *Access permissions*. If it is the synced calendar and it holds
+EBOD-only events, the page warns you that anyone the link works for sees those too —
+consider a separate members' calendar for sharing.
+
+**Tab demo clips** live in `media/demos/`; `tools/demos/` re-records them.
 
 ---
 

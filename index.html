@@ -725,6 +725,21 @@ tr.mine td{background:var(--wash)}
 .reqchip{font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:999px;
   border:1px solid var(--c);color:var(--c)}
 .reqchecks{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--flag)}
+/* tab demos: members get a short clip at the top of each tab */
+.demorow{display:none;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+body[data-role="member"] .demorow{display:flex}
+.demochip{display:inline-flex;align-items:center;gap:8px;font:500 12.5px/1 'Space Grotesk',ui-monospace,monospace;letter-spacing:.03em;
+  padding:7px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--card,transparent);color:var(--ink);cursor:pointer;min-height:0}
+.demochip:hover{border-color:var(--ink)}
+.demochip .dpi{font-size:9px;color:var(--accent)}
+.demochip em{font-style:normal;color:var(--mute)}
+#demoplayer{position:fixed;inset:0;z-index:9000;background:rgba(10,10,9,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+#demoplayer[hidden]{display:none}
+.dpbox{width:min(1000px,100%);background:var(--paper);border:1px solid var(--rule);border-radius:12px;overflow:hidden}
+.dphead{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.dphead button{border:0;background:transparent;color:var(--mute);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;min-height:0}
+.dpbox video{display:block;width:100%;height:auto;aspect-ratio:1280/800;background:#000}
+
 td .sub{font-size:10.5px;color:var(--mute);letter-spacing:.04em;margin-top:2px;font-weight:400}
 .note-soft{margin-top:12px;padding:10px 12px;border-left:3px solid var(--accent);background:var(--wash);
   font-size:13.5px;color:var(--ink)}
@@ -860,6 +875,11 @@ body.netbusy .netbar{opacity:1}
 .caltitle{font-size:17px;font-weight:300;letter-spacing:-.01em;min-width:9.5em;text-align:center;color:var(--ink)}
 .calsync{margin-left:auto;display:flex;gap:8px;align-items:center}
 .calsync .tiny{text-decoration:none;display:inline-flex;align-items:center}
+/* the shared org calendar: the one action members should take here */
+.calsync a.calcta{font-family:'Space Grotesk',ui-monospace,monospace;font-size:12.5px;letter-spacing:.04em;padding:5px 11px;
+  border-radius:999px;background:var(--accent);color:var(--paper);border:1px solid var(--accent)}
+.calsync a.calcta:hover{filter:brightness(1.08)}
+.calshare{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:flex-end;margin-top:12px;padding:12px;border:1px dashed var(--rule);border-radius:10px}
 
 .calgrid{border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--card)}
 .calhead{display:grid;grid-template-columns:repeat(7,1fr);background:var(--void)}
@@ -1742,6 +1762,13 @@ Marcus Lee"></textarea>
       <button id="ev-add">Add</button>
     </div>
     <div class="msg" id="evmsg"></div>
+    <div class="calshare" data-req="admin">
+      <div class="field" style="flex:1;min-width:240px"><label for="cal-share">Shareable link to the org calendar</label>
+        <input type="url" id="cal-share" placeholder="Paste the calendar’s share link (Google Calendar → Settings → Integrate calendar)"></div>
+      <button class="tiny ghost" id="cal-share-fill" type="button">Use the synced calendar</button>
+      <button class="tiny" id="cal-share-save" type="button">Save link</button>
+      <p class="hint" id="cal-share-hint" style="flex:1 1 100%;margin:0"></p>
+    </div>
     <div class="calbar">
       <div class="segbtns">
         <button class="seg" id="cal-day" type="button">Day</button>
@@ -1760,6 +1787,8 @@ Marcus Lee"></textarea>
           title="The chapter calendar to sync with. Leave it as it is to keep the current one.">
         <button class="tiny ghost" id="cal-sync" data-req="admin" type="button">Sync with Google Calendar</button>
         <a class="tiny ghost" id="cal-sub" href="#" target="_blank" rel="noopener" style="display:none">Add this calendar to mine</a>
+        <a class="tiny calcta" id="cal-join" href="#" target="_blank" rel="noopener" style="display:none">Add the org calendar</a>
+        <button class="tiny ghost" id="cal-copy" type="button" style="display:none">Copy link</button>
       </div>
     </div>
     <div id="calbody" style="margin-top:14px"></div>
@@ -2016,7 +2045,7 @@ function cloneClub(c){
     clients:(c.clients||[]).map(function(x){return cleanLabel(x)}),
     flcEvents:(c.flcEvents||[]).map(function(x){return cleanLabel(x)}),
     cups:(c.cups||[]).slice(), seasonOff:(c.seasonOff||[]).slice(),
-    gcalId:cleanLabel(c.gcalId), gcalUrl:safeUrl(c.gcalUrl), gcalLinked:!!c.gcalLinked, theme:cleanLabel(c.theme),
+    gcalId:cleanLabel(c.gcalId), gcalUrl:safeUrl(c.gcalUrl), gcalLinked:!!c.gcalLinked, calShare:safeUrl(c.calShare), theme:cleanLabel(c.theme),
     /* FLC hotel rooms: who sleeps where, and how many a room takes. */
     rooms:(c.rooms||[]).map(cloneRoom), roomCap:clampRoomCap(c.roomCap),
     selfTeams:c.selfTeams!==false,
@@ -2650,7 +2679,7 @@ var S={
 };
 var CLUB_LABELS={clubName:1,unit:1,units:1,trackWord:1,flexLabel:1,newWord:1,oldWord:1,
                  roleLead:1,roleSenior:1,roleJunior:1,ownerEmail:1,theme:1};
-var CLUB_URLS={formUrl:1,sheetUrl:1,formEditUrl:1,mbtiTestUrl:1,gcalUrl:1};
+var CLUB_URLS={formUrl:1,sheetUrl:1,formEditUrl:1,mbtiTestUrl:1,gcalUrl:1,calShare:1};
 function mergeClub(base,over){
   var out=cloneClub(base);
   if(over)for(var k in over)if(Object.prototype.hasOwnProperty.call(over,k)){
@@ -4187,6 +4216,15 @@ function renderCalendar(){
   }
   var cid=$('cal-id');
   if(cid&&document.activeElement!==cid)cid.value=S.club.gcalId||defaultGcalId();
+  /* The link EBOD chose to share wins over the synced calendar's own: the
+     synced one may be the officers' working calendar. */
+  var share=safeUrl(S.club.calShare), join=$('cal-join'), copy=$('cal-copy');
+  if(join){join.style.display=share?'':'none';if(share)join.href=calAddUrl(share)}
+  if(copy)copy.style.display=share?'':'none';
+  if(share&&sub)sub.style.display='none';
+  var cs=$('cal-share');
+  if(cs&&document.activeElement!==cs)cs.value=S.club.calShare||'';
+  paintShareHint();
   var base=new Date(CALV.y,CALV.m,CALV.d||1);
   if(CALV.mode==='month')renderMonth();
   else if(CALV.mode==='week')renderSpan(7,weekStart(CALV.y,CALV.m,CALV.d||1));
@@ -4194,8 +4232,45 @@ function renderCalendar(){
   else renderList();
 }
 
+/* A calendar feed (.ics) opens as a subscription in Google Calendar; a
+   Google Calendar link opens as it is. Either way the raw link is what gets
+   copied, so it works in Apple or Outlook calendars too. */
+function calAddUrl(u){
+  u=safeUrl(u); if(!u)return '';
+  if(/\.ics(\?|$)|\/ical\//i.test(u))return 'https://calendar.google.com/calendar/r?cid='+encodeURIComponent(u.replace(/^https?:/i,'webcal:'));
+  return u;
+}
+function paintShareHint(){
+  var h=$('cal-share-hint'); if(!h)return;
+  var share=safeUrl(S.club.calShare);
+  var held=(S.club.events||[]).filter(function(e){return e.ebod}).length;
+  var gid=S.club.gcalId||'';
+  var linkedSame=!!(share&&gid&&(share.indexOf(encodeURIComponent(gid))>-1||share.indexOf(gid)>-1));
+  h.innerHTML=(share?'Members see <b>Add the org calendar</b> and <b>Copy link</b> on this tab. ':'Nothing shared yet: members only see the events on this page. ')+
+    'The link only opens for people who can see that calendar in Google: make it public or share it with the chapter under the calendar’s <i>Access permissions</i>.'+
+    (linkedSame&&held?' <span style="color:var(--flag)">This is the synced calendar, which also holds '+held+' EBOD-only event'+(held===1?'':'s')+'. Anyone the link works for sees those too.</span>':'');
+}
 function initCalendar(){
   var add=$('ev-add'); if(!add)return;
+  var cs=$('cal-share'), csSave=$('cal-share-save'), csFill=$('cal-share-fill');
+  if(csFill)csFill.addEventListener('click',function(){
+    if(!S.club.gcalId){var m=$('evmsg');m.textContent='Sync with Google Calendar first, or paste a link.';m.className='msg show';return}
+    cs.value='https://calendar.google.com/calendar/u/0?cid='+encodeURIComponent(S.club.gcalId);cs.focus();
+  });
+  if(csSave)csSave.addEventListener('click',function(){
+    var v=String(cs.value||'').trim().replace(/^webcal:/i,'https:'), m=$('evmsg');
+    if(v&&!safeUrl(v)){m.textContent='That needs to be a full link starting with https://.';m.className='msg show';return}
+    S.club.calShare=safeUrl(v);
+    save(); syncClub(); renderCalendar();
+    m.textContent=v?'Saved. Members can add the org calendar from this tab now.':'Link removed.';m.className='msg show good';
+  });
+  var cp=$('cal-copy');
+  if(cp)cp.addEventListener('click',function(){
+    var u=safeUrl(S.club.calShare); if(!u)return;
+    var done=function(){cp.textContent='Copied';setTimeout(function(){cp.textContent='Copy link'},1600)};
+    try{navigator.clipboard.writeText(u).then(done,function(){uiPrompt('Copy this link','','Calendar link',u,'Done')})}
+    catch(e){uiPrompt('Copy this link','','Calendar link',u,'Done')}
+  });
   add.addEventListener('click',function(){
     var t=($('ev-title').value||'').trim(), d=$('ev-date').value;
     var m=$('evmsg');
@@ -8874,6 +8949,7 @@ function buildDemoState(fresh){
     S.club.ebod=F26.ebod.slice(); S.club.clients=F26.clients.slice(); S.club.flcEvents=F26.flcEvents.slice();
     S.club.mbtiTestUrl='https://www.16personalities.com/free-personality-test';
     S.club.formUrl='https://docs.google.com/forms/d/demo/viewform';
+    S.club.calShare='https://calendar.google.com/calendar/embed?src=demo%40deanzapbl.example';
     S.actions=cloneActions();
     S.people=[];S.orgs=[];S.orgNames=[];S.log=[];
     applyClubChrome();renderClubSetup();syncRuleInputs();
@@ -9178,6 +9254,53 @@ function initRouting(){
   $('atdate').value=isoDate;
 
   initGate();
+})();
+
+/* ================= TAB DEMOS =================
+   A short captioned clip for each tab a member uses, recorded from the demo
+   club. Silent on purpose: they play muted on a phone in a lecture hall. A
+   button at the top of the tab opens the clip over the page. */
+var TAB_DEMOS=[
+  ['v-form','signup','Sign up and the sign-up form',41],
+  ['v-teams','orgs','Orgs',26],
+  ['v-squads','teams','Teams and forming your own',42],
+  ['v-squads','flc','FLC choices and hotel',50],
+  ['v-cup','cup','Org Cup',24],
+  ['v-calendar','calendar','Calendar',37],
+  ['v-work','homework','Homework',24],
+  ['v-profile','profile','Profile',31]
+];
+function openDemo(id,title){
+  var w=$('demoplayer');
+  if(!w){
+    w=document.createElement('div');w.id='demoplayer';w.hidden=true;
+    w.innerHTML='<div class="dpbox" role="dialog" aria-modal="true" aria-labelledby="dptitle"><div class="dphead"><b id="dptitle"></b>'+
+      '<button type="button" id="dpclose" aria-label="Close">&times;</button></div><video id="dpvideo" controls playsinline muted></video></div>';
+    document.body.appendChild(w);
+    var shut=function(){var v=$('dpvideo');v.pause();v.removeAttribute('src');v.load();w.hidden=true};
+    $('dpclose').addEventListener('click',shut);
+    w.addEventListener('click',function(e){if(e.target===w)shut()});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!w.hidden)shut()});
+  }
+  $('dptitle').textContent=title;
+  var v=$('dpvideo');v.poster='/media/demos/'+id+'.jpg';v.src='/media/demos/'+id+'.mp4';
+  w.hidden=false;
+  try{var pr=v.play();if(pr&&pr.catch)pr.catch(function(){})}catch(e){}
+}
+(function(){
+  var by={};
+  TAB_DEMOS.forEach(function(d){(by[d[0]]=by[d[0]]||[]).push(d)});
+  Object.keys(by).forEach(function(vid){
+    var view=document.getElementById(vid); if(!view)return;
+    var row=document.createElement('div');row.className='demorow';
+    row.innerHTML=by[vid].map(function(d){
+      return '<button type="button" class="demochip" data-clip="'+d[1]+'" data-title="'+esc(d[2])+'">'+
+        '<span class="dpi" aria-hidden="true">&#9654;</span> Watch: '+esc(d[2])+' <em>'+Math.round(d[3])+'s</em></button>'}).join('');
+    view.insertBefore(row,view.firstChild);
+    Array.prototype.forEach.call(row.querySelectorAll('.demochip'),function(b){
+      b.addEventListener('click',function(){openDemo(b.dataset.clip,b.dataset.title)});
+    });
+  });
 })();
 })();
 

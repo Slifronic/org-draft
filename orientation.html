@@ -84,6 +84,12 @@ h1 span{color:var(--mute)}
 .watch{margin:0 0 34px}
 .watch video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#000;border:1px solid var(--rule);border-radius:8px}
 .watch .cap{margin-top:10px;color:var(--slate);font-size:14.5px}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:14px;margin-top:12px}
+.clip{margin:0;background:var(--card);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.clip video{display:block;width:100%;height:auto;aspect-ratio:1280/800;background:#000}
+.clip figcaption{padding:10px 12px;display:grid;gap:2px}
+.clip figcaption b{font-weight:500}
+.clip figcaption span{font-size:13px;color:var(--slate)}
 .toc{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:18px 20px;margin-bottom:34px}
 .toc .t{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--mute);margin-bottom:12px}
@@ -179,6 +185,52 @@ footer a{color:var(--slate)}
       Your browser cannot play this video. <a href="/media/member-walkthrough.mp4">Download the walkthrough (MP4, 10 MB)</a>.
     </video>
     <p class="cap">Member walkthrough · 3 min · signing up, your Org, Teams and FLC choices, homework, the calendar and the Org Cup.</p>
+  </section>
+
+
+  <!-- One short clip per tab, the same ones members can open from the top of
+       each tab in the app. Silent and captioned. -->
+  <section class="watch" id="clips" aria-label="Tab by tab demos">
+    <h2>Tab by tab</h2>
+    <p class="cap" style="margin-top:0">Short silent clips, one per tab. The same ones are on a <i>Watch</i> button at the top of each tab in the app.</p>
+    <div class="clips">
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/signup.jpg"><source src="/media/demos/signup.mp4" type="video/mp4"></video>
+        <figcaption><b>Sign up</b><span>Account, join code and the sign-up form · 41s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/orgs.jpg"><source src="/media/demos/orgs.mp4" type="video/mp4"></video>
+        <figcaption><b>Orgs</b><span>Your Org and your EBOD contact · 26s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/teams.jpg"><source src="/media/demos/teams.mp4" type="video/mp4"></video>
+        <figcaption><b>Teams</b><span>Your teams, and forming your own · 42s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/flc.jpg"><source src="/media/demos/flc.mp4" type="video/mp4"></video>
+        <figcaption><b>FLC choices and hotel</b><span>Rank events, ask for a bed · 50s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/cup.jpg"><source src="/media/demos/cup.mp4" type="video/mp4"></video>
+        <figcaption><b>Org Cup</b><span>Cups your Org earns together · 24s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/calendar.jpg"><source src="/media/demos/calendar.mp4" type="video/mp4"></video>
+        <figcaption><b>Calendar</b><span>The season and the org calendar · 37s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/homework.jpg"><source src="/media/demos/homework.mp4" type="video/mp4"></video>
+        <figcaption><b>Homework</b><span>Hand in a file or a link · 24s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/profile.jpg"><source src="/media/demos/profile.mp4" type="video/mp4"></video>
+        <figcaption><b>Profile</b><span>Your details and commitment log · 31s</span></figcaption>
+      </figure>
+      <figure class="clip">
+        <video controls playsinline muted preload="none" poster="/media/demos/assistant.jpg"><source src="/media/demos/assistant.mp4" type="video/mp4"></video>
+        <figcaption><b>Assistant</b><span>Ask about your club · 28s</span></figcaption>
+      </figure>
+    </div>
   </section>
 
   <nav class="toc">
