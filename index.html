@@ -704,6 +704,27 @@ a.subfile:hover{color:var(--ink)}
 .youchip{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;
   border-radius:999px;background:var(--wash);color:var(--accent);vertical-align:2px}
 tr.mine td{background:var(--wash)}
+/* FLC hotel rooms */
+.rmout{border:0;background:transparent;color:var(--mute);cursor:pointer;font-size:15px;line-height:1;padding:0 4px;min-height:0}
+.rmout:hover{color:var(--flag)}
+.rmno{width:84px;border:0;border-bottom:1px dashed var(--rule);background:transparent;color:var(--ink);padding:2px 0;font:inherit}
+.rmno:focus{outline:none;border-bottom-color:var(--accent)}
+.rmgroup{flex:0 1 auto!important;max-width:160px}
+.roomyours{padding:10px 12px;border:1px solid var(--accent);border-radius:10px;margin:4px 0 12px;background:var(--wash)}
+.hotelset{border:1px solid var(--rule);border-radius:10px;padding:10px 14px 4px;margin:12px 0 0;min-width:0}
+.hotelset legend{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);padding:0 6px}
+.hotelset[disabled]{opacity:.5}
+.hotelset .row[hidden]{display:none}
+.evchip.ebod{opacity:.6;border-style:dashed}
+.calid{width:210px;max-width:100%;font-size:12px;padding:5px 8px}
+.ebodtag{color:var(--flag)}
+/* teams members send in */
+.reqlist{display:grid;gap:10px;margin-top:10px}
+.reqrow{border:1px solid var(--rule);border-radius:10px;padding:10px 12px;background:var(--paper)}
+.reqhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.reqchip{font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:999px;
+  border:1px solid var(--c);color:var(--c)}
+.reqchecks{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--flag)}
 td .sub{font-size:10.5px;color:var(--mute);letter-spacing:.04em;margin-top:2px;font-weight:400}
 .note-soft{margin-top:12px;padding:10px 12px;border-left:3px solid var(--accent);background:var(--wash);
   font-size:13.5px;color:var(--ink)}
@@ -1174,7 +1195,7 @@ tr.mine td{background:var(--warmwash)}
     <div style="display:flex;justify-content:center;margin-top:10px">
       <button class="themebtn" id="themebtn2" type="button">Light</button></div>
     <div class="gatemsg" id="gatemsg"></div>
-    <div class="gatefoot" id="gatefoot"><a href="/orientation">New here? Read the orientation.</a><br>Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
+    <div class="gatefoot" id="gatefoot"><a href="/orientation">New here? Watch the 3-minute orientation.</a><br>Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
   </div>
 </div>
 
@@ -1529,6 +1550,9 @@ tr.mine td{background:var(--warmwash)}
     <div class="msg" id="sqmsg"></div>
   </div>
   <div class="panel" id="sqprefs" data-req="admin" hidden></div>
+  <div class="panel" id="sqrooms" data-req="admin" hidden></div>
+  <div class="panel" id="sqreqs" data-req="admin" hidden></div>
+  <div class="panel" id="myteamreq" hidden></div>
   <div class="panel" id="myprefs" hidden></div>
   <div id="squadbody"></div>
 </div>
@@ -1732,6 +1756,8 @@ Marcus Lee"></textarea>
         <button class="tiny ghost" id="cal-today" type="button">Today</button>
       </div>
       <div class="calsync">
+        <input type="text" id="cal-id" data-req="admin" class="calid" placeholder="Chapter calendar ID" aria-label="Google Calendar ID to sync with"
+          title="The chapter calendar to sync with. Leave it as it is to keep the current one.">
         <button class="tiny ghost" id="cal-sync" data-req="admin" type="button">Sync with Google Calendar</button>
         <a class="tiny ghost" id="cal-sub" href="#" target="_blank" rel="noopener" style="display:none">Add this calendar to mine</a>
       </div>
@@ -1990,8 +2016,17 @@ function cloneClub(c){
     clients:(c.clients||[]).map(function(x){return cleanLabel(x)}),
     flcEvents:(c.flcEvents||[]).map(function(x){return cleanLabel(x)}),
     cups:(c.cups||[]).slice(), seasonOff:(c.seasonOff||[]).slice(),
-    gcalId:cleanLabel(c.gcalId), gcalUrl:safeUrl(c.gcalUrl), theme:cleanLabel(c.theme),
+    gcalId:cleanLabel(c.gcalId), gcalUrl:safeUrl(c.gcalUrl), gcalLinked:!!c.gcalLinked, theme:cleanLabel(c.theme),
+    /* FLC hotel rooms: who sleeps where, and how many a room takes. */
+    rooms:(c.rooms||[]).map(cloneRoom), roomCap:clampRoomCap(c.roomCap),
+    selfTeams:c.selfTeams!==false,
     formEmbed:c.formEmbed!==false};
+}
+function clampRoomCap(n){n=parseInt(n,10);return n>=1&&n<=8?n:4}
+function cloneRoom(r){
+  r=r||{};
+  return {id:cleanLabel(r.id),name:cleanLabel(r.name),group:['w','m','x'].indexOf(r.group)>-1?r.group:'',
+    no:cleanLabel(r.no).slice(0,12),members:(r.members||[]).map(function(x){return cleanLabel(x)}).slice(0,8)};
 }
 
 /* A working team. Consulting teams carry a client, two PMs and the
@@ -2621,6 +2656,8 @@ function mergeClub(base,over){
   if(over)for(var k in over)if(Object.prototype.hasOwnProperty.call(over,k)){
     if(k==='tracks')out[k]=over[k].map(function(t){return {id:t.id,label:cleanLabel(t.label)}});
     else if(k==='teams')out[k]=(over[k]||[]).map(cloneTeam);
+    else if(k==='rooms')out[k]=(over[k]||[]).map(cloneRoom);
+    else if(k==='roomCap')out[k]=clampRoomCap(over[k]);
     else if(k==='ebod')out[k]=(over[k]||[]).map(function(e){return {name:cleanLabel(e&&e.name),pos:cleanLabel(e&&e.pos)}});
     else if(k==='orgEbod'||k==='clients'||k==='flcEvents')out[k]=(over[k]||[]).map(function(x){return cleanLabel(x)});
     else if(CLUB_LABELS[k])out[k]=cleanLabel(over[k]);
@@ -2768,7 +2805,7 @@ var NO_AUTH={login:1,getSalt:1,signup:1,listAffiliations:1};
 var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
                    myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
                    setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1,myFormAnswers:1,
-                   submitWork:1,calendarSync:1};
+                   submitWork:1,calendarSync:1,submitTeamRequest:1,withdrawTeamRequest:1,listTeamRequests:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -3983,8 +4020,8 @@ function parseTime(t){
 
 function eventChip(e,compact){
   var c=catById(e.cat||'meet');
-  return '<span class="evchip'+(compact?' small':'')+'" data-id="'+esc(e.id)+'" title="'+
-    esc(e.title+(e.time?' · '+e.time:'')+(e.where?' · '+e.where:''))+'">'+
+  return '<span class="evchip'+(compact?' small':'')+(e.ebod?' ebod':'')+'" data-id="'+esc(e.id)+'" title="'+
+    esc(e.title+(e.time?' · '+e.time:'')+(e.where?' · '+e.where:'')+(e.ebod?' · EBOD only':''))+'">'+
     '<i style="background:'+c.color+'"></i>'+
     (e.time?'<b>'+esc(e.time.replace(/\s*([ap])m$/i,'$1'))+'</b> ':'')+
     esc(e.title)+'</span>';
@@ -4051,13 +4088,24 @@ function evRow(e){
     '<span class="evname">'+esc(e.title)+
       (e.where?'<em> · '+esc(e.where)+'</em>':'')+
       (e.time?'<em> · '+esc(e.time)+'</em>':'')+
-      (e.season?'<em> · Fall 2026 season</em>':'')+'</span>'+
+      (e.season?'<em> · Fall 2026 season</em>':'')+
+      (e.ebod?'<em class="ebodtag"> · EBOD only</em>':'')+'</span>'+
     '<span class="catchip" style="--catcolor:'+c.color+'"><i></i>'+esc(c.label)+'</span>'+
     (link?'<a class="evadd" href="'+esc(link)+'" target="_blank" rel="noopener" title="Add to your own Google Calendar">+ Calendar</a>':'')+
+    /* Brought back from the chapter calendar: officers decide what members see. */
+    (canEdit()&&e.pulled?'<button class="tiny ghost evshow" type="button">'+(e.ebod?'Show to members':'EBOD only')+'</button>':'')+
     (canEdit()?'<button class="evkill" type="button" title="Remove">×</button>':'')+
   '</div>';
 }
 function wireEvRows(box){
+  Array.prototype.forEach.call(box.querySelectorAll('.evshow'),function(b){
+    b.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var id=b.parentNode.dataset.id;
+      (S.club.events||[]).forEach(function(e){if(e.id===id)e.ebod=!e.ebod});
+      save(); syncClub(); renderCalendar();
+    });
+  });
   Array.prototype.forEach.call(box.querySelectorAll('.evkill'),function(b){
     b.addEventListener('click',function(ev){
       ev.stopPropagation();
@@ -4134,9 +4182,11 @@ function renderCalendar(){
   }
   var sub=$('cal-sub');
   if(sub){
-    if(S.club.gcalUrl){sub.style.display='';sub.href=safeUrl(S.club.gcalUrl)}
+    if(S.club.gcalUrl&&(!S.club.gcalLinked||canEdit())){sub.style.display='';sub.href=safeUrl(S.club.gcalUrl)}
     else sub.style.display='none';
   }
+  var cid=$('cal-id');
+  if(cid&&document.activeElement!==cid)cid.value=S.club.gcalId||defaultGcalId();
   var base=new Date(CALV.y,CALV.m,CALV.d||1);
   if(CALV.mode==='month')renderMonth();
   else if(CALV.mode==='week')renderSpan(7,weekStart(CALV.y,CALV.m,CALV.d||1));
@@ -4200,20 +4250,25 @@ function initCalendar(){
       m.textContent='Still going. Creating a calendar for the first time can take a minute.';
       m.className='msg show info';
     },12000);
-    backendPost('calendarSync',{events:calList().map(function(e){var c={};for(var k in e)if(k!=='season')c[k]=e[k];return c})}).then(function(r){
+    var want=String(($('cal-id')||{}).value||'').trim();
+    var body={events:calList().map(function(e){var c={};for(var k in e)if(k!=='season')c[k]=e[k];return c})};
+    if(want&&want!==S.club.gcalId)body.calendarId=want;
+    backendPost('calendarSync',body).then(function(r){
       clearTimeout(late);
       sync.disabled=false;
       if(r&&r.ok){
         S.club.events=r.events||S.club.events;
-        S.club.gcalId=r.calendarId||''; S.club.gcalUrl=r.calendarUrl||'';
+        S.club.gcalId=r.calendarId||''; S.club.gcalUrl=r.calendarUrl||''; S.club.gcalLinked=!!r.linked;
         save(); syncClub(); renderCalendar();
-        var note='Synced — '+r.pushed+' sent, '+r.pulled+' brought back.';
+        var held=(S.club.events||[]).filter(function(e){return e.ebod}).length;
+        var note='Synced with '+S.club.gcalId+' — '+r.pushed+' sent, '+(r.adopted||0)+' matched to events already there, '+r.pulled+' brought back'+
+          (held?' ('+held+' kept for EBOD only; use “Show to members” on any that should be public)':'')+'.';
         /* A run is capped so it cannot be killed mid-way; anything left over
            goes on the next press rather than silently not happening. */
         if(r.remaining)note+=' '+r.remaining+' still to send — press it again.';
         if(r.shareError)note+=' The club account could not be given access ('+r.shareError+').';
         else if(r.sharedWith)note+=' '+r.sharedWith+' can edit it.';
-        else note+=' Set a club Google account under Intake so the chapter owns its calendar.';
+        else if(!r.linked)note+=' Set a club Google account under Intake so the chapter owns its calendar.';
         m.textContent=note; m.className='msg show '+(r.shareError?'':'good');
       } else {
         m.textContent=(r&&r.error)||'That did not sync.'; m.className='msg show';
@@ -6025,11 +6080,16 @@ function loadPrefs(force){
   return src.then(function(r){prefsFromRoster((r&&r.ok&&r.roster)||[]);return PREFS});
 }
 function prefsFromRoster(roster){
-  PREFS={loaded:true,byName:{}};
+  PREFS={loaded:true,byName:{},names:{}};
   roster.forEach(function(u){
     var nm=((u.first||'')+' '+(u.last||'')).trim()||u.who;
     var pr=u.prefs; if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
-    if(pr&&pr.flc&&pr.flc.length)PREFS.byName[normName(nm)]=pr;
+    /* Someone going only for the hotel, or saying they cannot go, sent
+       something too -- it is not only event choices that count. */
+    if(pr&&((pr.flc&&pr.flc.length)||pr.hotel||pr.attend===false)){
+      pr.flc=pr.flc||[];
+      PREFS.byName[normName(nm)]=pr; PREFS.names[normName(nm)]=nm;
+    }
   });
 }
 function flcTeamsFor(ev){return teamsList().filter(function(t){return kindOf(t)==='flc'&&t.event===ev})}
@@ -6046,10 +6106,14 @@ function nextTeamLetter(ev){
    listed, not dropped. */
 function formFlcTeams(){
   var evs=flcEventList(), cap=F26.flcMax*F26.flcTeamsPerEvent;
+  /* A member who sent choices but is not on the roster under that name
+     cannot be placed; they are named, not quietly skipped. */
+  var unknown=[];
   var cands=Object.keys(PREFS.byName).map(function(k){
     var pr=PREFS.byName[k], p=null;
     S.people.forEach(function(x){if(normName(x.name)===k)p=x});
-    return p&&pr.attend!==false?{p:p,pr:pr}:null;
+    if(!p&&pr.attend!==false&&(pr.flc||[]).length)unknown.push(PREFS.names[k]||k);
+    return p&&pr.attend!==false&&(pr.flc||[]).length?{p:p,pr:pr}:null;
   }).filter(Boolean);
   var into={}; evs.forEach(function(e){into[e]=[]});
   var placed={};
@@ -6062,7 +6126,8 @@ function formFlcTeams(){
     });
   }
   var made=[];
-  evs.forEach(function(ev){
+  var stamp=Date.now().toString(36);
+  evs.forEach(function(ev,ei){
     var list=into[ev]; if(!list.length)return;
     var n=Math.min(F26.flcTeamsPerEvent,Math.ceil(list.length/F26.flcMax));
     var groups=[];for(var i=0;i<n;i++)groups.push([]);
@@ -6078,12 +6143,14 @@ function formFlcTeams(){
       }
     });
     groups.forEach(function(g,i){
-      made.push(cloneTeam({id:'t'+Date.now().toString(36)+ev.slice(0,2)+i,name:'FLC '+ev+' '+String.fromCharCode(65+i),
+      /* Marketing and Management both start "Ma", so the event's place in
+         the list keeps their ids apart, not its first letters. */
+      made.push(cloneTeam({id:'t'+stamp+'e'+ei+'n'+i,name:'FLC '+ev+' '+String.fromCharCode(65+i),
         kind:'flc',track:'k',event:ev,members:g}));
     });
   });
   var left=cands.filter(function(c){return !placed[c.p.name]}).map(function(c){return c.p.name});
-  return {teams:made,left:left};
+  return {teams:made,left:left,unknown:unknown};
 }
 /* One team per client that does not have one yet. */
 function makeClientTeams(){
@@ -6180,19 +6247,20 @@ function renderPrefsPanel(){
   box.hidden=false;
   if(!PREFS.loaded){box.innerHTML='<h2>FLC preferences</h2><p class="empty wait">Reading what members asked for…</p>';
     loadPrefs().then(function(){renderPrefsPanel();renderSquads()});return}
-  var names=Object.keys(PREFS.byName);
+  var names=Object.keys(PREFS.byName).filter(function(k){return (PREFS.byName[k].flc||[]).length||PREFS.byName[k].attend===false});
   var h='<h2>FLC preferences</h2><p class="hint">'+names.length+' member'+(names.length===1?' has':'s have')+
     ' sent their event choices from the Teams tab. Forming teams fills each event’s '+F26.flcTeamsPerEvent+' teams of up to '+F26.flcMax+
     ' from first choices, then second, then third, keeps requested teammates together where it can, and lists anyone it could not place. '+
     'Selection criteria are still EBOD’s call — adjust by hand afterwards.</p>';
   if(names.length){
     h+='<div class="tablewrap scrollcard" style="max-height:260px"><table><thead><tr><th class="l">Member</th><th class="l">Year</th>'+
-      '<th class="l">1st</th><th class="l">2nd</th><th class="l">3rd</th><th class="l">Teammate</th><th class="l">Nov 13–15</th><th class="l">On</th></tr></thead><tbody>';
+      '<th class="l">1st</th><th class="l">2nd</th><th class="l">3rd</th><th class="l">Teammate</th><th class="l">Nov 13–15</th><th class="l">Hotel</th><th class="l">On</th></tr></thead><tbody>';
     names.sort().forEach(function(k){
-      var pr=PREFS.byName[k], p=findPersonByName(k)||{name:k}, on=teamsOf(p.name).filter(function(t){return kindOf(t)==='flc'})[0];
+      var pr=PREFS.byName[k], p=findPersonByName(k)||{name:PREFS.names[k]||k}, on=teamsOf(p.name).filter(function(t){return kindOf(t)==='flc'})[0];
       h+='<tr><td class="l name">'+esc(p.name)+'</td><td class="l">'+esc(p.year?yearLabel(p):'')+'</td>'+
         [0,1,2].map(function(i){return '<td class="l">'+esc((pr.flc||[])[i]||'—')+'</td>'}).join('')+
         '<td class="l">'+esc(pr.mate||'—')+'</td><td class="l">'+(pr.attend===false?'<span style="color:var(--flag)">can’t go</span>':'yes')+'</td>'+
+        '<td class="l">'+(pr.attend===false?'—':(pr.hotel?esc(GROUP_LABEL[pr.group]||'yes, group not set'):'no'))+'</td>'+
         '<td class="l">'+(on?esc(on.name):'<span style="color:var(--mute)">—</span>')+'</td></tr>';
     });
     h+='</tbody></table></div>';
@@ -6210,8 +6278,9 @@ function renderPrefsPanel(){
       saveTeams();
       var m=$('flcmsg');
       if(m){m.textContent='Formed '+r.teams.length+' FLC team'+(r.teams.length===1?'':'s')+'.'+
-        (r.left.length?' Could not place '+r.left.length+' (their events were full): '+r.left.join(', ')+'.':' Everyone who asked was placed.');
-        m.className='msg show '+(r.left.length?'info':'good');}
+        (r.left.length?' Could not place '+r.left.length+' (their events were full): '+r.left.join(', ')+'.':' Everyone who asked was placed.')+
+        (r.unknown.length?' Not on the roster under the name they signed up with, so not placed: '+r.unknown.join(', ')+'.':'');
+        m.className='msg show '+(r.left.length||r.unknown.length?'info':'good');}
     });
   });
 }
@@ -6225,6 +6294,9 @@ function renderSquads(){
   }
   paintSqKind();
   renderPrefsPanel();
+  renderRoomsPanel();
+  renderReqAdmin();
+  renderReqMember();
   renderMyPrefs();
   var teams=teamsList().slice();
   if(!teams.length){
@@ -6337,34 +6409,59 @@ function initSquads(){
 }
 
 /* ---- a member's own FLC choices ---- */
+var GROUP_LABEL={w:'Women’s room',m:'Men’s room',x:'All-gender room'};
+function myRoom(){return roomsList().filter(function(r){return (r.members||[]).some(function(m){return isMe({name:m})})})[0]||null}
 function renderMyPrefs(){
   var box=$('myprefs'); if(!box)return;
   if(canEdit()){box.hidden=true;box.innerHTML='';return}
   box.hidden=false;
   var evs=flcEventList();
-  var cur=MYPREFS||{flc:[],mate:'',attend:true};
+  var cur=MYPREFS||{flc:[],mate:'',attend:true,hotel:false,group:'',roomies:[],rnote:''};
   var sel=function(i){
     return '<div class="field" style="flex:1;min-width:140px"><label for="mp-flc'+i+'">'+['1st','2nd','3rd'][i]+' choice</label>'+
       '<select id="mp-flc'+i+'"><option value="">—</option>'+evs.map(function(e){
         return '<option'+((cur.flc||[])[i]===e?' selected':'')+'>'+esc(e)+'</option>'}).join('')+'</select></div>';
   };
-  box.innerHTML='<h2>Your FLC preferences</h2>'+
-    '<p class="hint">Competing at FLC (Nov 13–15, Emeryville)? Rank the events you want. EBOD forms teams of up to '+F26.flcMax+
-    ', up to '+F26.flcTeamsPerEvent+' per event, from these. Skip it if you are only doing consulting or Polaris.</p>'+
+  /* Once EBOD has put someone in a room, that is the first thing they need. */
+  var rm=myRoom(), mates=rm?(rm.members||[]).filter(function(m){return !isMe({name:m})}):[];
+  var h='<h2>Your FLC preferences</h2>';
+  if(rm)h+='<div class="roomyours"><span class="youchip">your room</span> <b>'+esc(rm.name)+'</b>'+
+    (rm.no?' · room '+esc(rm.no):' · room number at check-in')+
+    '<br><span class="savenote">'+(mates.length?'With '+esc(mates.join(', ')):'Nobody else in it yet')+'.</span></div>';
+  h+='<p class="hint">Competing at FLC (Nov 13–15, Emeryville)? Rank the events you want. EBOD forms teams of up to '+F26.flcMax+
+    ', up to '+F26.flcTeamsPerEvent+' per event, from these. Going without competing? Leave the events empty and fill in the hotel part.</p>'+
     '<div class="row" style="margin-top:0">'+sel(0)+sel(1)+sel(2)+'</div>'+
     '<div class="row"><div class="field" style="flex:2;min-width:200px"><label for="mp-mate">Someone you would like on your team (optional)</label>'+
       '<input type="text" id="mp-mate" value="'+esc(cur.mate||'')+'" placeholder="Their name"></div>'+
       '<label class="check" style="padding:9px 0"><input type="checkbox" id="mp-attend"'+(cur.attend===false?'':' checked')+'> I can be there Nov 13–15</label></div>'+
+    '<fieldset class="hotelset" id="mp-hotelset"'+(cur.attend===false?' disabled':'')+'><legend>Hotel</legend>'+
+      '<label class="check"><input type="checkbox" id="mp-hotel"'+(cur.hotel?' checked':'')+'> I need a bed at the conference hotel</label>'+
+      '<div class="row" id="mp-hotelrow"'+(cur.hotel?'':' hidden')+'>'+
+        '<div class="field" style="flex:1;min-width:180px"><label for="mp-group">Rooming group</label><select id="mp-group">'+
+          '<option value="">Choose…</option>'+['w','m','x'].map(function(g){
+            return '<option value="'+g+'"'+(cur.group===g?' selected':'')+'>'+esc(GROUP_LABEL[g])+'</option>'}).join('')+'</select></div>'+
+        '<div class="field" style="flex:2;min-width:200px"><label for="mp-roomies">Up to 3 people you would like to room with (optional)</label>'+
+          '<input type="text" id="mp-roomies" value="'+esc((cur.roomies||[]).join(', '))+'" placeholder="Names, separated by commas"></div>'+
+        '<div class="field" style="flex:1 1 100%"><label for="mp-rnote">Anything EBOD should know for rooming (optional, only officers see this)</label>'+
+          '<input type="text" id="mp-rnote" maxlength="160" value="'+esc(cur.rnote||'')+'" placeholder="e.g. light sleeper, need a ground floor"></div>'+
+      '</div></fieldset>'+
     '<div class="row"><button type="button" id="mp-save">Send my choices</button></div><div class="msg" id="mp-msg"></div>';
+  box.innerHTML=h;
+  $('mp-attend').addEventListener('change',function(){$('mp-hotelset').disabled=!this.checked});
+  $('mp-hotel').addEventListener('change',function(){$('mp-hotelrow').hidden=!this.checked});
   $('mp-save').addEventListener('click',function(){
     var flc=[0,1,2].map(function(i){return $('mp-flc'+i).value}).filter(String)
       .filter(function(v,i,a){return a.indexOf(v)===i});
+    var attend=$('mp-attend').checked, hotel=attend&&$('mp-hotel').checked, group=$('mp-group').value;
     var m=$('mp-msg');
-    if(!flc.length){m.textContent='Pick at least a first choice.';m.className='msg show';return}
-    var pr={flc:flc,mate:cleanLabel($('mp-mate').value).slice(0,60),attend:$('mp-attend').checked,at:Date.now()};
+    if(attend&&!flc.length&&!hotel){m.textContent='Pick at least a first choice, or say you need a hotel bed.';m.className='msg show';return}
+    if(hotel&&!group){m.textContent='Choose a rooming group so EBOD can put you in a room.';m.className='msg show';return}
+    var pr={flc:flc,mate:cleanLabel($('mp-mate').value).slice(0,60),attend:attend,hotel:hotel,group:hotel?group:'',
+      roomies:hotel?$('mp-roomies').value.split(',').map(function(x){return cleanLabel(x).trim()}).filter(function(x){return x&&!isMe({name:x})}).slice(0,3):[],
+      rnote:hotel?String($('mp-rnote').value||'').replace(/[<>\u0000-\u001F]/g,'').slice(0,160):'',at:Date.now()};
     m.textContent='Sending…';m.className='msg show info wait';
     backendPost('saveProfile',{prefs:JSON.stringify(pr)}).then(function(r){
-      if(r&&r.ok){MYPREFS=pr;m.textContent='Sent. EBOD will see your choices when they form the FLC teams.';m.className='msg show good';PREFS.loaded=false}
+      if(r&&r.ok){MYPREFS=pr;m.textContent=attend?'Sent. EBOD will see your choices when they form the FLC teams and rooms.':'Sent. EBOD will know you cannot make it.';m.className='msg show good';PREFS.loaded=false}
       else{m.textContent=(r&&r.error)||'That did not send. If this keeps happening, the backend needs its latest version.';m.className='msg show'}
     });
   });
@@ -6375,11 +6472,398 @@ function renderMyPrefs(){
     backendPost('getProfile',null).then(function(r){
       var pr=r&&r.ok&&r.profile&&r.profile.Prefs;
       if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
-      if(pr&&pr.flc){MYPREFS=pr;renderMyPrefs()}
+      if(pr&&(pr.flc||pr.hotel)){MYPREFS=pr;renderMyPrefs()}
     });
   }
 }
 var MYPREFS=null, MYPREFS_ASKED='';
+
+/* ---- FLC hotel rooms ----
+   Members say whether they need a bed, which rooming group they are in, and
+   who they would like to room with. EBOD forms the rooms: one group per
+   room, requested roommates kept together where they fit, then packed so as
+   few rooms as possible are booked. Who sleeps where is on the club record
+   so each member can see their own room; the rooming notes stay on profiles,
+   which only officers read. */
+function roomsList(){return (S.club&&S.club.rooms)||[]}
+function roomCap(){return clampRoomCap(S.club&&S.club.roomCap)}
+function roomOf(name){var n=normName(name);return roomsList().filter(function(r){return (r.members||[]).some(function(m){return normName(m)===n})})[0]||null}
+/* Everyone who said they can go and need a bed, by the name the roster uses. */
+function hotelNeeds(){
+  return Object.keys(PREFS.byName).filter(function(k){var pr=PREFS.byName[k];return pr.hotel&&pr.attend!==false})
+    .map(function(k){var p=findPersonByName(k);return {name:p?p.name:(PREFS.names[k]||k),pr:PREFS.byName[k],known:!!p}});
+}
+function formRooms(){
+  var cap=roomCap(), needs=hotelNeeds(), rooms=[], stamp=Date.now().toString(36), n=0, unset=[];
+  ['w','m','x'].forEach(function(g){
+    var list=needs.filter(function(x){return x.pr.group===g});
+    if(!list.length)return;
+    /* Requests join people into clusters; only within a group, and either
+       side asking is enough. */
+    var root={};list.forEach(function(x){root[normName(x.name)]=normName(x.name)});
+    var find=function(a){while(root[a]!==a)a=root[a]=root[root[a]];return a};
+    list.forEach(function(x){
+      (x.pr.roomies||[]).forEach(function(r){
+        var b=normName(r); if(root[b]===undefined)return;
+        root[find(normName(x.name))]=find(b);
+      });
+    });
+    var by={};list.forEach(function(x){var r=find(normName(x.name));(by[r]=by[r]||[]).push(x.name)});
+    var clusters=[];Object.keys(by).forEach(function(k){
+      var c=by[k].sort();for(var i=0;i<c.length;i+=cap)clusters.push(c.slice(i,i+cap));
+    });
+    /* Biggest first into the first room it fits: few half-empty rooms. */
+    clusters.sort(function(a,b){return b.length-a.length});
+    var mine=[];
+    clusters.forEach(function(c){
+      var into=mine.filter(function(r){return r.members.length+c.length<=cap})[0];
+      if(!into){into={id:'r'+stamp+g+mine.length,name:'',group:g,no:'',members:[]};mine.push(into)}
+      into.members=into.members.concat(c);
+    });
+    mine.forEach(function(r){n++;r.name='Room '+n;rooms.push(r)});
+  });
+  needs.forEach(function(x){if(['w','m','x'].indexOf(x.pr.group)<0)unset.push(x.name)});
+  return {rooms:rooms,unset:unset,unknown:needs.filter(function(x){return !x.known}).map(function(x){return x.name})};
+}
+function exportFlc(){
+  var rows=[['Name','Year','Going','FLC event','FLC team','Hotel','Rooming group','Room','Room #','Roommates asked for'].join(',')];
+  var seen={}, names=[];
+  Object.keys(PREFS.byName).forEach(function(k){seen[k]=1;names.push(k)});
+  teamsList().filter(function(t){return kindOf(t)==='flc'}).forEach(function(t){
+    (t.members||[]).forEach(function(m){var k=normName(m);if(!seen[k]){seen[k]=1;names.push(k)}});
+  });
+  roomsList().forEach(function(r){(r.members||[]).forEach(function(m){var k=normName(m);if(!seen[k]){seen[k]=1;names.push(k)}})});
+  names.sort().forEach(function(k){
+    var pr=PREFS.byName[k]||{}, p=findPersonByName(k), nm=p?p.name:(PREFS.names[k]||k);
+    var t=teamsOf(nm).filter(function(x){return kindOf(x)==='flc'})[0], r=roomOf(nm);
+    rows.push([csvCell(nm),csvCell(p&&p.year?yearLabel(p):''),csvCell(pr.attend===false?'no':'yes'),
+      csvCell(t?t.event:''),csvCell(t?t.name:''),csvCell(pr.hotel||r?'yes':'no'),csvCell(GROUP_LABEL[(r&&r.group)||pr.group]||''),
+      csvCell(r?r.name:''),csvCell(r?r.no:''),csvCell((pr.roomies||[]).join('; '))].join(','));
+  });
+  download(rows.join('\n'),'flc-teams-and-rooms.csv');
+}
+function saveRooms(){save();syncClub();renderRoomsPanel();renderMyPrefs()}
+function rmSay(t,kind){var m=$('rmmsg');if(!m)return;m.textContent=t;m.className='msg show'+(kind?' '+kind:'')}
+function renderRoomsPanel(){
+  var box=$('sqrooms'); if(!box)return;
+  if(!canEdit()){box.innerHTML='';box.hidden=true;return}
+  box.hidden=false;
+  if(!PREFS.loaded){box.innerHTML='<h2>FLC hotel rooms</h2><p class="empty wait">Reading who needs a bed…</p>';return}
+  var cap=roomCap(), needs=hotelNeeds(), rooms=roomsList();
+  var count={w:0,m:0,x:0,'':0};needs.forEach(function(x){count[['w','m','x'].indexOf(x.pr.group)>-1?x.pr.group:'']++});
+  var placed={};rooms.forEach(function(r){(r.members||[]).forEach(function(m){placed[normName(m)]=1})});
+  var waiting=needs.filter(function(x){return !placed[normName(x.name)]});
+  var h='<h2>FLC hotel rooms</h2><p class="hint">'+needs.length+' member'+(needs.length===1?' has':'s have')+
+    ' asked for a bed. Forming rooms keeps each room to one rooming group, keeps requested roommates together where they fit, and packs rooms of up to '+cap+
+    ' so as few as possible are booked. Move anyone by hand afterwards.</p>';
+  if(needs.length)h+='<p class="savenote">'+['w','m','x'].filter(function(g){return count[g]}).map(function(g){
+      return esc(GROUP_LABEL[g])+': '+count[g]+' → at least '+Math.ceil(count[g]/cap)+' room'+(Math.ceil(count[g]/cap)===1?'':'s')}).join(' · ')+
+    (count['']?' · <span style="color:var(--flag)">'+count['']+' did not choose a group</span>':'')+'</p>';
+  h+='<div class="row"><div class="field" style="width:auto"><label for="rm-cap">People per room</label>'+
+      '<input type="number" id="rm-cap" min="1" max="8" value="'+cap+'" style="width:90px"></div>'+
+    '<div class="field" style="width:auto"><label>&nbsp;</label><button type="button" id="rmform"'+(needs.length?'':' disabled')+'>Form rooms from requests</button></div>'+
+    '<div class="field" style="width:auto"><label>&nbsp;</label><button type="button" class="ghost" id="rmadd">Add an empty room</button></div>'+
+    '<div class="field" style="width:auto"><label>&nbsp;</label><button type="button" class="ghost" id="flccsv">Download FLC teams and rooms (CSV)</button></div></div>'+
+    '<div class="msg" id="rmmsg"></div>';
+  if(waiting.length)h+='<p class="hint" style="margin-top:10px"><b>Not in a room yet:</b> '+waiting.map(function(x){
+    return esc(x.name)+' <em class="savenote">('+esc(GROUP_LABEL[x.pr.group]||'no group')+')</em>'}).join(', ')+'</p>';
+  if(rooms.length){
+    h+='<div class="squadgrid" style="margin-top:12px">'+rooms.map(function(r){
+      var mem=r.members||[], free=waiting.filter(function(x){return mem.length<cap});
+      return '<div class="panel squad room" data-id="'+esc(r.id)+'">'+
+        '<div class="sqhead"><input class="sqname rmname" value="'+esc(r.name)+'" aria-label="Room name">'+
+          '<input class="rmno" value="'+esc(r.no||'')+'" placeholder="Room #" aria-label="Hotel room number"></div>'+
+        '<div class="sqmeta mono">'+esc(GROUP_LABEL[r.group]||'No group set')+' · '+mem.length+' / '+cap+'</div>'+
+        '<div class="sqmembers">'+(mem.length?mem.map(function(m){
+          var pr=prefsFor(m), off=pr&&pr.group&&r.group&&pr.group!==r.group;
+          return '<span class="sqm"><span class="nm linked" data-person="'+esc(m)+'">'+esc(m)+'</span>'+
+            (off?'<em style="color:var(--flag)">asked for '+esc(GROUP_LABEL[pr.group])+'</em>':'')+
+            (pr&&pr.rnote?'<em title="'+esc(pr.rnote)+'">note</em>':'')+
+            '<button type="button" class="rmout" data-name="'+esc(m)+'" aria-label="Take '+esc(m)+' out of this room">×</button></span>'}).join('')
+          :'<p class="empty" style="padding:6px 0">Empty.</p>')+'</div>'+
+        '<div class="row sqtools">'+(mem.length>=cap?'<span class="savenote">Full.</span>':
+          '<select class="rmpick"><option value="">Add someone…</option>'+free.map(function(x){
+            return '<option value="'+esc(x.name)+'">'+esc(x.name)+' · '+esc(GROUP_LABEL[x.pr.group]||'no group')+'</option>'}).join('')+'</select>')+
+          '<select class="rmgroup" aria-label="Rooming group">'+['w','m','x'].map(function(g){
+            return '<option value="'+g+'"'+(r.group===g?' selected':'')+'>'+esc(GROUP_LABEL[g])+'</option>'}).join('')+'</select>'+
+          '<button type="button" class="tiny danger rmkill">Delete room</button></div></div>';
+    }).join('')+'</div>';
+  }
+  var notes=needs.filter(function(x){return x.pr.rnote});
+  if(notes.length)h+='<details style="margin-top:12px"><summary>Rooming notes ('+notes.length+') — officers only</summary><ul>'+
+    notes.map(function(x){return '<li><b>'+esc(x.name)+'</b>: '+esc(x.pr.rnote)+'</li>'}).join('')+'</ul></details>';
+  box.innerHTML=h;
+  wireMemberLinks(box);
+  $('rm-cap').addEventListener('change',function(){S.club.roomCap=clampRoomCap(this.value);this.value=S.club.roomCap;saveRooms()});
+  $('flccsv').addEventListener('click',exportFlc);
+  $('rmadd').addEventListener('click',function(){
+    S.club.rooms=roomsList().concat([cloneRoom({id:'r'+Date.now().toString(36),name:'Room '+(roomsList().length+1),group:'x',members:[]})]);
+    saveRooms();
+  });
+  $('rmform').addEventListener('click',function(){
+    (rooms.length?uiConfirm('Re-form the rooms?','The '+rooms.length+' room'+(rooms.length===1?'':'s')+' there now are replaced, room numbers included.','Re-form',true):Promise.resolve(true)).then(function(ok){
+      if(!ok)return;
+      var r=formRooms();
+      S.club.rooms=r.rooms.map(cloneRoom);
+      saveRooms();
+      rmSay('Formed '+r.rooms.length+' room'+(r.rooms.length===1?'':'s')+'.'+
+        (r.unset.length?' Not placed because they did not choose a rooming group: '+r.unset.join(', ')+'.':'')+
+        (r.unknown.length?' Not on the roster under that name (placed anyway, check the spelling): '+r.unknown.join(', ')+'.':''),
+        r.unset.length?'info':'good');
+    });
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('.room'),function(card){
+    var r=roomsList().filter(function(x){return x.id===card.dataset.id})[0]; if(!r)return;
+    card.querySelector('.rmname').addEventListener('change',function(){var v=cleanLabel(this.value).slice(0,40);if(v){r.name=v;saveRooms()}else this.value=r.name});
+    card.querySelector('.rmno').addEventListener('change',function(){r.no=cleanLabel(this.value).slice(0,12);saveRooms()});
+    card.querySelector('.rmgroup').addEventListener('change',function(){r.group=this.value;saveRooms()});
+    var pick=card.querySelector('.rmpick');
+    if(pick)pick.addEventListener('change',function(){
+      if(!pick.value)return;
+      if((r.members||[]).length>=roomCap()){rmSay('That room is full.');return}
+      r.members=(r.members||[]).concat([pick.value]);saveRooms();
+    });
+    Array.prototype.forEach.call(card.querySelectorAll('.rmout'),function(b){
+      b.addEventListener('click',function(){var n=normName(b.dataset.name);r.members=(r.members||[]).filter(function(m){return normName(m)!==n});saveRooms()});
+    });
+    card.querySelector('.rmkill').addEventListener('click',function(){
+      uiConfirm('Delete '+r.name+'?','Whoever is in it goes back to the not-in-a-room list.','Delete',true).then(function(ok){
+        if(!ok)return;S.club.rooms=roomsList().filter(function(x){return x.id!==r.id});saveRooms();
+      });
+    });
+  });
+}
+
+/* ---- teams members form themselves ----
+   A member picks what the team is for -- a client, an FLC case event, a
+   track -- names it, lists who is on it and sends it. It is a request until
+   an officer has checked it: EBOD sees what clashes (someone already on a
+   team of that kind, an FLC team over four, an event that already has its
+   three teams, a name the roster does not know) and approves it into a real
+   team or sends it back with a reason. Requests live in their own store on
+   the backend, so an officer saving the club cannot write one over. */
+var TREQ={loaded:false,list:[],asked:''};
+var TREQ_CAP={consulting:14,flc:4,other:14};
+function selfTeamsOn(){return !(S.club&&S.club.selfTeams===false)}
+function loadTeamReqs(force){
+  if(TREQ.loaded&&!force)return Promise.resolve(TREQ.list);
+  if(DEMO_ON){TREQ={loaded:true,list:demoReqsFor(),asked:''};return Promise.resolve(TREQ.list)}
+  if(A.offline||!(A.email||A.name))return Promise.resolve([]);
+  return backendPost('listTeamRequests',{me:A.name||''}).then(function(r){
+    TREQ.loaded=true; TREQ.list=(r&&r.ok&&r.requests)||[];
+    if(r&&!r.ok)TREQ.error=r.error||''; else TREQ.error='';
+    return TREQ.list;
+  });
+}
+function reqWhat(q){
+  if(q.kind==='consulting')return 'Consulting · '+(q.target||'client not set');
+  if(q.kind==='flc')return 'FLC · '+(q.target||'event not set');
+  return q.target?('Track · '+q.target):'Other team';
+}
+function reqStatusChip(q){
+  var c={pending:['Waiting for EBOD','var(--mute)'],approved:['Approved','var(--accent)'],returned:['Sent back','var(--flag)']}[q.status]||['',''];
+  return '<span class="reqchip" style="--c:'+c[1]+'">'+esc(c[0])+'</span>';
+}
+/* What an officer should look at before saying yes. */
+function reqChecks(q){
+  var out=[], k=q.kind, mem=q.members||[];
+  var unknown=mem.filter(function(m){return !findPersonByName(m)});
+  if(unknown.length)out.push('Not on the roster under that name: '+unknown.join(', '));
+  var taken=mem.map(function(m){var p=findPersonByName(m);var t=teamsOf(p?p.name:m).filter(function(x){return kindOf(x)===k})[0];
+    return t?m+' ('+t.name+')':''}).filter(String);
+  if(taken.length)out.push('Already on '+(k==='flc'?'an FLC':k==='consulting'?'a consulting':'another')+' team (approving moves them): '+taken.join(', '));
+  if(mem.length>TREQ_CAP[k])out.push('Over the '+TREQ_CAP[k]+'-person limit');
+  if(k==='flc'){
+    if(flcEventList().indexOf(q.target)<0)out.push(q.target+' is not one of this season’s FLC events');
+    else if(flcTeamsFor(q.target).length>=F26.flcTeamsPerEvent)out.push(q.target+' already has its '+F26.flcTeamsPerEvent+' teams');
+    var cant=mem.filter(function(m){var pr=prefsFor(m);return pr&&pr.attend===false});
+    if(cant.length)out.push('Said they cannot make Nov 13–15: '+cant.join(', '));
+  }
+  if(k==='consulting'&&clientList().indexOf(q.target)<0)out.push(q.target+' is not on this season’s client list');
+  var dup=mem.filter(function(m){return TREQ.list.some(function(o){return o.id!==q.id&&o.status==='pending'&&o.kind===k&&
+    (o.members||[]).some(function(x){return normName(x)===normName(m)})})});
+  if(dup.length)out.push('Also in another waiting '+(k==='flc'?'FLC ':'')+'request: '+dup.join(', '));
+  return out;
+}
+/* Turning a request into a team. Consulting has one team per client, so the
+   members join it; FLC and track teams are new teams. Anyone on another team
+   of the same kind is moved, because a member is on one of each kind. */
+function approveReq(q){
+  var k=q.kind, names=(q.members||[]).map(function(m){var p=findPersonByName(m);return p?p.name:cleanLabel(m)});
+  if(k==='flc'&&flcTeamsFor(q.target).length>=F26.flcTeamsPerEvent)return {error:q.target+' already has its '+F26.flcTeamsPerEvent+' teams. Make room first, or send this back.'};
+  if(names.length>TREQ_CAP[k])return {error:'That is more than '+TREQ_CAP[k]+' people.'};
+  teamsList().forEach(function(t){
+    if(kindOf(t)!==k)return;
+    t.members=(t.members||[]).filter(function(m){return !names.some(function(n){return normName(n)===normName(m)})});
+  });
+  var team;
+  if(k==='consulting'){
+    team=teamsList().filter(function(t){return kindOf(t)==='consulting'&&String(t.client||t.name).toLowerCase()===String(q.target).toLowerCase()})[0];
+    if(!team){team=cloneTeam({id:'t'+Date.now().toString(36),name:q.target,kind:'consulting',track:'c',client:q.target,members:[],pms:[],initiatives:[]});S.club.teams=teamsList().concat([team])}
+    team.members=(team.members||[]).concat(names.filter(function(n){return !onTeam(team,n)}));
+  } else {
+    var nm=cleanLabel(q.name).slice(0,60);
+    if(k==='flc'&&!nm)nm='FLC '+q.target+' '+nextTeamLetter(q.target);
+    if(!nm)nm=(q.target||'Team')+' — '+(q.byName||'members');
+    while(teamsList().some(function(t){return t.name.toLowerCase()===nm.toLowerCase()}))nm+=' 2';
+    var tr=tracksOf().filter(function(t){return t.label===q.target})[0];
+    team=cloneTeam({id:'t'+Date.now().toString(36),name:nm,kind:k,track:k==='flc'?'k':(tr?tr.id:''),
+      event:k==='flc'?q.target:'',members:names,pms:[],initiatives:[]});
+    S.club.teams=teamsList().concat([team]);
+  }
+  return {team:team};
+}
+function reviewReq(q,status,note,teamId){
+  if(DEMO_ON){q.status=status;q.review=note||'';q.teamId=teamId||'';demoStore();return Promise.resolve({ok:true})}
+  return backendPost('reviewTeamRequest',{id:q.id,status:status,note:note||'',teamId:teamId||''}).then(function(r){
+    if(r&&r.ok){q.status=status;q.review=note||'';q.teamId=teamId||''}
+    return r;
+  });
+}
+function renderReqAdmin(){
+  var box=$('sqreqs'); if(!box)return;
+  if(!canEdit()){box.hidden=true;box.innerHTML='';return}
+  box.hidden=false;
+  if(DEMO_ON){TREQ.list=demoReqsFor();TREQ.loaded=true}
+  if(!TREQ.loaded){box.innerHTML='<h2>Teams members sent in</h2><p class="empty wait">Reading requests…</p>';
+    loadTeamReqs().then(renderReqAdmin);return}
+  var list=TREQ.list.slice().sort(function(a,b){
+    var o={pending:0,returned:1,approved:2};return (o[a.status]-o[b.status])||String(b.at).localeCompare(String(a.at))});
+  var waiting=list.filter(function(q){return q.status==='pending'}).length;
+  var h='<h2>Teams members sent in</h2>'+
+    '<label class="check"><input type="checkbox" id="rq-on"'+(selfTeamsOn()?' checked':'')+'> Let members form their own teams and send them in for review</label>'+
+    '<p class="hint">'+(list.length?waiting+' waiting for review. ':'Nothing sent in yet. ')+
+    'Approving turns a request into a team: consulting members join that client’s team, FLC and track requests become new teams. Each request lists what to check first.</p>'+
+    '<div class="row" style="margin:0 0 4px"><button type="button" class="tiny ghost" id="rq-refresh">Check for new requests</button></div>'+
+    (TREQ.error?'<p class="msg show">'+esc(TREQ.error)+' (the backend needs its latest version for this)</p>':'');
+  if(list.length){
+    h+='<div class="reqlist">'+list.map(function(q){
+      var checks=q.status==='pending'?reqChecks(q):[];
+      return '<div class="reqrow" data-id="'+esc(q.id)+'">'+
+        '<div class="reqhead"><b>'+esc(q.name||reqWhat(q))+'</b> '+reqStatusChip(q)+
+          '<span class="savenote"> '+esc(reqWhat(q))+' · sent by '+esc(q.byName||'')+'</span></div>'+
+        '<div class="sqmembers" style="margin-top:6px">'+(q.members||[]).map(function(m){
+          return '<span class="sqm"><span class="nm'+(findPersonByName(m)?' linked" data-person="'+esc(m):'')+'">'+esc(m)+'</span></span>'}).join('')+'</div>'+
+        (q.note?'<p class="hint" style="margin:6px 0 0">“'+esc(q.note)+'”</p>':'')+
+        (checks.length?'<ul class="reqchecks">'+checks.map(function(c){return '<li>'+esc(c)+'</li>'}).join('')+'</ul>':
+          (q.status==='pending'?'<p class="savenote" style="color:var(--accent)">No clashes found.</p>':''))+
+        (q.review?'<p class="savenote">EBOD: '+esc(q.review)+'</p>':'')+
+        (q.status==='pending'?'<div class="row" style="margin-top:8px"><button type="button" class="tiny rqyes">Approve</button>'+
+          '<button type="button" class="tiny ghost rqno">Send back…</button></div>':'')+
+      '</div>';
+    }).join('')+'</div>';
+  }
+  h+='<div class="msg" id="rqmsg"></div>';
+  box.innerHTML=h;
+  wireMemberLinks(box);
+  var say=function(t,k){var m=$('rqmsg');if(m){m.textContent=t;m.className='msg show'+(k?' '+k:'')}};
+  $('rq-refresh').addEventListener('click',function(){TREQ.loaded=false;renderReqAdmin()});
+  $('rq-on').addEventListener('change',function(){S.club.selfTeams=this.checked;save();syncClub();
+    say(this.checked?'Members can send in teams.':'Members can no longer send in teams. Requests already sent stay here.','good')});
+  Array.prototype.forEach.call(box.querySelectorAll('.reqrow'),function(row){
+    var q=TREQ.list.filter(function(x){return x.id===row.dataset.id})[0]; if(!q)return;
+    var yes=row.querySelector('.rqyes'), no=row.querySelector('.rqno');
+    if(yes)yes.addEventListener('click',function(){
+      var checks=reqChecks(q);
+      (checks.length?uiConfirm('Approve '+(q.name||reqWhat(q))+'?',checks.join('. ')+'.','Approve anyway'):Promise.resolve(true)).then(function(ok){
+        if(!ok)return;
+        var r=approveReq(q);
+        if(r.error){say(r.error);return}
+        saveTeams();
+        reviewReq(q,'approved','',r.team.id).then(function(x){
+          if(x&&x.ok){renderReqAdmin();say('Approved — '+r.team.name+' is a team now.','good')}
+          else say('The team was made, but the request could not be marked approved: '+((x&&x.error)||'no answer')+'.');
+        });
+      });
+    });
+    if(no)no.addEventListener('click',function(){
+      uiPrompt('Send it back','Tell them what to change. They see this on their Teams tab and can send it again.','Reason','', 'Send back').then(function(v){
+        if(v==null)return;
+        reviewReq(q,'returned',cleanLabel(v)?String(v).replace(/[<>]/g,'').slice(0,200):'Please check with EBOD.').then(function(x){
+          if(x&&x.ok){renderReqAdmin();say('Sent back to '+(q.byName||'them')+'.','good')}
+          else say((x&&x.error)||'That did not save.');
+        });
+      });
+    });
+  });
+}
+function renderReqMember(){
+  var box=$('myteamreq'); if(!box)return;
+  if(canEdit()||!selfTeamsOn()){box.hidden=true;box.innerHTML='';return}
+  box.hidden=false;
+  var who=String(A.email||A.name||'');
+  if(DEMO_ON){TREQ.list=demoReqsFor();TREQ.loaded=true;TREQ.asked=who}
+  else if(!TREQ.loaded||TREQ.asked!==who){TREQ.asked=who;TREQ.loaded=false;loadTeamReqs(true).then(renderReqMember)}
+  var mine=TREQ.list.filter(function(q){return q.mine||(DEMO_ON&&isMe({name:q.byName}))});
+  var listed=TREQ.list.filter(function(q){return mine.indexOf(q)<0});
+  var cur=box.dataset.kind||'flc';
+  var targets=cur==='consulting'?clientList():cur==='flc'?flcEventList():tracksOf().map(function(t){return t.label});
+  var h='<h2>Form your own team</h2><p class="hint">Already know who you want to work with? Pick what the team is for, name it and list your teammates, then send it to EBOD. '+
+    'It becomes a team once EBOD has checked it — they look for people already on a team, the size limits (FLC: up to '+F26.flcMax+', '+F26.flcTeamsPerEvent+' teams per event) and names they cannot find.</p>'+
+    '<div class="row" style="margin-top:0">'+
+      '<div class="field" style="flex:1;min-width:170px"><label for="rq-kind">Team for</label><select id="rq-kind">'+
+        [['flc','FLC case competition'],['consulting','Consulting client'],['other','A track (e.g. Polaris)']].map(function(o){
+          return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select></div>'+
+      '<div class="field" style="flex:1;min-width:170px"><label for="rq-target">'+(cur==='flc'?'Event (case)':cur==='consulting'?'Client':'Track')+'</label>'+
+        '<select id="rq-target">'+(cur==='other'?'<option value="">No particular track</option>':'')+targets.map(function(t){return '<option>'+esc(t)+'</option>'}).join('')+'</select></div>'+
+      '<div class="field" style="flex:2;min-width:200px"><label for="rq-name">Team name'+(cur==='consulting'?' (the client’s team keeps its name)':' (optional)')+'</label>'+
+        '<input type="text" id="rq-name" maxlength="60"'+(cur==='consulting'?' disabled':'')+' placeholder="'+(cur==='flc'?'e.g. Finance Fours':'Your team’s name')+'"></div></div>'+
+    '<div class="row"><div class="field" style="flex:1 1 100%"><label for="rq-mem">Teammates — you are included (up to '+(TREQ_CAP[cur]-1)+' more, separated by commas)</label>'+
+      '<input type="text" id="rq-mem" list="rq-names" placeholder="Their names as they signed up"><datalist id="rq-names">'+
+        rosterNames().filter(function(n){return !isMe({name:n})}).map(function(n){return '<option value="'+esc(n)+'">'}).join('')+'</datalist></div>'+
+      '<div class="field" style="flex:1 1 100%"><label for="rq-note">Note for EBOD (optional)</label><input type="text" id="rq-note" maxlength="200" placeholder="Anything they should know"></div></div>'+
+    '<div class="row"><button type="button" id="rq-send">Send to EBOD for review</button></div><div class="msg" id="rq-msg"></div>';
+  var row=function(q,own){
+    return '<div class="reqrow"><div class="reqhead"><b>'+esc(q.name||reqWhat(q))+'</b> '+reqStatusChip(q)+
+      '<span class="savenote"> '+esc(reqWhat(q))+(own?'':' · sent by '+esc(q.byName||''))+'</span></div>'+
+      '<div class="savenote" style="margin-top:4px">'+esc((q.members||[]).join(', '))+'</div>'+
+      (q.review?'<p class="hint" style="margin:6px 0 0"><b>EBOD:</b> '+esc(q.review)+'</p>':'')+
+      (own&&q.status!=='approved'?'<div class="row" style="margin-top:6px"><button type="button" class="tiny ghost rqwd" data-id="'+esc(q.id)+'">Withdraw</button></div>':'')+'</div>';
+  };
+  if(mine.length)h+='<h3 class="sqsec" style="margin-top:16px">What you sent</h3><div class="reqlist">'+mine.map(function(q){return row(q,true)}).join('')+'</div>';
+  if(listed.length)h+='<h3 class="sqsec" style="margin-top:16px">Teams that list you</h3><div class="reqlist">'+listed.map(function(q){return row(q,false)}).join('')+'</div>';
+  box.innerHTML=h;
+  $('rq-kind').addEventListener('change',function(){box.dataset.kind=this.value;renderReqMember()});
+  $('rq-send').addEventListener('click',function(){
+    var m=$('rq-msg'), kind=$('rq-kind').value;
+    var mem=$('rq-mem').value.split(',').map(function(x){return cleanLabel(x).trim()}).filter(function(x){return x&&!isMe({name:x})});
+    var req={kind:kind,target:$('rq-target').value,name:kind==='consulting'?'':cleanLabel($('rq-name').value),
+      members:mem,note:String($('rq-note').value||'').replace(/[<>]/g,'').slice(0,200),me:A.name||''};
+    if(kind!=='other'&&!req.target){m.textContent='Pick the '+(kind==='flc'?'event':'client')+'.';m.className='msg show';return}
+    if(mem.length+1>TREQ_CAP[kind]){m.textContent='That is '+(mem.length+1)+' people with you; this kind of team takes up to '+TREQ_CAP[kind]+'.';m.className='msg show';return}
+    var unknown=mem.filter(function(x){return S.people.length&&!findPersonByName(x)});
+    m.textContent='Sending…';m.className='msg show info wait';
+    var send=DEMO_ON?Promise.resolve(demoSubmitReq(req)):backendPost('submitTeamRequest',req);
+    send.then(function(r){
+      if(r&&r.ok){
+        m.textContent='Sent. EBOD will review it'+(unknown.length?' — they may ask about '+unknown.join(', ')+', who are not on the roster under those names':'')+'.';
+        m.className='msg show good';
+        loadTeamReqs(true).then(function(){renderReqMember();var mm=$('rq-msg');if(mm){mm.textContent=m.textContent;mm.className=m.className}});
+      } else {m.textContent=(r&&r.error)||'That did not send. The backend may need its latest version.';m.className='msg show'}
+    });
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('.rqwd'),function(b){
+    b.addEventListener('click',function(){
+      var go=DEMO_ON?Promise.resolve(demoWithdrawReq(b.dataset.id)):backendPost('withdrawTeamRequest',{id:b.dataset.id});
+      go.then(function(r){if(r&&r.ok)loadTeamReqs(true).then(renderReqMember);else{var m=$('rq-msg');m.textContent=(r&&r.error)||'That did not withdraw.';m.className='msg show'}});
+    });
+  });
+}
+/* The demo keeps requests in its own store, shaped like the backend's. */
+function demoReqsFor(){
+  DEMO.reqs=DEMO.reqs||[];
+  if(canEdit())return DEMO.reqs;
+  return DEMO.reqs.filter(function(q){return isMe({name:q.byName})||(q.members||[]).some(function(m){return isMe({name:m})})})
+    .map(function(q){var c={};for(var k in q)c[k]=q[k];c.mine=isMe({name:q.byName});return c});
+}
+function demoSubmitReq(req){
+  DEMO.reqs=(DEMO.reqs||[]).filter(function(q){return !(isMe({name:q.byName})&&q.kind===req.kind&&q.status!=='approved')});
+  var seen={},mem=[A.name].concat(req.members).filter(function(m){var k=normName(m);if(!k||seen[k])return false;seen[k]=1;return true});
+  DEMO.reqs.push({id:'q'+Date.now().toString(36),byName:A.name,kind:req.kind,target:req.target,name:req.name,members:mem,
+    note:req.note,status:'pending',at:new Date().toISOString()});
+  demoStore(); return {ok:true};
+}
+function demoWithdrawReq(id){DEMO.reqs=(DEMO.reqs||[]).filter(function(q){return !(q.id===id&&q.status!=='approved')});demoStore();return {ok:true}}
 
 /* The homework picker lists Orgs and teams, so it is rebuilt whenever it is
    shown -- both change long after the page first loads. */
@@ -8176,7 +8660,7 @@ function afterSignIn(pre){
    can move between those views: onboard a member, form the Orgs as EBOD,
    then come back as that member. "Reset" starts it again. */
 var DEMO_ON=false;
-var DEMO={as:'',fresh:false,subs:[],prefs:{},profiles:{},newbie:null,onboarded:false};
+var DEMO={as:'',fresh:false,subs:[],prefs:{},profiles:{},newbie:null,onboarded:false,reqs:[]};
 var DEMO_KEY='orgsystem.demo.v2';
 var NEWBIE={first:'Jordan',last:'Rivera',email:'jordan.rivera@demo.example'};
 function isDemo(){
@@ -8187,7 +8671,7 @@ function demoUrl(as,extra){return '/demo?as='+as+(extra||'')}
 function demoStore(){
   if(!DEMO_ON)return;
   try{sessionStorage.setItem(DEMO_KEY,JSON.stringify({state:serialize(),demo:{subs:DEMO.subs,prefs:DEMO.prefs,
-    profiles:DEMO.profiles,newbie:DEMO.newbie,onboarded:DEMO.onboarded,fresh:DEMO.fresh}}))}catch(e){}
+    profiles:DEMO.profiles,newbie:DEMO.newbie,onboarded:DEMO.onboarded,fresh:DEMO.fresh,reqs:DEMO.reqs||[]}}))}catch(e){}
 }
 function demoLoad(){try{return JSON.parse(sessionStorage.getItem(DEMO_KEY)||'null')}catch(e){return null}}
 /* The sample generators lean on Math.random. Seeding it for the length of the
@@ -8219,13 +8703,21 @@ function demoPeople(){
       var p={name:nm,year:i<40?2:1,track:tr,mbti:mb,avail:avail[i%avail.length],note:i===17?'Thursday night class this quarter':''};
       if(tr==='k'||(tr===FLEX_ID&&Math.random()<.4)){
         var evs=shuffle(F26.flcEvents.slice());
-        p.prefs={flc:evs.slice(0,3),mate:'',attend:Math.random()>.06};
+        var gr=Math.random();
+        p.prefs={flc:evs.slice(0,3),mate:'',attend:Math.random()>.06,
+          hotel:Math.random()>.15,group:gr<.48?'w':(gr<.93?'m':'x'),roomies:[],rnote:i===23?'Light sleeper':''};
       }
       out.push(p);
     }
     /* A few teammate requests, so forming the teams has something to honour. */
     var flc=out.filter(function(p){return p.prefs});
     for(var j=0;j+1<flc.length&&j<10;j+=2){flc[j].prefs.mate=flc[j+1].name;flc[j+1].prefs.flc=flc[j].prefs.flc.slice()}
+    /* And roommate requests, inside a rooming group, for forming the rooms. */
+    var stay=flc.filter(function(p){return p.prefs.hotel});
+    ['w','m'].forEach(function(g){
+      var gs=stay.filter(function(p){return p.prefs.group===g});
+      for(var q=0;q+2<gs.length&&q<9;q+=3){gs[q].prefs.roomies=[gs[q+1].name,gs[q+2].name]}
+    });
   } finally { unseed(); }
   return (DEMO_PEOPLE=out);
 }
@@ -8372,7 +8864,7 @@ function buildDemoState(fresh){
     S.actions=cloneActions();
     S.people=[];S.orgs=[];S.orgNames=[];S.log=[];
     applyClubChrome();renderClubSetup();syncRuleInputs();
-    DEMO.prefs={};
+    DEMO.prefs={}; DEMO.reqs=[];
     demoPeople().forEach(function(p){if(p.prefs)DEMO.prefs[normName(p.name)]=p.prefs});
     if(fresh){DEMO.fresh=true;return}
     ingestAccounts(demoAccounts());
@@ -8391,6 +8883,18 @@ function buildDemoState(fresh){
     (function(){
       var r=formFlcTeams();
       S.club.teams=teamsList().concat(r.teams);
+      S.club.rooms=formRooms().rooms.map(cloneRoom);
+      /* Two teams members sent in themselves, waiting for EBOD: one clean,
+         one with something to catch. */
+      var fp=S.people.filter(function(p){return !teamsOf(p.name).some(function(t){return kindOf(t)==='flc'})});
+      var onF=teamsList().filter(function(t){return kindOf(t)==='flc'})[0];
+      DEMO.reqs=[];
+      if(fp.length>=7){
+        DEMO.reqs.push({id:'qd1',byName:fp[0].name,kind:'flc',target:'Business Ethics',name:'Ethics Squad',
+          members:[fp[0].name,fp[1].name,fp[2].name],note:'We did a practice case together last quarter.',status:'pending',at:'2026-10-11T18:00:00Z'});
+        DEMO.reqs.push({id:'qd2',byName:fp[3].name,kind:'flc',target:'Finance',name:'',
+          members:[fp[3].name,fp[4].name,onF&&onF.members[0]||fp[5].name,'Sam Whitlock'],note:'',status:'pending',at:'2026-10-12T02:00:00Z'});
+      }
       var first=teamsList().filter(function(t){return kindOf(t)==='consulting'})[0];
       S.club.work=[
         {id:'dw1',title:'Bootcamp 1 reflection',due:'2026-10-21',team:'all',kind:'any',note:'A few paragraphs, any format.',
@@ -8421,7 +8925,7 @@ function buildDemo(){
   };
   if(saved&&saved.state&&!fresh){
     var d=saved.demo||{};
-    DEMO.subs=d.subs||[];DEMO.prefs=d.prefs||{};DEMO.profiles=d.profiles||{};
+    DEMO.subs=d.subs||[];DEMO.prefs=d.prefs||{};DEMO.profiles=d.profiles||{};DEMO.reqs=d.reqs||[];
     DEMO.newbie=d.newbie||null;DEMO.onboarded=!!d.onboarded;DEMO.fresh=!!d.fresh;
     if(saved.state.people&&saved.state.people.length)restore(saved.state);
     else{S.club=mergeClub(DEFAULT_CLUB,saved.state.club);S.people=[];S.orgs=[];S.orgNames=[];S.log=saved.state.log||[];}
@@ -8479,6 +8983,13 @@ function readTheme(){try{return localStorage.getItem(THEME_KEY)||''}catch(e){ret
 /* The chapter keeps its own address. Arriving there is itself the choice of
    chapter, so the palette is settled and the toggle has nothing left to ask. */
 function pblHost(){try{return location.hostname==='org.deanzapbl.com'}catch(e){return false}}
+/* The De Anza PBL account's own calendar, which already carries the IM
+   meetings. Suggested, not forced: it is linked on the first sync. */
+var PBL_GCAL='deanzacapbl@gmail.com';
+function defaultGcalId(){
+  var nm=String((S.club&&S.club.clubName)||A.affName||'');
+  return (pblHost()||/de\s*anza\s*pbl/i.test(nm))&&!DEMO_ON?PBL_GCAL:'';
+}
 function systemLight(){
   return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches);
 }

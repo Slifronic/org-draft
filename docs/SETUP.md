@@ -43,7 +43,12 @@ Nothing in the demo is saved or sent anywhere. Use "Reset demo" in the demo bar 
 3. **Take the walkthrough** that opens the first time you sign in (Orgs → Teams → Homework →
    Calendar → Org Cup → Profile).
 4. **Competing at FLC?** On the **Teams** tab, rank your three events, optionally name a
-   teammate, and confirm you can be there Nov 13–15. Press *Send my choices*.
+   teammate, and confirm you can be there Nov 13–15. Under **Hotel**, tick *I need a bed*,
+   pick a rooming group (women's / men's / all-gender), name up to 3 roommates and add a
+   note only EBOD sees. Press *Send my choices*. Your room appears there once EBOD sets it.
+   **Already have a team?** *Form your own team*: pick FLC event, consulting client or
+   track, name it, list teammates, *Send to EBOD for review*. It shows *Waiting*,
+   *Approved* or *Sent back* (with EBOD's reason).
 5. **After bootcamp 1 (Oct 20):** *Orgs* shows your Org, its 2nd years and your EBOD contact.
    *Teams* shows your consulting team (PMs, your initiative) and FLC team.
 6. **Homework:** open *Homework*, upload a file or paste a shared link before the due date.
@@ -80,6 +85,15 @@ All EBOD sign in with the **PBL Google account** (or their own address once gran
    requested teammates together where it can, and lists anyone it could not place. Selection
    criteria are still EBOD's call — adjust by hand (an FLC card stops at 4).
 3. *Build a team* adds a single consulting / FLC / other team.
+4. *Teams members sent in* lists self-formed teams. Each shows what to check (not on the
+   roster, already on a team of that kind, over the size limit, event already has 3 teams,
+   said they can't go, in another waiting request). *Approve* makes the team (consulting
+   members join that client's team; anyone on another team of that kind is moved) or
+   *Send back…* with a reason. Untick the box at the top to stop members sending teams.
+5. *FLC hotel rooms*: set people per room, *Form rooms from requests* (one rooming group
+   per room, requested roommates together, as few rooms as possible), then move people,
+   change a room's group and type the hotel room number at check-in. *Download FLC teams
+   and rooms (CSV)* gives the registration / hotel list. Rooming notes are officers-only.
 
 **Homework**
 1. *Homework → Set an assignment*: start from a template or blank, set a due date, choose
@@ -91,7 +105,14 @@ All EBOD sign in with the **PBL Google account** (or their own address once gran
 anything else (turnout, a mock case win).
 
 **Calendar**: season dates are already there. Add rooms/times as new events; hide a built-in
-date with its ×. *Sync with Google Calendar* pushes everything to the chapter calendar.
+date with its ×. The field beside *Sync with Google Calendar* holds the chapter calendar —
+on the PBL club it suggests **deanzacapbl@gmail.com** (the PBL account's calendar). The
+first sync links it: page events go in (an event already there under much the same name,
+e.g. "IM Orientation MEETING", is matched, not duplicated), and its events come back.
+Anything that isn't clearly member-facing (EBOD, ICC, scope calls…) comes back
+**EBOD only**; press *Show to members* on any that should be public. Meeting links come
+back as "Online". The linked calendar's sharing is never changed, and members don't get
+the "Add this calendar" link for it.
 
 ---
 
@@ -105,6 +126,12 @@ club roster — need the updated **`apps-script/Code.gs`**:
 2. Replace the code with `apps-script/Code.gs` from this branch and save.
 3. Deploy → Manage deployments → edit the web app → *New version* → Deploy (keep the same
    URL so `WEBAPP_URL` in `index.html` does not change).
+
+This version also adds: hotel answers in FLC preferences, *Teams members sent in*
+(`submitTeamRequest` / `listTeamRequests` / `reviewTeamRequest`, stored under their own
+`teamreqs:<club>` row in Config), linking an existing calendar, and EBOD-only events kept
+out of what members download. **Redeploy before members use the hotel or self-formed team
+parts** — the old script drops the hotel answers and refuses team requests.
 
 New columns are appended automatically on first use (Teams: `Availability`;
 Profiles: `Availability`, `Prefs`) — nothing is archived. **Redeploy before members send FLC

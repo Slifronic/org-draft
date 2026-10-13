@@ -36,7 +36,9 @@ var NEEDS = {
   formItems: 'admin', saveFormItems: 'admin',
   purgeClub: 'admin',
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
-  forkClub: 'admin'
+  forkClub: 'admin',
+  submitTeamRequest: 'member', withdrawTeamRequest: 'member', listTeamRequests: 'member',
+  reviewTeamRequest: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -857,14 +859,64 @@ function orgBoard_(aff, cfg) {
 
 /* FLC preferences arrive as JSON text from the member's own page. Parsed and
    rebuilt here so only the known shape is stored: up to three event names,
-   one requested teammate, and whether they can attend. */
+   one requested teammate, whether they can attend, and the hotel answers --
+   whether they need a bed, which rooming group, up to three roommates asked
+   for, and a short note only officers read. */
 function cleanPrefs_(raw) {
   var o;
   try { o = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return null; }
   if (!o || typeof o !== 'object') return null;
   var txt = function (v, n) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').slice(0, n); };
   var flc = (o.flc || []).slice(0, 3).map(function (v) { return txt(v, 40); }).filter(String);
-  return JSON.stringify({flc: flc, mate: txt(o.mate, 60), attend: o.attend !== false, at: Number(o.at) || Date.now()});
+  var roomies = (o.roomies || []).slice(0, 3).map(function (v) { return txt(v, 60); }).filter(String);
+  var group = ['w', 'm', 'x'].indexOf(String(o.group)) > -1 ? String(o.group) : '';
+  return JSON.stringify({flc: flc, mate: txt(o.mate, 60), attend: o.attend !== false,
+    hotel: o.hotel === true, group: group, roomies: roomies, rnote: txt(o.rnote, 160),
+    at: Number(o.at) || Date.now()});
+}
+
+/* ---- members forming their own teams ----
+   Kept under a key of their own rather than on the club record: officers
+   save the club record whole, so a request a member sent while an officer
+   had the page open would be written over by that officer's next save. */
+var TEAMREQ_KINDS = {consulting: 14, flc: 4, other: 14};
+function cfgRow_(key) {
+  var sh = tab('config'), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) if (String(v[i][0]) === key) return {sh: sh, row: i + 1, val: v[i][1]};
+  return {sh: sh, row: -1, val: ''};
+}
+function readReqs_(aff) {
+  var r = cfgRow_('teamreqs:' + aff);
+  try { return JSON.parse(r.val || '[]') || []; } catch (e) { return []; }
+}
+function writeReqs_(aff, list) {
+  var r = cfgRow_('teamreqs:' + aff), j = JSON.stringify(list);
+  if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow(['teamreqs:' + aff, j]);
+}
+function withLock_(fn) {
+  var l = LockService.getScriptLock();
+  if (!l.tryLock(10000)) return {ok: false, error: 'Busy -- try again in a moment.'};
+  try { return fn(); } finally { l.releaseLock(); }
+}
+
+/* Whether an event brought back from a shared chapter calendar is one the
+   whole membership should see. The chapter's real calendar also carries
+   officer meetings, ICC and client calls with meeting links in them; those
+   come back marked for officers only, and an officer can show any of them. */
+function memberFacing_(title) {
+  var t = String(title || '');
+  if (/\b(EBOD|E-?board|ICC|exec|officers?|scope call|1:1|interview|budget|intro(ductory)? call)\b/i.test(t)) return false;
+  return /\b(IM|general meeting|orientation|bootcamp|workshop|social|mixer|mock|FLC|SFBLC|NLC|conference|competition|finals?|info session|deadline|registration)\b/i.test(t);
+}
+
+/* Officers see the whole club record. Members get the same record without
+   the events kept for officers. */
+function memberCfg_(cfg) {
+  if (!cfg || !cfg.events) return cfg;
+  var c = {};
+  for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) c[k] = cfg[k];
+  c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
+  return c;
 }
 
 /* A hand-in that is a link rather than a file. Same one-row-per-member rule
@@ -1117,8 +1169,31 @@ function dispatch(action, payload, email, role, id) {
         else { cSheet.appendRow([cKey, j]); cRow = cSheet.getLastRow(); }
       }
 
+      var incoming = (payload || {}).events || [];
       var cal = null;
-      if (cCfg.gcalId) { try { cal = CalendarApp.getCalendarById(cCfg.gcalId); } catch (e) { cal = null; } }
+
+      /* Linking the chapter's existing calendar instead of one this script
+         makes. Checked before anything is saved: an id this account cannot
+         open is refused, and the club keeps the calendar it had. */
+      var wantId = String((payload || {}).calendarId || '').trim();
+      if (wantId && wantId !== cCfg.gcalId) {
+        if (!/^[^\s<>"]{3,200}$/.test(wantId)) return {ok: false, error: 'That does not look like a calendar ID.'};
+        try { cal = CalendarApp.getCalendarById(wantId); } catch (e) { cal = null; }
+        if (!cal) return {ok: false, error: 'This script runs as ' + Session.getEffectiveUser().getEmail() +
+          ', which cannot open ' + wantId + '. Share that calendar with it ("Make changes to events") and try again.'};
+        /* Ids from the old calendar mean nothing in the new one. The page's
+           own events are sent again; ones that only came from the old
+           calendar are left behind with it. */
+        incoming = incoming.filter(function (ev) { return !ev.pulled && !(ev.gid && /^g/.test(String(ev.id))); })
+          .map(function (ev) { var c = {}; for (var k in ev) if (k !== 'gid') c[k] = ev[k]; return c; });
+        cCfg.gcalId = cal.getId();
+        cCfg.gcalUrl = 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(cCfg.gcalId);
+        cCfg.gcalLinked = true;
+        saveCfg();
+      }
+      if (!cal && cCfg.gcalId) { try { cal = CalendarApp.getCalendarById(cCfg.gcalId); } catch (e) { cal = null; } }
+      if (!cal && cCfg.gcalLinked)
+        return {ok: false, error: 'The linked calendar (' + cCfg.gcalId + ') cannot be opened any more. Check it is still shared with this script, or link another.'};
       /* A calendar this club already made, from a run that did not get to
          record it. Adopt it rather than making another. */
       if (!cal) {
@@ -1137,15 +1212,20 @@ function dispatch(action, payload, email, role, id) {
         saveCfg();          /* banked before anything slow happens */
       }
 
+      /* Only a calendar this script made is handed to the club account. A
+         linked one already belongs to the chapter, and its sharing is the
+         chapter's business, not something every sync should touch. */
       var calOwner = '', calShareErr = '';
-      if (cCfg.ownerEmail) {
+      if (cCfg.ownerEmail && !cCfg.gcalLinked) {
         try { cal.addEditor(cCfg.ownerEmail); calOwner = cCfg.ownerEmail; }
         catch (e) { calShareErr = String(e.message || e); }
       }
 
-      var incoming = (payload || {}).events || [];
-      var byGid = {}, pushed = 0, pulled = 0, remaining = 0;
-      incoming.forEach(function (ev) { if (ev.gid) byGid[ev.gid] = true; });
+      /* Keyed by event and day: every instance of a recurring event shares
+         one id, so the id alone brought a weekly meeting back only once. */
+      var byGid = {}, pushed = 0, pulled = 0, adopted = 0, remaining = 0;
+      incoming.forEach(function (ev) { if (ev.gid) byGid[ev.gid + '|' + ev.date] = true; });
+      var flatT = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
 
       function whenOf(ev) {
         var p = String(ev.date || '').split('-');
@@ -1169,6 +1249,17 @@ function dispatch(action, payload, email, role, id) {
         if (pushed >= PUSH_MAX || (new Date().getTime() - started) > 60000) { remaining++; continue; }
         var w = whenOf(ev);
         if (!w) continue;
+        /* Already there under much the same name -- the chapter calendar has
+           "IM Orientation MEETING" where the page says "IM orientation".
+           Adopt it rather than putting a second one beside it. */
+        var twin = null, ft = flatT(ev.title);
+        try {
+          cal.getEventsForDay(w.start).forEach(function (g) {
+            var fg = flatT(g.getTitle());
+            if (!twin && ft && fg && (fg.indexOf(ft) > -1 || ft.indexOf(fg) > -1)) twin = g;
+          });
+        } catch (e) {}
+        if (twin) { ev.gid = twin.getId(); byGid[ev.gid + '|' + ev.date] = true; adopted++; continue; }
         try {
           var made = w.allDay
             ? cal.createAllDayEvent(String(ev.title || 'Event'), w.start,
@@ -1176,7 +1267,7 @@ function dispatch(action, payload, email, role, id) {
             : cal.createEvent(String(ev.title || 'Event'), w.start, w.end,
                 {location: String(ev.where || ''), description: String(clubNm)});
           ev.gid = made.getId();
-          byGid[ev.gid] = true;
+          byGid[ev.gid + '|' + ev.date] = true;
           pushed++;
         } catch (e) {}
       }
@@ -1187,18 +1278,25 @@ function dispatch(action, payload, email, role, id) {
       var tz = Session.getScriptTimeZone();
       try {
         cal.getEvents(from, to).forEach(function (gev) {
-          var gid = gev.getId();
-          if (byGid[gid]) return;
-          byGid[gid] = true;
-          var st = gev.getStartTime();
-          incoming.push({
-            id: 'g' + String(gid).replace(/[^a-z0-9]/gi, '').slice(0, 14),
-            title: String(gev.getTitle() || 'Event').slice(0, 80),
-            date: Utilities.formatDate(st, tz, 'yyyy-MM-dd'),
+          var gid = gev.getId(), st = gev.getStartTime();
+          var day = Utilities.formatDate(st, tz, 'yyyy-MM-dd');
+          if (byGid[gid + '|' + day]) return;
+          byGid[gid + '|' + day] = true;
+          var title = String(gev.getTitle() || 'Event').slice(0, 80);
+          /* A meeting link is not a place, and members should not be handed
+             one from an officer's calendar. */
+          var where = String(gev.getLocation() || '');
+          if (/^https?:|teams\.microsoft|zoom\.us|meet\.google/i.test(where)) where = 'Online';
+          var row = {
+            id: 'g' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(
+              Utilities.DigestAlgorithm.MD5, gid + '|' + day)).replace(/[^a-z0-9]/gi, '').slice(0, 14),
+            title: title, date: day,
             time: gev.isAllDayEvent() ? '' : Utilities.formatDate(st, tz, 'h:mm a').toLowerCase(),
-            where: String(gev.getLocation() || '').slice(0, 60),
-            cat: 'meet', gid: gid
-          });
+            where: where.slice(0, 60),
+            cat: 'meet', gid: gid, pulled: true
+          };
+          if (cCfg.gcalLinked && !memberFacing_(title)) row.ebod = true;
+          incoming.push(row);
           pulled++;
         });
       } catch (e) {}
@@ -1206,8 +1304,8 @@ function dispatch(action, payload, email, role, id) {
       cCfg.events = incoming;
       saveCfg();
 
-      return {ok: true, events: incoming, pushed: pushed, pulled: pulled, remaining: remaining,
-              calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '',
+      return {ok: true, events: incoming, pushed: pushed, pulled: pulled, adopted: adopted, remaining: remaining,
+              calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '', linked: !!cCfg.gcalLinked,
               sharedWith: calOwner, shareError: calShareErr};
     }
 
@@ -1983,7 +2081,7 @@ function dispatch(action, payload, email, role, id) {
       });
       var shC = tab('config'), vC = shC.getDataRange().getValues();
       for (var q2 = vC.length - 1; q2 >= 1; q2--)
-        if (String(vC[q2][0]) === 'club:' + dcode) shC.deleteRow(q2 + 1);
+        if (String(vC[q2][0]) === 'club:' + dcode || String(vC[q2][0]) === 'teamreqs:' + dcode) shC.deleteRow(q2 + 1);
       var shA2 = tab('affiliations'), vA2 = shA2.getDataRange().getValues();
       for (var z2 = vA2.length - 1; z2 >= 1; z2--)
         if (normAff(vA2[z2][0]) === dcode) shA2.deleteRow(z2 + 1);
@@ -2037,6 +2135,81 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, changed: true};
     }
 
+    /* A member sends a team they put together themselves: what it is for
+       (a client, an FLC event, a track), a name, who is on it, and a note.
+       It is only a request -- nothing about the club's teams changes until
+       an officer has checked it and approved it. One open request per
+       member per kind; sending again replaces it. */
+    case 'submitTeamRequest': {
+      var tq = payload || {};
+      var kind = String(tq.kind || '');
+      if (!TEAMREQ_KINDS[kind]) return {ok: false, error: 'Pick what kind of team this is.'};
+      var clip = function (v, n) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').trim().slice(0, n); };
+      var target = clip(tq.target, 60), tname = clip(tq.name, 60), note = clip(tq.note, 200);
+      var byName = clip(tq.me, 60) || String(id.name || email);
+      if (kind !== 'other' && !target) return {ok: false, error: kind === 'flc' ? 'Pick the event.' : 'Pick the client.'};
+      var seen = {}, mem = [byName].concat(tq.members || []).map(function (m) { return clip(m, 60); })
+        .filter(function (m) { var k = m.toLowerCase().replace(/[^a-z]/g, ''); if (!k || seen[k]) return false; seen[k] = 1; return true; });
+      if (mem.length > TEAMREQ_KINDS[kind])
+        return {ok: false, error: 'That is ' + mem.length + ' people; this kind of team takes up to ' + TEAMREQ_KINDS[kind] + '.'};
+      var who = String(email).toLowerCase();
+      return withLock_(function () {
+        var list = readReqs_(aff).filter(function (r) {
+          return !(r.by === who && r.kind === kind && r.status !== 'approved');
+        });
+        if (list.length >= 400) return {ok: false, error: 'This club has too many open team requests. Ask EBOD to clear some.'};
+        var req = {id: 'q' + new Date().getTime().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+          by: who, byName: byName, kind: kind, target: target, name: tname, members: mem, note: note,
+          status: 'pending', at: new Date().toISOString()};
+        list.push(req);
+        writeReqs_(aff, list);
+        return {ok: true, request: req};
+      });
+    }
+
+    case 'withdrawTeamRequest': {
+      var wid = String((payload || {}).id || ''), whoW = String(email).toLowerCase();
+      return withLock_(function () {
+        var list = readReqs_(aff), n = list.length;
+        list = list.filter(function (r) { return !(r.id === wid && r.by === whoW && r.status !== 'approved'); });
+        if (list.length === n) return {ok: false, error: 'That request is not yours to withdraw, or it was already approved.'};
+        writeReqs_(aff, list);
+        return {ok: true, withdrawn: wid};
+      });
+    }
+
+    /* Officers see every request. A member sees the ones they sent and the
+       ones that list them, so they know when someone has put them on a team. */
+    case 'listTeamRequests': {
+      var all = readReqs_(aff);
+      if (RANK[role] >= RANK.admin) return {ok: true, requests: all};
+      var whoL = String(email).toLowerCase();
+      var flatN = function (x) { return String(x || '').toLowerCase().replace(/[^a-z]/g, ''); };
+      var meN = flatN((payload || {}).me || id.name || '');
+      return {ok: true, requests: all.filter(function (r) {
+        return r.by === whoL || (meN && (r.members || []).some(function (m) { return flatN(m) === meN; }));
+      }).map(function (r) {
+        var c = {}; for (var k in r) if (k !== 'by') c[k] = r[k];
+        c.mine = r.by === whoL; return c;
+      })};
+    }
+
+    case 'reviewTeamRequest': {
+      var rv = payload || {}, rid = String(rv.id || ''), st = String(rv.status || '');
+      if (st !== 'approved' && st !== 'returned') return {ok: false, error: 'Approve or return it.'};
+      return withLock_(function () {
+        var list = readReqs_(aff), hit = null;
+        list.forEach(function (r) { if (r.id === rid) hit = r; });
+        if (!hit) return {ok: false, error: 'That request was withdrawn.'};
+        hit.status = st;
+        hit.review = String(rv.note || '').replace(/[<>\u0000-\u001F]/g, '').slice(0, 200);
+        hit.teamId = st === 'approved' ? String(rv.teamId || '').slice(0, 40) : '';
+        hit.reviewedBy = String(email); hit.reviewedAt = new Date().toISOString();
+        writeReqs_(aff, list);
+        return {ok: true, request: hit};
+      });
+    }
+
     case 'getAll': {
       /* The club's vocabulary lives in the sheet too, so a second officer
          opening the page sees the same words as the officer who set them
@@ -2050,7 +2223,7 @@ function dispatch(action, payload, email, role, id) {
          plus a redirect, and that second call was pure latency. */
       return {
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
-        config: cfg,
+        config: RANK[role] >= RANK.admin ? cfg : memberCfg_(cfg),
         aff: aff, affName: (findAff(aff) || {}).name || aff,
         needsAff: !!id.needsAff,
         affiliations: id.isRoot ? allAffiliations().map(function (a) {
