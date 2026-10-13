@@ -2706,7 +2706,13 @@ function rosterIndex_(aff) {
 function ensureMemberDrive_(aff, cfg, d, acct, roster) {
   var key = String(acct.email || acct.who || '').toLowerCase().trim();
   if (!key) return null;
-  var display = String(((acct.first || '') + ' ' + (acct.last || '')).trim() || acct.name || key.split('@')[0]).slice(0, 60);
+  /* A real name when there is one: what they registered, else the name on
+     their Google account (only known when they themselves are signed in).
+     Failing both, the start of their address -- and a folder is never
+     renamed back to that from a real name. */
+  var realName = String(((acct.first || '') + ' ' + (acct.last || '')).trim() ||
+    (acct.name && String(acct.name).indexOf('@') < 0 ? acct.name : '')).slice(0, 60);
+  var display = realName || key.split('@')[0];
   var rr = roster[flatName_(display)] || null;
   var rosterName = rr ? rr.name : display;
   d.members = d.members || {};
@@ -2722,7 +2728,7 @@ function ensureMemberDrive_(aff, cfg, d, acct, roster) {
   var folder = null;
   if (e.f) { try { folder = DriveApp.getFolderById(e.f); if (folder.isTrashed()) folder = null; } catch (x) { folder = null; } }
   if (!folder) { folder = root.createFolder(safeFolderName_(rosterName)); e.f = folder.getId(); e.w = ''; }
-  else if (folder.getName() !== safeFolderName_(rosterName)) { try { folder.setName(safeFolderName_(rosterName)); } catch (x) {} }
+  else if (realName && folder.getName() !== safeFolderName_(rosterName)) { try { folder.setName(safeFolderName_(rosterName)); } catch (x) {} }
 
   var list = workForMember_(cfg, rosterName, rr ? rr.org : '');
   var stamp = workStamp_(list);
@@ -2810,6 +2816,7 @@ function workFolderFor_(aff, cfg, acct, workId) {
 function acctFor_(aff, email, id) {
   var k = String(email || '').toLowerCase();
   var hit = accountsFor(aff).filter(function (u) { return String(u.email || u.who || '').toLowerCase() === k; })[0];
+  if (hit && !String((hit.first || '') + (hit.last || '')).trim() && id && id.name) { hit = JSON.parse(JSON.stringify(hit)); hit.name = id.name; }
   return hit || {email: k, who: k, first: '', last: '', name: id && id.name};
 }
 /* The name a member registered with, for labels other people read. */

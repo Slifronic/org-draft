@@ -3051,7 +3051,9 @@ function mergeBackendData(data){
   }
   if(data.ok&&data.gcal){setGcal(data.gcal);changed=true}
   if(data.ok&&data.memberNames)REG.names=data.memberNames.slice(0,2000);
-  if(data.ok&&data.myDriveReady===false)ensureMyDriveSoon();
+  /* Once a visit: makes the folder if it is missing, adds new assignments,
+     and puts the member's real name on it. In the background, after load. */
+  if(data.ok&&('myDriveReady' in data))ensureMyDriveSoon();
   if(data.ok&&data.teamBoard)TEAMBOARD=data.teamBoard;
   if(data.ok&&data.orgBoard)ORGBOARD=data.orgBoard;
   if(data.pointsLog&&data.pointsLog.length){
