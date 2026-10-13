@@ -1179,8 +1179,11 @@ function dispatch(action, payload, email, role, id) {
       if (wantId && wantId !== cCfg.gcalId) {
         if (!/^[^\s<>"]{3,200}$/.test(wantId)) return {ok: false, error: 'That does not look like a calendar ID.'};
         try { cal = CalendarApp.getCalendarById(wantId); } catch (e) { cal = null; }
-        if (!cal) return {ok: false, error: 'This script runs as ' + Session.getEffectiveUser().getEmail() +
-          ', which cannot open ' + wantId + '. Share that calendar with it ("Make changes to events") and try again.'};
+        /* Worded without asking Session who the script runs as: that call
+           needs a scope of its own, and a new scope stops the deployed web
+           app for everyone until the owner approves it again. */
+        if (!cal) return {ok: false, error: 'The Google account that owns this script cannot open ' + wantId +
+          '. Share that calendar with it ("Make changes to events") and try again.'};
         /* Ids from the old calendar mean nothing in the new one. The page's
            own events are sent again; ones that only came from the old
            calendar are left behind with it. */
