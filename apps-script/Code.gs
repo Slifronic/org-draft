@@ -606,9 +606,10 @@ function doLogin(payload) {
           expires: exp};
 }
 
-/* Self-service sign-up. Anyone may create an account, but only into an
-   affiliation whose join code they can produce, and only ever as a member --
-   role is not something a stranger gets to choose. */
+/* Self-service sign-up. Anyone may create an account in any club, always as
+   a member -- role is not something a stranger gets to choose. There is no
+   join code (EBOD, Oct 2026): picking the club is enough, and officers remove
+   anyone who should not be there from the Access tab. */
 /* The account is keyed by email address, because that is the thing a member
    already knows and cannot accidentally pick twice. First and last name are
    kept separately so the roster can be matched on a real name rather than a
@@ -619,7 +620,6 @@ function doSignup(payload) {
   var last  = String(p.lastName || '').trim();
   var email = String(p.email || '').toLowerCase().trim();
   var aff = findAff(p.affiliation);
-  var given = String(p.joinCode || '').trim();
 
   if (!first) return {ok: false, error: 'Enter your first name.'};
   if (!last)  return {ok: false, error: 'Enter your last name.'};
@@ -628,12 +628,6 @@ function doSignup(payload) {
   if (!aff) return {ok: false, error: 'Pick the club you are joining.'};
   if (!p.dk || !p.clientSalt) return {ok: false, error: 'The browser did not send a derived key.'};
 
-  /* Wrong code and unknown club answer the same way, and both pause, so the
-     endpoint cannot be used to hunt for valid codes. */
-  if (String(aff.joinCode) !== given) {
-    Utilities.sleep(400);
-    return {ok: false, error: 'That join code does not match this club.'};
-  }
   if (findUser(email)) return {ok: false, error: 'There is already an account for that email.'};
 
   var ssalt = Utilities.getUuid();
@@ -763,7 +757,7 @@ function doPost(e) {
 
     /* A Google account that has not joined a club yet is signed in but
        belongs nowhere. Without this it fell through to the default club and
-       could read that club's roster and points with no join code at all. It
+       could read that club's roster and points without ever joining it. It
        may learn who it is and join; nothing else. */
     if (id.needsAff && action !== 'joinAffiliation' && action !== 'whoami') {
       if (action === 'getAll')
@@ -926,13 +920,43 @@ function withLock_(fn) {
 }
 
 /* Officers see the whole club record. Members get the same record without
-   the events kept for officers. */
-function memberCfg_(cfg) {
-  if (!cfg || !cfg.events) return cfg;
+   the events kept for officers, the links to the club's own files (the
+   response sheet holds every member's answers), and every hotel room but
+   their own -- who rooms with whom, and in which group, is not club news. */
+var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide'];
+function memberCfg_(cfg, meName) {
+  if (!cfg) return cfg;
   var c = {};
   for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) c[k] = cfg[k];
-  c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
+  MEMBER_HIDDEN_CFG_.forEach(function (k) { delete c[k]; });
+  if (cfg.events) c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
+  if (cfg.rooms) {
+    var me = flatName_(meName);
+    c.rooms = me ? cfg.rooms.filter(function (r) {
+      return (r && r.members || []).some(function (m) { return flatName_(m) === me; });
+    }) : [];
+  }
   return c;
+}
+function flatName_(x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+/* What a member's browser gets of the club's rows. Everybody's name, Org,
+   year and track is ordinary club knowledge -- it is on every Org page. A
+   personality type, availability, leadership interest and officer notes are
+   not, and neither are anybody else's points or attendance. These used to
+   ride along to every member and were only hidden on screen, so anyone could
+   read them out of the page or the browser's saved copy. */
+function memberRows_(kind, rows, meName) {
+  var me = flatName_(meName);
+  if (kind === 'pointsLog' || kind === 'attendance')
+    return rows.filter(function (r) { return me && flatName_(r.MemberName) === me; });
+  return rows.map(function (r) {
+    var mine = me && flatName_(r.MemberName) === me, c = {};
+    for (var k in r) if (Object.prototype.hasOwnProperty.call(r, k)) c[k] = r[k];
+    c.Notes = '';
+    if (!mine) { c.MBTI = ''; c.LeadInterest = ''; c.Availability = ''; }
+    return c;
+  });
 }
 
 /* ---- the chapter's Google Calendar, as members see it ----
@@ -1048,6 +1072,48 @@ function memberNames_(aff) {
 /* A hand-in that is a link rather than a file. Same one-row-per-member rule
    and the same first-hand-in timestamp as a file, so it counts for the Org
    Cup exactly the same way. */
+/* This club's saved setup. */
+function clubCfg_(aff) {
+  var key = 'club:' + aff, c = {};
+  readTab('config').forEach(function (r) {
+    if (String(r.Key) === key) { try { c = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  return c;
+}
+/* Where a form's answers are posted, from the link members open. Mirrors the
+   address formSchema reads the questions from. */
+function formAction_(formUrl) {
+  var f = String(formUrl || '');
+  if (!/^https:\/\/docs\.google\.com\/forms\//.test(f)) return '';
+  var v = f.replace(/\/edit.*$/, '/viewform').replace(/\?.*$/, '');
+  if (v.indexOf('/viewform') < 0) v = v.replace(/\/*$/, '') + '/viewform';
+  return v.replace(/\/viewform$/, '/formResponse');
+}
+
+/* Whether a hand-in's first bytes match what its extension says it is.
+   Office files are either the old compound format or a zip; text has to be
+   text, and never markup a browser would run. */
+function looksLike_(ext, b) {
+  var u = function (i) { return (b[i] + 256) % 256; };
+  var starts = function (sig) { for (var i = 0; i < sig.length; i++) if (u(i) !== sig[i]) return false; return true; };
+  var ole = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1], zip = [0x50, 0x4B, 0x03, 0x04];
+  switch (ext) {
+    case 'pdf':  return starts([0x25, 0x50, 0x44, 0x46]);                       // %PDF
+    case 'png':  return starts([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+    case 'jpg': case 'jpeg': return starts([0xFF, 0xD8, 0xFF]);
+    case 'webp': return starts([0x52, 0x49, 0x46, 0x46]) && u(8) === 0x57 && u(9) === 0x45 && u(10) === 0x42 && u(11) === 0x50;
+    case 'heic': return b.length > 12 && u(4) === 0x66 && u(5) === 0x74 && u(6) === 0x79 && u(7) === 0x70; // ....ftyp
+    case 'doc': case 'xls': case 'ppt': return starts(ole);
+    case 'docx': case 'xlsx': case 'pptx': return starts(zip);
+    case 'csv': case 'txt': case 'md': {
+      var n = Math.min(b.length, 4096), head = '';
+      for (var i = 0; i < n; i++) { if (u(i) === 0) return false; head += String.fromCharCode(u(i)); }
+      return !/<\s*(script|html|iframe|svg|object|embed)\b/i.test(head);
+    }
+  }
+  return false;
+}
+
 function submitLink_(aff, id, email, swId, link) {
   var flatW = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
   var myOrg = '', myName = String(id.name || email);
@@ -1480,6 +1546,17 @@ function dispatch(action, payload, email, role, id) {
         return {ok: false, error: 'That kind of file is not accepted. Use a PDF, a document, a spreadsheet, or an image.'};
       if (swMime && ALLOW[ext].indexOf(swMime.split(';')[0].trim().toLowerCase()) < 0)
         return {ok: false, error: 'That file says it is a ' + swMime + ' but is named .' + ext + '.'};
+      /* The name and the declared type are both the sender's say-so. The
+         bytes are checked too, so a web page or a program renamed to .pdf is
+         refused, and the file is stored with the type its extension implies
+         rather than whatever the browser claimed. */
+      var swBytes;
+      try { swBytes = Utilities.base64Decode(swData); }
+      catch (e) { return {ok: false, error: 'That file did not arrive intact. Try again.'}; }
+      if (!swBytes.length) return {ok: false, error: 'That file is empty.'};
+      if (!looksLike_(ext, swBytes))
+        return {ok: false, error: 'That file is not really a .' + ext + ' file. Save it again as one and hand it in.'};
+      swMime = ALLOW[ext][0];
       /* Rebuilt from the parts rather than trusting the string: no directory
          separators, no leading dots, no control characters, bounded length. */
       var stem = bits.join('.').replace(/[^A-Za-z0-9 _-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -1541,8 +1618,7 @@ function dispatch(action, payload, email, role, id) {
       var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmm');
       var file;
       try {
-        var blob = Utilities.newBlob(Utilities.base64Decode(swData), swMime || 'application/octet-stream',
-                                     stamp + ' ' + safeName);
+        var blob = Utilities.newBlob(swBytes, swMime, stamp + ' ' + safeName);
         file = dest.createFile(blob);
       } catch (e) {
         return {ok: false, error: 'That file could not be saved: ' + e.message};
@@ -1640,16 +1716,11 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, status: rvS, points: awarded};
     }
 
-    /* A signed-in Google address that has not joined a club yet.    /* A signed-in Google address that has not joined a club yet. Same join
-       code rule as sign-up, and always as a member. */
+    /* A signed-in Google address that has not joined a club yet. Like
+       sign-up: no join code, and always as a member. */
     case 'joinAffiliation': {
       var ja = findAff((payload || {}).affiliation);
-      var jcode = String((payload || {}).joinCode || '').trim();
       if (!ja) return {ok: false, error: 'Pick the club you are joining.'};
-      if (String(ja.joinCode) !== jcode) {
-        Utilities.sleep(400);
-        return {ok: false, error: 'That join code does not match this club.'};
-      }
       if (id.via !== 'google') return {ok: false, error: 'Password accounts are placed when they are created.'};
       var already = affForEmail(email);
       if (already) return {ok: false, error: 'You are already in ' + already.aff + '.'};
@@ -1657,7 +1728,8 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, joined: ja.code, name: ja.name};
     }
 
-    /* Renaming a club or rotating its join code, without touching its data. */
+    /* Renaming a club, without touching its data. Join codes are no longer
+       asked for; one sent by an older page is still stored, unused. */
     case 'updateAffiliation': {
       var uc = normAff((payload || {}).code);
       var un = String((payload || {}).name || '').trim();
@@ -1666,10 +1738,7 @@ function dispatch(action, payload, email, role, id) {
       for (var z = 1; z < vA.length; z++) {
         if (normAff(vA[z][0]) !== uc) continue;
         if (un) shA.getRange(z + 1, 2).setValue(un);
-        if (uj) {
-          if (uj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
-          shA.getRange(z + 1, 3).setValue(uj);
-        }
+        if (uj) shA.getRange(z + 1, 3).setValue(uj.slice(0, 64));
         return {ok: true, updated: uc};
       }
       return {ok: false, error: 'No club with that code.'};
@@ -1681,7 +1750,6 @@ function dispatch(action, payload, email, role, id) {
       var aj = String((payload || {}).joinCode || '').trim();
       if (!/^[a-z0-9-]{3,32}$/.test(ac)) return {ok: false, error: 'Codes are 3-32 characters: letters, digits, dashes.'};
       if (!an) return {ok: false, error: 'Give the club a display name.'};
-      if (aj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
       if (findAff(ac)) return {ok: false, error: 'That code is taken.'};
       tab('affiliations').appendRow([ac, an, aj, email, new Date()]);
       return {ok: true, created: ac, name: an};
@@ -1702,6 +1770,11 @@ function dispatch(action, payload, email, role, id) {
       var ph = String((payload || {}).photo || '');
       if (ph === 'none') ph = ' ';   /* explicit clear */
       if (ph.length > 200000) return {ok: false, error: 'That picture is too large.'};
+      /* Shown to everyone who opens this member's card, so only an inline
+         picture is kept. A web address here would load from somewhere else
+         every time an officer looked at them, telling that site who and when. */
+      if (ph && ph !== ' ' && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/]+=*$/.test(ph))
+        return {ok: false, error: 'That picture could not be used. Choose a JPEG or PNG.'};
       var shP = tab('profiles'), vP = shP.getDataRange().getValues();
       var idxP = {}; for (var c0 = 0; c0 < vP[0].length; c0++) idxP[String(vP[0][c0])] = c0;
       for (var i0 = 1; i0 < vP.length; i0++) {
@@ -1805,7 +1878,11 @@ function dispatch(action, payload, email, role, id) {
                 member: {name: ((acct.first || '') + ' ' + (acct.last || '')).trim() || acct.who,
                          email: (RANK[role] >= RANK.admin || selfA) ? (acct.email || acct.who) : '',
                          org: '', track: '', mbti: '', lead: '', notes: '',
-                         role: acct.role, joined: acct.joined, kind: acct.kind,
+                         /* How someone signs in, their role and when they joined
+                            are account details: officers and the member only. */
+                         role: (RANK[role] >= RANK.admin || selfA) ? acct.role : '',
+                         joined: (RANK[role] >= RANK.admin || selfA) ? acct.joined : '',
+                         kind: (RANK[role] >= RANK.admin || selfA) ? acct.kind : '',
                          points: null, entries: null, photo: acct.photo || null}};
       }
       var self = flatN(id.name || email) === want;
@@ -1832,6 +1909,9 @@ function dispatch(action, payload, email, role, id) {
        copying field ids by hand. */
     case 'formSchema': {
       var furl = String((payload || {}).formUrl || '');
+      /* Officers check any form they are about to link. A member only ever
+         reads their own club's, so the script cannot be pointed elsewhere. */
+      if (RANK[role] < RANK.admin) furl = String(clubCfg_(aff).formUrl || '');
       if (!/^https:\/\/docs\.google\.com\/forms\//.test(furl))
         return {ok: false, error: 'That is not a Google Forms link.'};
       var viewUrl = furl.replace(/\/edit.*$/, '/viewform').replace(/\?.*$/, '');
@@ -1859,10 +1939,21 @@ function dispatch(action, payload, email, role, id) {
     }
 
     case 'submitForm': {
-      var act = String((payload || {}).action || '');
+      /* Posted only to this club's own form, worked out here rather than
+         taken from the page -- otherwise any signed-in member could have the
+         club's script post answers into any Google Form at all. */
+      var act = formAction_(clubCfg_(aff).formUrl);
+      if (!act) return {ok: false, error: 'This club has no sign-up form linked.'};
       if (!/^https:\/\/docs\.google\.com\/forms\/.*formResponse$/.test(act))
         return {ok: false, error: 'Bad form target.'};
-      var body2 = (payload || {}).answers || {};
+      /* Only question fields, as bounded text, go through to Google. */
+      var raw2 = (payload || {}).answers || {}, body2 = {};
+      Object.keys(raw2).slice(0, 80).forEach(function (k) {
+        if (!/^entry\.\d+$/.test(k)) return;
+        var v = raw2[k];
+        body2[k] = Array.isArray(v) ? v.slice(0, 30).map(function (x) { return String(x).slice(0, 500); })
+                                    : String(v == null ? '' : v).slice(0, 3000);
+      });
       var r2 = UrlFetchApp.fetch(act, {method: 'post', payload: body2,
                                        muteHttpExceptions: true, followRedirects: true});
       var code = r2.getResponseCode();
@@ -1972,7 +2063,6 @@ function dispatch(action, payload, email, role, id) {
       if (!/^[a-z0-9-]{3,32}$/.test(fc))
         return {ok: false, error: 'Codes are 3-32 characters: letters, digits, dashes.'};
       if (!fn) return {ok: false, error: 'Give the new club a display name.'};
-      if (fj.length < 6) return {ok: false, error: 'Join codes must be at least 6 characters.'};
       if (findAff(fc)) return {ok: false, error: 'That code is taken.'};
 
       tab('affiliations').appendRow([fc, fn, fj, email, new Date()]);
@@ -2344,7 +2434,9 @@ function dispatch(action, payload, email, role, id) {
       if (RANK[role] >= RANK.admin) return {ok: true, requests: all};
       var whoL = String(email).toLowerCase();
       var flatN = function (x) { return String(x || '').toLowerCase().replace(/[^a-z]/g, ''); };
-      var meN = flatN((payload || {}).me || id.name || '');
+      /* Matched on who they signed in as. A name in the payload let a member
+         list every request naming somebody else. */
+      var meN = flatN(id.name || '');
       return {ok: true, requests: all.filter(function (r) {
         return r.by === whoL || (meN && (r.members || []).some(function (m) { return flatN(m) === meN; }));
       }).map(function (r) {
@@ -2429,6 +2521,7 @@ function dispatch(action, payload, email, role, id) {
          round trip rather than two. Apps Script costs about a second per call
          plus a redirect, and that second call was pure latency. */
       var dMine = (readDrive_(aff).members || {})[String(email).toLowerCase()] || null;
+      var officer = RANK[role] >= RANK.admin, meRow = id.name || email;
       return {
         /* Whether this person's folder exists yet; the page asks for it in the
            background if not. No link: members are not given access. */
@@ -2436,7 +2529,7 @@ function dispatch(action, payload, email, role, id) {
         gcal:        gcalFor_(gAll, cfg, role),
         memberNames: memberNames_(aff),
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
-        config: RANK[role] >= RANK.admin ? cfg : memberCfg_(cfg),
+        config: RANK[role] >= RANK.admin ? cfg : memberCfg_(cfg, id.name || email),
         aff: aff, affName: (findAff(aff) || {}).name || aff,
         needsAff: !!id.needsAff,
         affiliations: id.isRoot ? allAffiliations().map(function (a) {
@@ -2446,9 +2539,9 @@ function dispatch(action, payload, email, role, id) {
         /* The raw form-responses tab used to ride along here, for every club,
            to any signed-in member. Nothing in the page read it; officers get
            the roster they need from clubRoster, scoped to their own club. */
-        teams:      readScoped('teams', aff),
-        pointsLog:  readScoped('pointsLog', aff),
-        attendance: readScoped('attendance', aff)
+        teams:      officer ? readScoped('teams', aff) : memberRows_('teams', readScoped('teams', aff), meRow),
+        pointsLog:  officer ? readScoped('pointsLog', aff) : memberRows_('pointsLog', readScoped('pointsLog', aff), meRow),
+        attendance: officer ? readScoped('attendance', aff) : memberRows_('attendance', readScoped('attendance', aff), meRow)
       };
     }
 

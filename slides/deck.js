@@ -42,7 +42,7 @@ const deck = [
     eyebrow: 'Phi Beta Lambda · Chapter orientation',
     title: 'Your Org',
     sub: 'You have been sorted into a team for the year. Here is what that means, and how you earn points for it.',
-    foot: 'org-draft.vercel.app' },
+    foot: 'org.deanzapbl.com' },
 
   { kind: 'three',
     eyebrow: 'The short version',
@@ -76,7 +76,7 @@ const deck = [
     title: 'Three steps, once',
     steps: [
       { n: '1', h: 'Sign in',           p: 'Google is the normal door. The page receives your name, email and picture — never your password.' },
-      { n: '2', h: 'Join the chapter',  p: 'Pick it from the list and enter the join code your officers gave you.' },
+      { n: '2', h: 'Join the chapter',  p: 'Pick it from the list, then send the sign-up form. The rest opens once it is in.' },
       { n: '3', h: 'Fill in the form',  p: 'Year in the chapter, which division you lean toward, and whether you want to lead. Two minutes.' } ] },
 
   { kind: 'callout',
@@ -157,7 +157,7 @@ const deck = [
     eyebrow: 'For officers only',
     title: 'The other side of it',
     phases: [
-      { w: 'Week 0',    h: 'Set up',    p: 'Name the divisions and ranks, create the sign-up form, hand out the join code.' },
+      { w: 'Week 0',    h: 'Set up',    p: 'Name the divisions and ranks, create the sign-up form, share the site.' },
       { w: 'Weeks 1–2', h: 'Collect',   p: 'Members join and appear on the roster on their own. Chase the ones who have not.' },
       { w: 'Week 2',    h: 'Draft',     p: 'Run it, read the flags, take the Assistant’s swaps, hand-adjust, announce.' },
       { w: 'All term',  h: 'Log',       p: 'Five minutes after every event. Skip three weeks and the standings stop meaning anything.' },
@@ -165,8 +165,8 @@ const deck = [
 
   { kind: 'close',
     eyebrow: 'Start here',
-    title: 'org-draft.vercel.app',
-    sub: 'Sign in, join with the code, fill in the form. Then find your Org under Teams and see where it stands.',
+    title: 'org.deanzapbl.com',
+    sub: 'Sign in, pick De Anza PBL, send the sign-up form. Then find your Org under Teams and see where it stands.',
     foot: 'The full written orientation is at /orientation · Questions go to your chapter officers.' },
 ];
 

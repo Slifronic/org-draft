@@ -1,6 +1,6 @@
 # Org System — Fall 2026 setup
 
-The Org System replaces the old Hub. It runs at https://org-draft.vercel.app
+The Org System replaces the old Hub. It runs at https://org.deanzapbl.com (also https://org-draft.vercel.app)
 (and on the chapter address). A walkthrough video is in
 `media/setup-walkthrough.mp4`, and a safe sandbox is at `/demo`:
 
@@ -36,7 +36,7 @@ Nothing in the demo is saved or sent anywhere. Use "Reset demo" in the demo bar 
 ## For members
 
 1. **Sign up.** Open the site → *Create an account* → *Sign up with Google* using your own
-   email. Pick **De Anza PBL** and enter the join code EBOD gives you. Signed in with the
+   email and pick **De Anza PBL**. There is no join code. Signed in with the
    wrong Google account? *Use a different account* on the join screen signs you out.
 2. **Onboard (required).** Until you send the *Sign-up form*, it is the only page you can
    open: the other tabs are shown but locked, and a link to any of them opens the form
@@ -81,7 +81,8 @@ All EBOD sign in with the **PBL Google account** (or their own address once gran
 2. *Intake → The sign-up form's questions*: make sure the form asks year (1st/2nd), track,
    MBTI and availability. Members fill it in inside the app; answers land in the linked sheet
    and on their profile.
-3. Share the join code.
+3. Share https://org.deanzapbl.com. There is no join code: anyone can pick the club, so
+   remove anyone who should not be there under *Access → Accounts*.
 
 **Bootcamp 1 — form Orgs (Oct 20)**
 1. *Intake → Roster source → Signed-up members → Use signed-up members.* The mapping fills
