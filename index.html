@@ -733,10 +733,6 @@ tr.mine td{background:var(--wash)}
 .calid{width:210px;max-width:100%;font-size:12px;padding:5px 8px}
 .ebodtag{color:var(--flag)}
 .field[hidden]{display:none!important}
-.drivebar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--wash);
-  border:1px solid var(--rule);border-radius:4px;padding:10px 14px;margin:0 0 14px}
-.drivebar>div{display:grid;gap:2px;min-width:0;flex:1 1 260px}
-.drivebar a.tiny{text-decoration:none}
 .reqhead .rqedit{margin-left:auto}
 #abbody ul.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 #abbody ul.roster li{border-bottom:none}
@@ -1911,14 +1907,13 @@ Marcus Lee"></textarea>
   </div>
   <div class="panel" data-req="admin" data-section="member-drives">
     <h2>Member Drive folders</h2>
-    <p class="hint">Every member has a folder in the club's Drive with a subfolder for each assignment set for them. What they hand in is filed there, and the folder is shared with them read-only, without Google emailing them. Officers still get the usual “handed in” folders, with a shortcut to each file. A member's folder is made the first time they open the app; this button does everyone at once. New assignments are added to everyone's folder a few seconds after you set them.</p>
+    <p class="hint">Every member has a folder in the club's Drive (the PBL account's “member folders”) with a subfolder for each assignment set for them, and what they hand in is filed there. The folders are for officers and are not shared with members. The usual “handed in” folders still get a shortcut to each file. A member's folder is made the first time they open the app; this button does everyone at once. New assignments are added to everyone's folder a few seconds after you set them.</p>
     <div class="row"><button id="md-sync" type="button">Set up folders for everyone</button>
       <a class="tiny ghost" id="md-open" href="#" target="_blank" rel="noopener" hidden>Open the member folders in Drive</a></div>
     <div class="msg" id="mdmsg"></div>
   </div>
   <div class="panel" data-section="your-work">
     <h2>Assignments</h2>
-    <div id="hwdrive"></div>
     <div id="hwbody"></div>
   </div>
 </div>
@@ -3056,7 +3051,7 @@ function mergeBackendData(data){
   }
   if(data.ok&&data.gcal){setGcal(data.gcal);changed=true}
   if(data.ok&&data.memberNames)REG.names=data.memberNames.slice(0,2000);
-  if(data.ok&&('myDrive' in data)){MYDRIVE=data.myDrive||null;ensureMyDriveSoon()}
+  if(data.ok&&data.myDriveReady===false)ensureMyDriveSoon();
   if(data.ok&&data.teamBoard)TEAMBOARD=data.teamBoard;
   if(data.ok&&data.orgBoard)ORGBOARD=data.orgBoard;
   if(data.pointsLog&&data.pointsLog.length){
@@ -4692,26 +4687,15 @@ function hwDoneAt(id){
   try{return localStorage.getItem(hwDoneKey(id))||''}catch(e){return ''}
 }
 function hwMarkDone(id){try{localStorage.setItem(hwDoneKey(id),new Date().toISOString())}catch(e){}}
-/* ---- the member's own Drive folder ----
-   Made (or brought up to date with new assignments) once per visit, in the
-   background, after the page is showing -- never on the way in. */
-var MYDRIVE=null, MYDRIVE_ASKED=false;
+/* ---- a member's folder in the club Drive ----
+   Officers file each member's hand-ins in a folder of their own. The first
+   time someone opens the page without one, it is made in the background,
+   after the page is showing. The folder is not shared with the member. */
+var MYDRIVE_ASKED=false;
 function ensureMyDriveSoon(){
-  if(MYDRIVE_ASKED||A.offline||!(A.session||A.token||DEMO_ON))return;
+  if(MYDRIVE_ASKED||A.offline||DEMO_ON||!(A.session||A.token))return;
   MYDRIVE_ASKED=true;
-  setTimeout(function(){
-    backendPost('ensureMyDrive',null).then(function(r){
-      if(r&&r.ok&&r.url){MYDRIVE={url:r.url,shared:!!r.shared};paintMyDrive()}
-    });
-  },2500);
-}
-function paintMyDrive(){
-  var el=$('hwdrive'); if(!el)return;
-  if(!MYDRIVE||!MYDRIVE.url){el.innerHTML='';return}
-  el.innerHTML='<div class="drivebar"><div><b>Your Drive folder</b><span class="savenote">'+
-    (MYDRIVE.shared?'Everything you hand in is filed here, one folder per assignment. Only you and EBOD can see it.'
-      :'Everything you hand in is filed here, one folder per assignment. EBOD is still turning on access for members, so the link may ask you to request access for now.')+
-    '</span></div><a class="tiny" href="'+esc(safeUrl(MYDRIVE.url))+'" target="_blank" rel="noopener">Open your folder</a></div>';
+  setTimeout(function(){backendPost('ensureMyDrive',null)},2500);
 }
 /* Officers lay out everyone's folders. The backend works for as long as it
    safely can per call and says how many are left, so this keeps calling. */
@@ -4731,12 +4715,10 @@ function runDriveSync(quiet){
       var o=$('md-open'); if(o&&r.rootUrl){o.href=r.rootUrl;o.hidden=false}
       if(r.remaining&&round<20){if(!quiet)say('Set up '+made+' so far, '+r.remaining+' to go…','info wait');step();return}
       MDSYNCING=false; if(b)b.disabled=false;
-      var t=r.folders+' members have a folder, '+r.shared+' shared with them.';
-      if(r.needsService)t+=' Sharing is off until the Drive service is enabled in Apps Script (Services → Drive API); folders are made and filled anyway.';
-      if(r.notGoogle&&r.notGoogle.length)t+=' Not Google accounts, so not shared: '+r.notGoogle.slice(0,12).join(', ')+(r.notGoogle.length>12?' and '+(r.notGoogle.length-12)+' more':'')+'.';
+      var t=r.folders+' members have a folder, each with their assignments.';
       if(r.failed&&r.failed.length)t+=' Could not set up: '+r.failed.slice(0,5).join('; ')+'.';
       if(r.remaining)t+=' '+r.remaining+' still to do. Press the button again.';
-      if(!quiet||r.failed&&r.failed.length)say(t,r.failed&&r.failed.length||r.needsService?'':'good');
+      if(!quiet||r.failed&&r.failed.length)say(t,r.failed&&r.failed.length?'':'good');
     });
   };
   step();
@@ -4744,7 +4726,6 @@ function runDriveSync(quiet){
 
 function renderWork(){
   var box=$('hwbody'); if(!box)return;
-  paintMyDrive();
   var me=null;
   for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
   fillHwFor();
@@ -9567,11 +9548,10 @@ function demoBackend(action,pl){
       demoStore(); return {ok:true,status:'checked',points:+pl.points||0};
     }
     case 'calendarSync': return {ok:false,error:'The demo is not connected to Google Calendar. In the real app this pushes the season to the chapter calendar.'};
-    case 'ensureMyDrive': return {ok:true,url:'https://drive.google.com/drive/folders/demo',shared:true};
+    case 'ensureMyDrive': return {ok:true};
     case 'syncMemberDrives': {
       var nAcc=demoAccounts().length;
-      return {ok:true,processed:nAcc,remaining:0,failed:[],total:nAcc,folders:nAcc,shared:nAcc-2,
-        notGoogle:['Sam Whitlock','Jordan Lee'],needsService:false,rootUrl:'https://drive.google.com/drive/folders/demo-root'};
+      return {ok:true,processed:nAcc,remaining:0,failed:[],total:nAcc,folders:nAcc,rootUrl:'https://drive.google.com/drive/folders/demo-root'};
     }
     case 'editTeamRequest': return demoEditReq(pl.id,pl.members||[]);
     case 'memberCard': case 'getAll': case 'whoami': return null;
@@ -9725,7 +9705,6 @@ function buildDemo(){
     unlockNav();scoreAll();renderDraft();renderCup();renderTeamBoard();renderSquads();renderBoard();
     demoStore();
     demoEnter();
-    ensureMyDriveSoon();
   };
   if(saved&&saved.state&&!fresh){
     var d=saved.demo||{};

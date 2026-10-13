@@ -1548,7 +1548,7 @@ function dispatch(action, payload, email, role, id) {
       if (mine > 0) shS.getRange(mine, 1, 1, row.length).setValues([row]);
       else shS.appendRow(row);
 
-      return {ok: true, filed: inMine ? 'your Drive folder / ' + task : task + ' / ' + myOrg + ' / ' + myName,
+      return {ok: true, filed: inMine ? 'the club Drive, under ' + myName + ' / ' + task : task + ' / ' + myOrg + ' / ' + myName,
               fileId: file.getId(), revision: rev, replaced: rev > 1};
     }
 
@@ -2342,9 +2342,10 @@ function dispatch(action, payload, email, role, id) {
       try {
         var mCfg = null; readTab('config').forEach(function (r) { if (String(r.Key) === 'club:' + aff) { try { mCfg = JSON.parse(r.Value); } catch (e) {} } });
         var md = readDrive_(aff);
-        var me = ensureMemberDrive_(aff, mCfg || {}, md, acctFor_(aff, email, id), rosterIndex_(aff));
+        ensureMemberDrive_(aff, mCfg || {}, md, acctFor_(aff, email, id), rosterIndex_(aff));
         writeDrive_(aff, md);
-        return {ok: true, url: me ? folderUrl_(me.f) : '', shared: !!(me && me.s === 'ok')};
+        /* No link back: the folder is the officers', not shared with the member. */
+        return {ok: true};
       } finally { lockM.releaseLock(); }
     }
 
@@ -2381,7 +2382,9 @@ function dispatch(action, payload, email, role, id) {
          plus a redirect, and that second call was pure latency. */
       var dMine = (readDrive_(aff).members || {})[String(email).toLowerCase()] || null;
       return {
-        myDrive:     dMine && dMine.f ? {url: folderUrl_(dMine.f), shared: dMine.s === 'ok', stamp: dMine.w || ''} : null,
+        /* Whether this person's folder exists yet; the page asks for it in the
+           background if not. No link: members are not given access. */
+        myDriveReady: !!(dMine && dMine.f),
         gcal:        gcalFor_(gAll, cfg, role),
         memberNames: memberNames_(aff),
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
@@ -2647,21 +2650,15 @@ function folderUnder(parent, name) {
 
 /* ================= MEMBER DRIVE FOLDERS =================
    Every member gets one folder in the club's Drive with a subfolder for each
-   assignment set for them. Their hand-ins are filed there, and the folder is
-   shared with them read-only, so they can always open what they handed in
-   (before this, a member's own file was owned by the script and they could
-   not open it). Officers keep their usual tree, "<club> — handed in /
-   assignment / Org / name", which now holds a shortcut to each file.
-
-   Sharing is silent when the Drive advanced service is enabled (no email from
-   Google to every member). Without it, the folder is still made and filled;
-   it is simply not shared until the service is on, and the officers' panel
-   says so. Accounts that are not Google accounts cannot be shared with and
-   are reported, not retried forever.
+   assignment set for them, and their hand-ins are filed there. The folders
+   are for officers: they are not shared with members (EBOD's decision), who
+   keep handing in through the page. Officers also keep their usual tree,
+   "<club> — handed in / assignment / Org / name", which now holds a shortcut
+   to each file.
 
    The map of who has which folder lives under its own Config row
-   ("drive:<club>"), kept small: one folder id, a share state and a stamp of
-   which assignments were last laid out, per member. */
+   ("drive:<club>"), kept small: one folder id and a stamp of which
+   assignments were last laid out, per member. */
 var MEMBER_ROOT_SUFFIX = ' — member folders';
 var WORK_TAG = 'Org System assignment: ';
 function readDrive_(aff) {
@@ -2694,22 +2691,6 @@ function workStamp_(list) {
   return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
     list.map(function (w) { return w.id + ':' + w.title + ':' + (w.due || ''); }).sort().join('|'))).slice(0, 12);
 }
-/* Shares a folder read-only without Google emailing the person. */
-function shareSilently_(folderId, email) {
-  if (typeof Drive === 'undefined' || !Drive.Permissions) return {ok: false, code: 'service', error: 'The Drive service is not enabled in Apps Script.'};
-  try {
-    if (Drive.Permissions.create) {
-      Drive.Permissions.create({role: 'reader', type: 'user', emailAddress: email}, folderId,
-        {sendNotificationEmail: false, supportsAllDrives: true});
-    } else {
-      Drive.Permissions.insert({role: 'reader', type: 'user', value: email}, folderId, {sendNotificationEmails: false});
-    }
-    return {ok: true};
-  } catch (e) {
-    var m = String(e.message || e);
-    return {ok: false, code: /notification|not.*google account|invalid sharing request/i.test(m) ? 'nogoogle' : 'error', error: m.slice(0, 160)};
-  }
-}
 /* The club roster rows (name and Org), for working out whose assignments are whose. */
 function rosterIndex_(aff) {
   var idx = {};
@@ -2740,16 +2721,8 @@ function ensureMemberDrive_(aff, cfg, d, acct, roster) {
   var root = DriveApp.getFolderById(d.root);
   var folder = null;
   if (e.f) { try { folder = DriveApp.getFolderById(e.f); if (folder.isTrashed()) folder = null; } catch (x) { folder = null; } }
-  if (!folder) { folder = root.createFolder(safeFolderName_(rosterName)); e.f = folder.getId(); e.s = ''; e.w = ''; }
+  if (!folder) { folder = root.createFolder(safeFolderName_(rosterName)); e.f = folder.getId(); e.w = ''; }
   else if (folder.getName() !== safeFolderName_(rosterName)) { try { folder.setName(safeFolderName_(rosterName)); } catch (x) {} }
-
-  /* Share once. A refusal for a non-Google address is final; a missing
-     service is retried on the next run, once it has been turned on. */
-  if (e.s !== 'ok' && e.s !== 'nogoogle' && /@/.test(key)) {
-    var sh = shareSilently_(e.f, key);
-    e.s = sh.ok ? 'ok' : sh.code;
-    if (!sh.ok) e.err = sh.error; else delete e.err;
-  }
 
   var list = workForMember_(cfg, rosterName, rr ? rr.org : '');
   var stamp = workStamp_(list);
@@ -2792,10 +2765,7 @@ function syncDrivesFor_(aff, budgetMs) {
   writeDrive_(aff, dd);
   var mm = dd.members || {}, ks = Object.keys(mm);
   return {ok: true, processed: done, remaining: left, failed: failed, total: accts.length,
-    folders: ks.length, shared: ks.filter(function (k) { return mm[k].s === 'ok'; }).length,
-    notGoogle: ks.filter(function (k) { return mm[k].s === 'nogoogle'; }).map(function (k) { return mm[k].n || k.split('@')[0]; }),
-    needsService: ks.some(function (k) { return mm[k].s === 'service'; }),
-    rootUrl: dd.root ? folderUrl_(dd.root) : ''};
+    folders: ks.length, rootUrl: dd.root ? folderUrl_(dd.root) : ''};
 }
 /* Run from the editor to give every existing member of every club a folder
    now, instead of waiting for each to open the app. Safe to run again: it
@@ -2810,10 +2780,8 @@ function setUpMemberFolders() {
       var left = 300000 - (new Date().getTime() - t0);
       if (left < 15000) { lines.push((a.name || a.code) + ': not reached, run again'); return; }
       var r = syncDrivesFor_(normAff(a.code), left - 10000);
-      lines.push((a.name || a.code) + ': ' + r.folders + ' folders, ' + r.shared + ' shared' +
+      lines.push((a.name || a.code) + ': ' + r.folders + ' member folders' +
         (r.remaining ? ', ' + r.remaining + ' left (run again)' : '') +
-        (r.needsService ? ', sharing waits for the Drive service' : '') +
-        (r.notGoogle.length ? ', not Google accounts: ' + r.notGoogle.join(', ') : '') +
         (r.failed.length ? ', failed: ' + r.failed.join('; ') : '') + (r.rootUrl ? '\n  ' + r.rootUrl : ''));
     });
     Logger.log(lines.join('\n'));
@@ -2880,10 +2848,9 @@ function checkDriveIntegrations() {
     if (sc.getTargetId() !== f.getId()) throw new Error('shortcut points elsewhere');
     return 'points at the file';
   });
-  step('Silent sharing (Drive advanced service)', function () {
-    if (typeof Drive === 'undefined' || !Drive.Permissions) throw new Error('not enabled: Services → add Drive API, then redeploy');
-    var list = Drive.Permissions.list(tmp.getId());
-    return 'enabled (' + ((list.permissions || list.items || []).length) + ' permission on the test folder)';
+  step('Member folders stay private', function () {
+    var viewers = tmp.getViewers().length + tmp.getEditors().length;
+    return viewers + ' people besides the owner on a new folder';
   });
   step('Form template readable (club sign-up forms)', function () {
     return DriveApp.getFileById(FORM_TEMPLATE_ID).getName();
@@ -2898,9 +2865,8 @@ function checkDriveIntegrations() {
   });
   step('Member folders', function () {
     return allAffiliations().map(function (a) {
-      var d = readDrive_(normAff(a.code)), m = d.members || {}, ks = Object.keys(m);
-      var shared = ks.filter(function (k) { return m[k].s === 'ok'; }).length;
-      return (a.name || a.code) + ': ' + ks.length + ' folders, ' + shared + ' shared';
+      var d = readDrive_(normAff(a.code)), ks = Object.keys(d.members || {});
+      return (a.name || a.code) + ': ' + ks.length + ' folders';
     }).join('; ');
   });
   step('Submissions sheet links open', function () {

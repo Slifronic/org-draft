@@ -121,11 +121,10 @@ tabs at all.
    who it is for (everyone, one Org, one team) and whether it is a file, a link, or either.
    A few seconds later it appears as a subfolder in the Drive folder of everyone it is for.
    **Member Drive folders**: every member has a folder ("<club> — member folders" in the
-   PBL account's Drive) with a subfolder per assignment; their hand-ins are filed there and
-   the folder is shared with them read-only, without Google emailing them. Members see
-   *Open your folder* at the top of Homework. A folder is made when a member first opens the
-   app; *Set up folders for everyone* does the whole club at once. The usual "<club> — handed
-   in / assignment / Org / name" folders still get a shortcut to every file.
+   PBL account's Drive) with a subfolder per assignment, and their hand-ins are filed there.
+   The folders are for officers and are not shared with members. A folder is made when a
+   member first opens the app; *Set up folders for everyone* does the whole club at once. The
+   usual "<club> — handed in / assignment / Org / name" folders still get a shortcut to every file.
 2. Under each assignment: handed in / on time / late / still to come, the names not in yet,
    and each hand-in with *Check off* (optional commitment points).
 
@@ -180,10 +179,8 @@ club roster — need the updated **`apps-script/Code.gs`**:
 3. Deploy → Manage deployments → edit the web app → *New version* → Deploy (keep the same
    URL so `WEBAPP_URL` in `index.html` does not change).
 
-**Drive folders update (Oct 2026).** Turn on the Drive advanced service once (Apps Script →
-Services → *Drive API* → Add) so folders are shared silently; without it they are made but not
-shared. After deploying, run `checkDriveIntegrations` from the editor to test every Drive path,
-and `setUpMemberFolders` to give every existing member a folder.
+**Drive folders update (Oct 2026).** After deploying, run `checkDriveIntegrations` from the
+editor to test every Drive path, and `setUpMemberFolders` to give every existing member a folder.
 
 **October 2026 update — redeploy the script.** This version shares the connected calendar
 with members (stored under its own `gcal:<club>` row in Config, refreshed every half hour
