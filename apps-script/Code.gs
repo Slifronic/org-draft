@@ -718,6 +718,10 @@ function doPost(e) {
     /* Names only. The join code is never sent to the browser -- it is the
        thing being proved, so returning it would defeat the point. */
     if (action === 'listAffiliations') {
+      /* The keep-warm ping (every ten minutes) also does the slow work a
+         member's first page load used to do: reading the Google Calendar and
+         building the club's cached snapshot. Members then find it ready. */
+      if ((body.payload || {}).warm) { try { warmClubs_(); } catch (err) {} }
       try {
         return out({ok: true, affiliations: allAffiliations().map(function (a) {
           return {code: a.code, name: a.name};
@@ -726,11 +730,21 @@ function doPost(e) {
     }
 
     if (action === 'signup') {
-      var lockS = LockService.getScriptLock();
+      var lockS = LockService.getScriptLock(), su;
       try { lockS.waitLock(20000); } catch (e) { return out({ok: false, error: 'Busy, try again.'}); }
-      try { return out(doSignup(body.payload)); }
+      try { su = doSignup(body.payload); }
       catch (err) { return out({ok: false, error: 'Sign-up failed: ' + err}); }
       finally { try { lockS.releaseLock(); } catch (e2) {} }
+      /* Everything the page would ask for next rides along, so a new account
+         opens in one round trip rather than two. Built after the lock is
+         released, so it does not hold up anybody else signing up. */
+      if (su && su.ok) {
+        MEMO_ROWS_ = true;
+        try { su.all = dispatch('getAll', null, su.email, 'member',
+                                {who: su.email, role: 'member', via: 'password', aff: su.aff, name: su.name}); }
+        catch (e3) {}
+      }
+      return out(su);
     }
 
     if (action === 'getSalt') {
@@ -980,6 +994,7 @@ function memberRows_(kind, rows, meName) {
    characters. The hide list is small and stays on the club record
    (cfg.calHide), where officers already save. */
 var GCAL_BACK_DAYS = 30, GCAL_AHEAD_DAYS = 240, GCAL_STALE_MS = 30 * 60 * 1000, GCAL_MAX_CHARS = 45000;
+var GCAL_LATE_MS = 6 * 60 * 60 * 1000;
 function readGcal_(aff) {
   var r = cfgRow_('gcal:' + aff);
   try { return JSON.parse(r.val || '{}') || {}; } catch (e) { return {}; }
@@ -1079,8 +1094,16 @@ function clubSnapshot_(aff) {
     });
     /* The connected calendar refreshes itself here, at most every half hour,
        so members see what is on it without an officer pressing anything. */
+    /* The calendar is refreshed by the keep-warm ping, off the request
+       path: reading 270 days of Google Calendar inline added seconds to
+       whichever member happened to arrive when it was stale. Only a copy
+       much older than that (the ping has stopped) is refreshed here. */
     var gAll = {};
-    try { gAll = refreshGcal_(aff, cfg, false); } catch (e) { gAll = {}; }
+    try {
+      gAll = readGcal_(aff);
+      if (cfg && cfg.gcalId && (!gAll.syncedAt || new Date().getTime() - gAll.syncedAt > GCAL_LATE_MS))
+        gAll = refreshGcal_(aff, cfg, false);
+    } catch (e) { gAll = {}; }
     var drive = {};
     var dm = readDrive_(aff).members || {};
     Object.keys(dm).forEach(function (k) { if (dm[k] && dm[k].f) drive[k] = 1; });
@@ -1089,6 +1112,26 @@ function clubSnapshot_(aff) {
             teamBoard: teamBoard_(aff, cfg), orgBoard: orgBoard_(aff, cfg),
             teams: readScoped('teams', aff), pointsLog: readScoped('pointsLog', aff),
             attendance: readScoped('attendance', aff)};
+  });
+}
+
+/* Called by the keep-warm ping. Refreshes each club's calendar when it is
+   stale and makes sure the club's snapshot is cached, so no member is the one
+   who waits for either. Quick when there is nothing to do. */
+function warmClubs_() {
+  allAffiliations().forEach(function (a) {
+    var key = 'club:' + a.code, cfg = null;
+    readTab('config').forEach(function (r) {
+      if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
+    });
+    if (cfg && cfg.gcalId) {
+      var before = readGcal_(a.code);
+      if (!before.syncedAt || new Date().getTime() - before.syncedAt > GCAL_STALE_MS) {
+        var after = refreshGcal_(a.code, cfg, false);
+        if (after.syncedAt !== before.syncedAt) bumpShared_(a.code);
+      }
+    }
+    clubSnapshot_(a.code);
   });
 }
 
@@ -1824,7 +1867,12 @@ function dispatch(action, payload, email, role, id) {
       if (already) return {ok: false, error: 'You are already in ' + already.aff + '.'};
       tab('roles').appendRow([email, 'member', 'self join', new Date(), ja.code]);
       bumpShared_(ja.code);
-      return {ok: true, joined: ja.code, name: ja.name};
+      /* The page used to ask for everything again right after joining; it
+         rides along instead, one round trip fewer for a new member. */
+      var jAll = null;
+      try { jAll = dispatch('getAll', null, email, 'member',
+                            {who: email, role: 'member', via: 'google', aff: ja.code, name: id.name}); } catch (e) {}
+      return {ok: true, joined: ja.code, name: ja.name, all: jAll};
     }
 
     /* Renaming a club or rotating its join code, without touching its data. */
@@ -3204,7 +3252,10 @@ function clubWide_(action, payload) {
    sees it at once. Edits made straight in the spreadsheet show up within
    SHARED_TTL_ seconds. Nothing per-person is cached here except what that
    person is allowed to see anyway, and photos never are. */
-var SHARED_TTL_ = 600, SHARED_CHUNK_ = 90000;
+/* Every write through the page bumps the version, so the TTL only bounds how
+   long an edit made straight in the sheet takes to show. The keep-warm ping
+   rebuilds it every ten minutes, inside this window. */
+var SHARED_TTL_ = 1500, SHARED_CHUNK_ = 90000;
 function sharedVer_(aff) {
   try { return CacheService.getScriptCache().get('ver:' + aff) || '0'; } catch (e) { return '0'; }
 }

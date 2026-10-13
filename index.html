@@ -396,13 +396,19 @@ footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-si
 .userrow .ukey{color:var(--slate)} .userrow .ukey:hover{background:var(--fill);color:var(--onfill);opacity:1}
 .userrow .ukill{color:var(--flag)} .userrow .ukill:hover{background:var(--flag);color:var(--onfill);opacity:1}
 @media(max-width:560px){.userrow{grid-template-columns:1fr 90px 30px 30px}}
-#gate{position:fixed;inset:0;background:var(--paper);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px}
+#gate{position:fixed;inset:0;background:var(--paper);z-index:9999;display:flex;justify-content:center;padding:24px;
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* margin:auto centres the card when it fits and lets it scroll from the top
+   when it does not -- align-items:center pushed a tall sign-up card off both
+   ends of a phone screen, with no way to scroll to either. */
+#gate .gatecard{margin:auto}
+@media(max-width:560px){#gate{padding:12px}#gate .gatecard{padding:24px 18px}}
 #gate.off{display:none}
 .gatecard{background:var(--card);border:1px solid var(--rule);max-width:470px;width:100%;padding:34px 30px}
 .gatecard h2{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
 .gatecard p{font-size:13.5px;color:var(--slate);line-height:1.5;margin-bottom:8px}
 .gatebtn{margin:22px 0 6px;display:flex;justify-content:center;min-height:44px}
-.gatemsg{font-family:'Space Grotesk',ui-monospace,monospace;font-size:11.5px;letter-spacing:.04em;color:var(--slate);margin-top:14px;min-height:16px}
+.gatemsg{font-family:'Space Grotesk',ui-monospace,monospace;font-size:13.5px;line-height:1.45;letter-spacing:.02em;color:var(--slate);margin-top:14px;min-height:16px}
 .gatemsg.bad{color:var(--flag)}
 .gatefoot{border-top:1px solid var(--rule);margin-top:20px;padding-top:14px;font-size:12px;color:var(--mute);line-height:1.5}
 
@@ -812,7 +818,8 @@ td .sub{font-size:10.5px;color:var(--mute);letter-spacing:.04em;margin-top:2px;f
   transition:opacity .18s ease}
 .busy.on{opacity:1;pointer-events:auto}
 .busymark{color:var(--ink);animation:bootspin 1.6s linear infinite}
-.busyword{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+.busyword{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.busynote{font-size:14px;color:var(--slate);max-width:300px;text-align:center;line-height:1.45;min-height:2.9em;padding:0 16px}
 .busyword::after{content:'';display:inline-block;width:1.4em;text-align:left;animation:busydots 1.2s steps(4) infinite}
 @keyframes busydots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 .netbar{position:fixed;top:0;left:0;right:0;height:3px;z-index:10001;overflow:hidden;
@@ -1357,10 +1364,10 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
       <button type="button" id="jn-out" class="ghost" style="width:100%;margin-top:8px">Use a different account</button>
     </form>
 
+    <div class="gatemsg" id="gatemsg" role="status" aria-live="polite"></div>
     <div class="gateswitch"><button type="button" id="gateswitch">New here? Create an account</button></div>
     <div style="display:flex;justify-content:center;margin-top:10px">
       <button class="themebtn" id="themebtn2" type="button">Light</button></div>
-    <div class="gatemsg" id="gatemsg"></div>
     <div class="gatefoot" id="gatefoot"><a href="/orientation">New here? Watch the 3-minute orientation.</a><br>Your Google account is used only to identify you. The page receives your name, email, and profile picture, and never sees your password.</div>
   </div>
 </div>
@@ -1369,6 +1376,7 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
 <div class="busy" id="busy" role="status" aria-live="polite">
   <div class="busymark" id="busymark"></div>
   <div class="busyword mono" id="busyword"></div>
+  <div class="busynote" id="busynote"></div>
 </div>
 
 <div class="boot" id="boot">
@@ -2509,6 +2517,9 @@ function jwtPeek(t){
 function gateMsg(t,bad){
   var el=$('gatemsg'); if(!el)return;
   el.textContent=t||''; el.className='gatemsg'+(bad?' bad':'');
+  /* On a phone the line can be below the fold; a message nobody sees reads
+     as the page doing nothing. */
+  if(t&&el.scrollIntoView)try{el.scrollIntoView({block:'nearest',behavior:'smooth'})}catch(e){}
 }
 function showGate(on){var g=$('gate'); if(g)g.classList.toggle('off',!on)}
 
@@ -2769,8 +2780,9 @@ function doSignupSubmit(){
   if(!code){gateMsg('You need the join code from your club officers.',true);return}
   $('su-go').disabled=true;
   gateMsg('Creating your account…');
-  busyOn('Creating your account');
+  busyOn('Securing your password');
   deriveForNew(pw).then(function(d){
+    $('busyword').textContent='Creating your account';
     return backendPost('signup',{firstName:first,lastName:last,email:email,
       affiliation:aff,joinCode:code,
       dk:d.dk,clientSalt:d.clientSalt,iterations:d.iterations});
@@ -2786,7 +2798,7 @@ function doSignupSubmit(){
     setRole(r.role,null);
     showGate(false); gateMsg('');
     $('su-pass').value='';
-    afterSignIn();
+    afterSignIn(r.all&&r.all.ok?r.all:null);
     offerClubForm();
   }).catch(function(e){
     busyClear();
@@ -2809,7 +2821,7 @@ function doJoinSubmit(){
     A.aff=r.joined; A.affName=r.name; A.needsAff=false;
     setRole('member',null);
     showGate(false); gateMsg('');
-    afterSignIn();
+    afterSignIn(r.all&&r.all.ok?r.all:null);
     offerClubForm();
   });
 }
@@ -4486,7 +4498,8 @@ function bootDone(){
    not lift it early, and it gives up on its own after 25 seconds -- the
    backend has already answered or failed by then, and a veil that outlives
    its reason locks somebody out of their own page. */
-var BUSY_N=0, BUSY_T=null;
+var BUSY_N=0, BUSY_T=null, BUSY_N1=null, BUSY_N2=null;
+function busyNote(t){var n=$('busynote'); if(n)n.textContent=t||''}
 function busyOn(label){
   var b=$('busy'); if(!b)return;
   var m=$('busymark');
@@ -4496,12 +4509,19 @@ function busyOn(label){
   }
   $('busyword').textContent=label||'Loading';
   BUSY_N++; b.classList.add('on');
-  clearTimeout(BUSY_T); BUSY_T=setTimeout(function(){BUSY_N=1;busyOff()},25000);
+  /* Lifting the veil at 25 seconds while the request was still going left a
+     frozen card with no sign of life. It now says it is still working and
+     only gives up after every retry of the slowest call would have. */
+  busyNote('');
+  clearTimeout(BUSY_N1); clearTimeout(BUSY_N2);
+  BUSY_N1=setTimeout(function(){busyNote('Still working. The club sheet can take a few seconds to answer.')},6000);
+  BUSY_N2=setTimeout(function(){busyNote('Almost there. Keep this page open; it is still waiting on Google.')},20000);
+  clearTimeout(BUSY_T); BUSY_T=setTimeout(function(){BUSY_N=1;busyOff()},100000);
 }
 function busyOff(){
   BUSY_N=Math.max(0,BUSY_N-1);
   if(BUSY_N)return;
-  clearTimeout(BUSY_T);
+  clearTimeout(BUSY_T); clearTimeout(BUSY_N1); clearTimeout(BUSY_N2); busyNote('');
   var b=$('busy'); if(b)b.classList.remove('on');
 }
 function busyClear(){BUSY_N=1;busyOff()}
