@@ -38,7 +38,8 @@ var NEEDS = {
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
   forkClub: 'admin',
   submitTeamRequest: 'member', withdrawTeamRequest: 'member', listTeamRequests: 'member',
-  reviewTeamRequest: 'admin'
+  reviewTeamRequest: 'admin', editTeamRequest: 'admin',
+  syncMemberDrives: 'admin', ensureMyDrive: 'member'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -1501,18 +1502,34 @@ function dispatch(action, payload, email, role, id) {
       var root = folderUnder(null, clubName + ' — handed in');
       var f3 = folderUnder(folderUnder(folderUnder(root, taskFolder), myOrg), myName);
 
+      /* The file itself goes in the member's own folder, under this
+         assignment, where they can open it; the officers' tree gets a
+         shortcut to it. If the member folder cannot be reached the file
+         still lands in the officers' tree, as it always did. */
+      var dest = f3, inMine = false;
+      try { dest = workFolderFor_(aff, wCfg, acctFor_(aff, email, id), swId).folder; inMine = true; }
+      catch (e) { dest = f3; }
+
       var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmm');
       var file;
       try {
         var blob = Utilities.newBlob(Utilities.base64Decode(swData), swMime || 'application/octet-stream',
                                      stamp + ' ' + safeName);
-        file = f3.createFile(blob);
+        file = dest.createFile(blob);
       } catch (e) {
         return {ok: false, error: 'That file could not be saved: ' + e.message};
       }
+      if (inMine) { try { f3.createShortcut(file.getId()); } catch (e) {} }
       /* The replaced file goes to the bin rather than being erased, so an
-         officer can recover a version a member overwrote by accident. */
-      if (prevFile) { try { DriveApp.getFileById(prevFile).setTrashed(true); } catch (e) {} }
+         officer can recover a version a member overwrote by accident. Its
+         shortcut goes with it, so officers are not left with a dead link. */
+      if (prevFile) {
+        try { DriveApp.getFileById(prevFile).setTrashed(true); } catch (e) {}
+        try {
+          var scs = f3.getFilesByType('application/vnd.google-apps.shortcut');
+          while (scs.hasNext()) { var sc = scs.next(); if (sc.getTargetId() === prevFile) sc.setTrashed(true); }
+        } catch (e) {}
+      }
       try { if (wCfg.ownerEmail) root.addEditor(wCfg.ownerEmail); } catch (e) {}
 
       var now = new Date(), rev = prevRev ? prevRev + 1 : 1;
@@ -1531,7 +1548,7 @@ function dispatch(action, payload, email, role, id) {
       if (mine > 0) shS.getRange(mine, 1, 1, row.length).setValues([row]);
       else shS.appendRow(row);
 
-      return {ok: true, filed: task + ' / ' + myOrg + ' / ' + myName,
+      return {ok: true, filed: inMine ? 'your Drive folder / ' + task : task + ' / ' + myOrg + ' / ' + myName,
               fileId: file.getId(), revision: rev, replaced: rev > 1};
     }
 
@@ -2235,7 +2252,12 @@ function dispatch(action, payload, email, role, id) {
       if (!TEAMREQ_KINDS[kind]) return {ok: false, error: 'Pick what kind of team this is.'};
       var clip = function (v, n) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').trim().slice(0, n); };
       var target = clip(tq.target, 60), tname = clip(tq.name, 60), note = clip(tq.note, 200);
-      var byName = clip(tq.me, 60) || String(id.name || email);
+      /* The name they registered with. A Google account with no name on it
+         reports its address as the name, and that is what officers ended up
+         reading on the request and on the team. */
+      var meClip = clip(tq.me, 60);
+      var byName = profileName_(aff, email) || (meClip && meClip.indexOf('@') < 0 ? meClip : '') ||
+        (String(id.name || '').indexOf('@') < 0 ? String(id.name || '') : '') || String(email).split('@')[0];
       if (kind !== 'other' && !target) return {ok: false, error: kind === 'flc' ? 'Pick the event.' : 'Pick the client.'};
       var seen = {}, mem = [byName].concat(tq.members || []).map(function (m) { return clip(m, 60); })
         .filter(function (m) { var k = m.toLowerCase().replace(/[^a-z]/g, ''); if (!k || seen[k]) return false; seen[k] = 1; return true; });
@@ -2283,6 +2305,49 @@ function dispatch(action, payload, email, role, id) {
       })};
     }
 
+    /* Officers change who is on a request -- before approving it, or after,
+       when the team it became changes. The page updates the team itself;
+       this keeps the request members see in step with it. */
+    case 'editTeamRequest': {
+      var ed = payload || {}, eid = String(ed.id || '');
+      var clipE = function (v) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').trim().slice(0, 60); };
+      return withLock_(function () {
+        var list = readReqs_(aff), hit = null;
+        list.forEach(function (r) { if (r.id === eid) hit = r; });
+        if (!hit) return {ok: false, error: 'That request was withdrawn.'};
+        var seenE = {}, mem = (ed.members || []).map(clipE).filter(function (m) {
+          var k = m.toLowerCase().replace(/[^a-z]/g, ''); if (!k || seenE[k]) return false; seenE[k] = 1; return true; });
+        if (!mem.length) return {ok: false, error: 'A team needs at least one member.'};
+        if (mem.length > TEAMREQ_KINDS[hit.kind]) return {ok: false, error: 'This kind of team takes up to ' + TEAMREQ_KINDS[hit.kind] + '.'};
+        hit.members = mem;
+        hit.editedBy = String(email); hit.editedAt = new Date().toISOString();
+        writeReqs_(aff, list);
+        return {ok: true, request: hit};
+      });
+    }
+
+    /* Lays out member Drive folders for the whole club, as far as the time
+       allows; the page calls again until nothing is left. */
+    case 'syncMemberDrives': {
+      var lockD = LockService.getDocumentLock();
+      if (!lockD.tryLock(5000)) return {ok: false, error: 'Another officer is setting up folders right now. Try again in a minute.'};
+      try { return syncDrivesFor_(aff, Math.min(Number((payload || {}).budgetMs) || 40000, 240000)); }
+      finally { lockD.releaseLock(); }
+    }
+
+    /* A member's own folder, made the first time they open the page. */
+    case 'ensureMyDrive': {
+      var lockM = LockService.getDocumentLock();
+      if (!lockM.tryLock(8000)) return {ok: false, error: 'busy'};
+      try {
+        var mCfg = null; readTab('config').forEach(function (r) { if (String(r.Key) === 'club:' + aff) { try { mCfg = JSON.parse(r.Value); } catch (e) {} } });
+        var md = readDrive_(aff);
+        var me = ensureMemberDrive_(aff, mCfg || {}, md, acctFor_(aff, email, id), rosterIndex_(aff));
+        writeDrive_(aff, md);
+        return {ok: true, url: me ? folderUrl_(me.f) : '', shared: !!(me && me.s === 'ok')};
+      } finally { lockM.releaseLock(); }
+    }
+
     case 'reviewTeamRequest': {
       var rv = payload || {}, rid = String(rv.id || ''), st = String(rv.status || '');
       if (st !== 'approved' && st !== 'returned') return {ok: false, error: 'Approve or return it.'};
@@ -2314,7 +2379,9 @@ function dispatch(action, payload, email, role, id) {
       /* This carries everything whoami answers as well, so signing in is one
          round trip rather than two. Apps Script costs about a second per call
          plus a redirect, and that second call was pure latency. */
+      var dMine = (readDrive_(aff).members || {})[String(email).toLowerCase()] || null;
       return {
+        myDrive:     dMine && dMine.f ? {url: folderUrl_(dMine.f), shared: dMine.s === 'ok', stamp: dMine.w || ''} : null,
         gcal:        gcalFor_(gAll, cfg, role),
         memberNames: memberNames_(aff),
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
@@ -2567,9 +2634,285 @@ function applyFormItem_(item, type, title, help, required, options) {
    allows two folders with the same name in one place, so an existing one is
    always reused rather than a second being made every submission. */
 function folderUnder(parent, name) {
-  var it = parent ? parent.getFoldersByName(name) : DriveApp.getFoldersByName(name);
+  /* Searched rather than listed by name: getFoldersByName also returns
+     folders in the bin, and at the root DriveApp.getFoldersByName searches
+     everything shared with this account too, so a club could file work into a
+     trashed folder or one somebody else owns. */
+  var p = parent || DriveApp.getRootFolder();
+  var q = 'title = "' + String(name).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '" and trashed = false';
+  var it = p.searchFolders(q);
   if (it.hasNext()) return it.next();
-  return parent ? parent.createFolder(name) : DriveApp.createFolder(name);
+  return p.createFolder(name);
+}
+
+/* ================= MEMBER DRIVE FOLDERS =================
+   Every member gets one folder in the club's Drive with a subfolder for each
+   assignment set for them. Their hand-ins are filed there, and the folder is
+   shared with them read-only, so they can always open what they handed in
+   (before this, a member's own file was owned by the script and they could
+   not open it). Officers keep their usual tree, "<club> — handed in /
+   assignment / Org / name", which now holds a shortcut to each file.
+
+   Sharing is silent when the Drive advanced service is enabled (no email from
+   Google to every member). Without it, the folder is still made and filled;
+   it is simply not shared until the service is on, and the officers' panel
+   says so. Accounts that are not Google accounts cannot be shared with and
+   are reported, not retried forever.
+
+   The map of who has which folder lives under its own Config row
+   ("drive:<club>"), kept small: one folder id, a share state and a stamp of
+   which assignments were last laid out, per member. */
+var MEMBER_ROOT_SUFFIX = ' — member folders';
+var WORK_TAG = 'Org System assignment: ';
+function readDrive_(aff) {
+  var r = cfgRow_('drive:' + aff);
+  try { return JSON.parse(r.val || '{}') || {}; } catch (e) { return {}; }
+}
+function writeDrive_(aff, d) {
+  var r = cfgRow_('drive:' + aff), j = JSON.stringify(d);
+  if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow(['drive:' + aff, j]);
+}
+function flatName_(x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function folderUrl_(id) { return 'https://drive.google.com/drive/folders/' + id; }
+function safeFolderName_(x) { return String(x || '').replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').trim().slice(0, 90) || 'Untitled'; }
+/* The assignments a member should see: everyone's, their Org's, their teams'. */
+function workForMember_(cfg, rosterName, orgLabel) {
+  var n = flatName_(rosterName);
+  return (cfg.work || []).filter(function (w) {
+    if (!w || !w.id) return false;
+    if (w.team && w.team !== 'all') {
+      var t = (cfg.teams || []).filter(function (x) { return x.id === w.team; })[0];
+      return !!t && (t.members || []).some(function (m) { return flatName_(m) === n; });
+    }
+    if (w.org !== undefined && w.org !== null && w.org !== '' && w.org !== 'all')
+      return !!orgLabel && flatName_(w.orgName) === flatName_(orgLabel);
+    return true;
+  });
+}
+/* Changes when an assignment is added, removed, renamed or re-dated. */
+function workStamp_(list) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
+    list.map(function (w) { return w.id + ':' + w.title + ':' + (w.due || ''); }).sort().join('|'))).slice(0, 12);
+}
+/* Shares a folder read-only without Google emailing the person. */
+function shareSilently_(folderId, email) {
+  if (typeof Drive === 'undefined' || !Drive.Permissions) return {ok: false, code: 'service', error: 'The Drive service is not enabled in Apps Script.'};
+  try {
+    if (Drive.Permissions.create) {
+      Drive.Permissions.create({role: 'reader', type: 'user', emailAddress: email}, folderId,
+        {sendNotificationEmail: false, supportsAllDrives: true});
+    } else {
+      Drive.Permissions.insert({role: 'reader', type: 'user', value: email}, folderId, {sendNotificationEmails: false});
+    }
+    return {ok: true};
+  } catch (e) {
+    var m = String(e.message || e);
+    return {ok: false, code: /notification|not.*google account|invalid sharing request/i.test(m) ? 'nogoogle' : 'error', error: m.slice(0, 160)};
+  }
+}
+/* The club roster rows (name and Org), for working out whose assignments are whose. */
+function rosterIndex_(aff) {
+  var idx = {};
+  readScoped('teams', aff).forEach(function (r) {
+    if (r.MemberName) idx[flatName_(r.MemberName)] = {name: String(r.MemberName), org: String(r.Org || '')};
+  });
+  return idx;
+}
+/* Makes sure one member's folder exists, is shared with them, and holds a
+   subfolder for each of their assignments (renaming ones whose title or due
+   date changed). Returns the map entry. Safe to call again: it only does what
+   is missing. */
+function ensureMemberDrive_(aff, cfg, d, acct, roster) {
+  var key = String(acct.email || acct.who || '').toLowerCase().trim();
+  if (!key) return null;
+  var display = String(((acct.first || '') + ' ' + (acct.last || '')).trim() || acct.name || key.split('@')[0]).slice(0, 60);
+  var rr = roster[flatName_(display)] || null;
+  var rosterName = rr ? rr.name : display;
+  d.members = d.members || {};
+  var e = d.members[key] || {};
+
+  if (!d.root) {
+    var clubName = (findAff(aff) || {}).name || aff;
+    var rootF = folderUnder(null, clubName + MEMBER_ROOT_SUFFIX);
+    d.root = rootF.getId();
+    try { if (cfg.ownerEmail) rootF.addEditor(cfg.ownerEmail); } catch (x) {}
+  }
+  var root = DriveApp.getFolderById(d.root);
+  var folder = null;
+  if (e.f) { try { folder = DriveApp.getFolderById(e.f); if (folder.isTrashed()) folder = null; } catch (x) { folder = null; } }
+  if (!folder) { folder = root.createFolder(safeFolderName_(rosterName)); e.f = folder.getId(); e.s = ''; e.w = ''; }
+  else if (folder.getName() !== safeFolderName_(rosterName)) { try { folder.setName(safeFolderName_(rosterName)); } catch (x) {} }
+
+  /* Share once. A refusal for a non-Google address is final; a missing
+     service is retried on the next run, once it has been turned on. */
+  if (e.s !== 'ok' && e.s !== 'nogoogle' && /@/.test(key)) {
+    var sh = shareSilently_(e.f, key);
+    e.s = sh.ok ? 'ok' : sh.code;
+    if (!sh.ok) e.err = sh.error; else delete e.err;
+  }
+
+  var list = workForMember_(cfg, rosterName, rr ? rr.org : '');
+  var stamp = workStamp_(list);
+  if (e.w !== stamp) {
+    var have = {};
+    var it = folder.getFolders();
+    while (it.hasNext()) {
+      var sub = it.next(), desc = String(sub.getDescription() || '');
+      var at = desc.indexOf(WORK_TAG);
+      if (at > -1) have[desc.slice(at + WORK_TAG.length).split(/\s/)[0]] = sub;
+    }
+    list.forEach(function (w) {
+      var nm = safeFolderName_((w.due ? 'Due ' + w.due + ' · ' : '') + w.title);
+      var sub = have[w.id];
+      if (!sub) {
+        sub = folder.createFolder(nm);
+        sub.setDescription((w.brief ? String(w.brief).slice(0, 900) + '\n\n' : '') + WORK_TAG + w.id);
+      } else if (sub.getName() !== nm) { try { sub.setName(nm); } catch (x) {} }
+    });
+    e.w = stamp;
+  }
+  e.n = rosterName; e.at = new Date().getTime();
+  d.members[key] = e;
+  return e;
+}
+/* Lays out folders for a whole club for up to budgetMs; reports what is left. */
+function syncDrivesFor_(aff, budgetMs) {
+  var t0 = new Date().getTime();
+  var dCfg = null; readTab('config').forEach(function (r) { if (String(r.Key) === 'club:' + aff) { try { dCfg = JSON.parse(r.Value); } catch (e) {} } });
+  dCfg = dCfg || {};
+  var dd = readDrive_(aff), roster = rosterIndex_(aff), accts = accountsFor(aff), seenA = {};
+  accts = accts.filter(function (u) { var k = String(u.email || u.who || '').toLowerCase(); if (!k || seenA[k]) return false; seenA[k] = 1; return true; });
+  var done = 0, left = 0, failed = [];
+  for (var ai = 0; ai < accts.length; ai++) {
+    if (new Date().getTime() - t0 > budgetMs) { left = accts.length - ai; break; }
+    try { ensureMemberDrive_(aff, dCfg, dd, accts[ai], roster); done++; }
+    catch (e) { failed.push(String(((accts[ai].first || '') + ' ' + (accts[ai].last || '')).trim() || accts[ai].email) + ': ' + String(e.message || e).slice(0, 120)); }
+    if (ai % 10 === 9) writeDrive_(aff, dd);      /* banked as it goes */
+  }
+  writeDrive_(aff, dd);
+  var mm = dd.members || {}, ks = Object.keys(mm);
+  return {ok: true, processed: done, remaining: left, failed: failed, total: accts.length,
+    folders: ks.length, shared: ks.filter(function (k) { return mm[k].s === 'ok'; }).length,
+    notGoogle: ks.filter(function (k) { return mm[k].s === 'nogoogle'; }).map(function (k) { return mm[k].n || k.split('@')[0]; }),
+    needsService: ks.some(function (k) { return mm[k].s === 'service'; }),
+    rootUrl: dd.root ? folderUrl_(dd.root) : ''};
+}
+/* Run from the editor to give every existing member of every club a folder
+   now, instead of waiting for each to open the app. Safe to run again: it
+   only does what is missing. Stops after about five minutes; run it again if
+   the log says some are left. */
+function setUpMemberFolders() {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(10000)) { Logger.log('Another run is going. Try again in a minute.'); return; }
+  try {
+    var t0 = new Date().getTime(), lines = [];
+    allAffiliations().forEach(function (a) {
+      var left = 300000 - (new Date().getTime() - t0);
+      if (left < 15000) { lines.push((a.name || a.code) + ': not reached, run again'); return; }
+      var r = syncDrivesFor_(normAff(a.code), left - 10000);
+      lines.push((a.name || a.code) + ': ' + r.folders + ' folders, ' + r.shared + ' shared' +
+        (r.remaining ? ', ' + r.remaining + ' left (run again)' : '') +
+        (r.needsService ? ', sharing waits for the Drive service' : '') +
+        (r.notGoogle.length ? ', not Google accounts: ' + r.notGoogle.join(', ') : '') +
+        (r.failed.length ? ', failed: ' + r.failed.join('; ') : '') + (r.rootUrl ? '\n  ' + r.rootUrl : ''));
+    });
+    Logger.log(lines.join('\n'));
+  } finally { lock.releaseLock(); }
+}
+/* The subfolder one member's hand-in for one assignment goes into. */
+function workFolderFor_(aff, cfg, acct, workId) {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) throw new Error('The club Drive is busy. Try again in a moment.');
+  try {
+    var d = readDrive_(aff);
+    var e = ensureMemberDrive_(aff, cfg, d, acct, rosterIndex_(aff));
+    writeDrive_(aff, d);
+    var folder = DriveApp.getFolderById(e.f), it = folder.getFolders();
+    while (it.hasNext()) {
+      var sub = it.next();
+      if (String(sub.getDescription() || '').indexOf(WORK_TAG + workId) > -1) return {folder: sub, entry: e};
+    }
+    var w = (cfg.work || []).filter(function (x) { return x.id === workId; })[0] || {title: 'Assignment'};
+    var made = folder.createFolder(safeFolderName_((w.due ? 'Due ' + w.due + ' · ' : '') + w.title));
+    made.setDescription(WORK_TAG + workId);
+    return {folder: made, entry: e};
+  } finally { lock.releaseLock(); }
+}
+/* The account record for whoever is calling, shaped like accountsFor's rows. */
+function acctFor_(aff, email, id) {
+  var k = String(email || '').toLowerCase();
+  var hit = accountsFor(aff).filter(function (u) { return String(u.email || u.who || '').toLowerCase() === k; })[0];
+  return hit || {email: k, who: k, first: '', last: '', name: id && id.name};
+}
+/* The name a member registered with, for labels other people read. */
+function profileName_(aff, email) {
+  var k = String(email || '').toLowerCase(), out = '';
+  readTab('profiles').forEach(function (r) {
+    if (String(r.Email).toLowerCase() === k && normAff(r.Affiliation) === aff)
+      out = String(((r.FirstName || '') + ' ' + (r.LastName || '')).trim());
+  });
+  return out.slice(0, 60);
+}
+
+/* Run from the editor: checks every way the backend touches Google Drive and
+   says which work. It creates one test folder, a test file and a shortcut,
+   then puts all three in the bin. Nothing belonging to a club is changed. */
+function checkDriveIntegrations() {
+  var out = [], t0 = new Date().getTime(), tmp = null;
+  var step = function (label, fn) {
+    try { var r = fn(); out.push('OK    ' + label + (r ? ' — ' + r : '')); }
+    catch (e) { out.push('FAIL  ' + label + ' — ' + (e && e.message ? e.message : e)); }
+  };
+  step('Drive reachable (My Drive root)', function () { return DriveApp.getRootFolder().getName(); });
+  step('Folder lookup skips the bin', function () {
+    tmp = DriveApp.createFolder('Org System Drive check — safe to delete');
+    var again = folderUnder(null, 'Org System Drive check — safe to delete');
+    if (again.getId() !== tmp.getId()) throw new Error('found a different folder');
+    return 'reuses the live folder';
+  });
+  step('Create a file in a folder (hand-ins)', function () {
+    var f = tmp.createFile(Utilities.newBlob('check', 'text/plain', 'check.txt'));
+    return f.getName();
+  });
+  step('Shortcut in the officers’ tree', function () {
+    var f = tmp.getFilesByName('check.txt').next();
+    var sc = tmp.createShortcut(f.getId());
+    if (sc.getTargetId() !== f.getId()) throw new Error('shortcut points elsewhere');
+    return 'points at the file';
+  });
+  step('Silent sharing (Drive advanced service)', function () {
+    if (typeof Drive === 'undefined' || !Drive.Permissions) throw new Error('not enabled: Services → add Drive API, then redeploy');
+    var list = Drive.Permissions.list(tmp.getId());
+    return 'enabled (' + ((list.permissions || list.items || []).length) + ' permission on the test folder)';
+  });
+  step('Form template readable (club sign-up forms)', function () {
+    return DriveApp.getFileById(FORM_TEMPLATE_ID).getName();
+  });
+  step('Hand-in folders', function () {
+    var n = 0, names = [];
+    allAffiliations().forEach(function (a) {
+      var it = DriveApp.getRootFolder().searchFolders('title = "' + (a.name || a.code) + ' — handed in" and trashed = false');
+      if (it.hasNext()) { n++; names.push(a.name || a.code); }
+    });
+    return n + ' club' + (n === 1 ? '' : 's') + (names.length ? ' (' + names.join(', ') + ')' : '');
+  });
+  step('Member folders', function () {
+    return allAffiliations().map(function (a) {
+      var d = readDrive_(normAff(a.code)), m = d.members || {}, ks = Object.keys(m);
+      var shared = ks.filter(function (k) { return m[k].s === 'ok'; }).length;
+      return (a.name || a.code) + ': ' + ks.length + ' folders, ' + shared + ' shared';
+    }).join('; ');
+  });
+  step('Submissions sheet links open', function () {
+    var rows = readTab('submissions').filter(function (r) { return r.FileId; }).slice(-5), bad = 0;
+    rows.forEach(function (r) { try { DriveApp.getFileById(String(r.FileId)).getName(); } catch (e) { bad++; } });
+    if (bad) throw new Error(bad + ' of the last ' + rows.length + ' hand-in files cannot be opened');
+    return rows.length + ' most recent hand-in files open';
+  });
+  if (tmp) { try { tmp.setTrashed(true); out.push('      (test folder moved to the bin)'); } catch (e) {} }
+  var msg = out.join('\n') + '\nChecked in ' + Math.round((new Date().getTime() - t0) / 100) / 10 + ' s.';
+  Logger.log(msg);
+  return msg;
 }
 
 /* ================= ONE-TIME AUTHORISATION =================

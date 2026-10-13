@@ -733,6 +733,11 @@ tr.mine td{background:var(--wash)}
 .calid{width:210px;max-width:100%;font-size:12px;padding:5px 8px}
 .ebodtag{color:var(--flag)}
 .field[hidden]{display:none!important}
+.drivebar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--wash);
+  border:1px solid var(--rule);border-radius:4px;padding:10px 14px;margin:0 0 14px}
+.drivebar>div{display:grid;gap:2px;min-width:0;flex:1 1 260px}
+.drivebar a.tiny{text-decoration:none}
+.reqhead .rqedit{margin-left:auto}
 #abbody ul.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 #abbody ul.roster li{border-bottom:none}
 .sqslots{display:grid;gap:6px;margin-top:10px}
@@ -1904,8 +1909,16 @@ Marcus Lee"></textarea>
     <p class="hint">Give it a due date: an Org earns a cup when 80% of its members hand it in on time. Below each assignment you see who has handed in, who was late and who has not yet.</p>
     <div class="msg" id="hwmsg"></div>
   </div>
+  <div class="panel" data-req="admin" data-section="member-drives">
+    <h2>Member Drive folders</h2>
+    <p class="hint">Every member has a folder in the club's Drive with a subfolder for each assignment set for them. What they hand in is filed there, and the folder is shared with them read-only, without Google emailing them. Officers still get the usual “handed in” folders, with a shortcut to each file. A member's folder is made the first time they open the app; this button does everyone at once. New assignments are added to everyone's folder a few seconds after you set them.</p>
+    <div class="row"><button id="md-sync" type="button">Set up folders for everyone</button>
+      <a class="tiny ghost" id="md-open" href="#" target="_blank" rel="noopener" hidden>Open the member folders in Drive</a></div>
+    <div class="msg" id="mdmsg"></div>
+  </div>
   <div class="panel" data-section="your-work">
     <h2>Assignments</h2>
+    <div id="hwdrive"></div>
     <div id="hwbody"></div>
   </div>
 </div>
@@ -3043,6 +3056,7 @@ function mergeBackendData(data){
   }
   if(data.ok&&data.gcal){setGcal(data.gcal);changed=true}
   if(data.ok&&data.memberNames)REG.names=data.memberNames.slice(0,2000);
+  if(data.ok&&('myDrive' in data)){MYDRIVE=data.myDrive||null;ensureMyDriveSoon()}
   if(data.ok&&data.teamBoard)TEAMBOARD=data.teamBoard;
   if(data.ok&&data.orgBoard)ORGBOARD=data.orgBoard;
   if(data.pointsLog&&data.pointsLog.length){
@@ -4678,8 +4692,59 @@ function hwDoneAt(id){
   try{return localStorage.getItem(hwDoneKey(id))||''}catch(e){return ''}
 }
 function hwMarkDone(id){try{localStorage.setItem(hwDoneKey(id),new Date().toISOString())}catch(e){}}
+/* ---- the member's own Drive folder ----
+   Made (or brought up to date with new assignments) once per visit, in the
+   background, after the page is showing -- never on the way in. */
+var MYDRIVE=null, MYDRIVE_ASKED=false;
+function ensureMyDriveSoon(){
+  if(MYDRIVE_ASKED||A.offline||!(A.session||A.token||DEMO_ON))return;
+  MYDRIVE_ASKED=true;
+  setTimeout(function(){
+    backendPost('ensureMyDrive',null).then(function(r){
+      if(r&&r.ok&&r.url){MYDRIVE={url:r.url,shared:!!r.shared};paintMyDrive()}
+    });
+  },2500);
+}
+function paintMyDrive(){
+  var el=$('hwdrive'); if(!el)return;
+  if(!MYDRIVE||!MYDRIVE.url){el.innerHTML='';return}
+  el.innerHTML='<div class="drivebar"><div><b>Your Drive folder</b><span class="savenote">'+
+    (MYDRIVE.shared?'Everything you hand in is filed here, one folder per assignment. Only you and EBOD can see it.'
+      :'Everything you hand in is filed here, one folder per assignment. EBOD is still turning on access for members, so the link may ask you to request access for now.')+
+    '</span></div><a class="tiny" href="'+esc(safeUrl(MYDRIVE.url))+'" target="_blank" rel="noopener">Open your folder</a></div>';
+}
+/* Officers lay out everyone's folders. The backend works for as long as it
+   safely can per call and says how many are left, so this keeps calling. */
+var MDSYNCING=false;
+function runDriveSync(quiet){
+  if(MDSYNCING||A.offline)return;
+  var m=$('mdmsg'), b=$('md-sync');
+  MDSYNCING=true; if(b)b.disabled=true;
+  var round=0, made=0;
+  var say=function(t,k){if(!m)return;m.textContent=t;m.className='msg show'+(k?' '+k:'')};
+  if(!quiet)say('Setting up member folders…','info wait');
+  var step=function(){
+    round++;
+    backendPost('syncMemberDrives',{budgetMs:40000}).then(function(r){
+      if(!r||!r.ok){MDSYNCING=false;if(b)b.disabled=false;if(!quiet)say((r&&r.error)||'The club Drive did not answer. Try again in a minute.');return}
+      made+=r.processed||0;
+      var o=$('md-open'); if(o&&r.rootUrl){o.href=r.rootUrl;o.hidden=false}
+      if(r.remaining&&round<20){if(!quiet)say('Set up '+made+' so far, '+r.remaining+' to go…','info wait');step();return}
+      MDSYNCING=false; if(b)b.disabled=false;
+      var t=r.folders+' members have a folder, '+r.shared+' shared with them.';
+      if(r.needsService)t+=' Sharing is off until the Drive service is enabled in Apps Script (Services → Drive API); folders are made and filled anyway.';
+      if(r.notGoogle&&r.notGoogle.length)t+=' Not Google accounts, so not shared: '+r.notGoogle.slice(0,12).join(', ')+(r.notGoogle.length>12?' and '+(r.notGoogle.length-12)+' more':'')+'.';
+      if(r.failed&&r.failed.length)t+=' Could not set up: '+r.failed.slice(0,5).join('; ')+'.';
+      if(r.remaining)t+=' '+r.remaining+' still to do. Press the button again.';
+      if(!quiet||r.failed&&r.failed.length)say(t,r.failed&&r.failed.length||r.needsService?'':'good');
+    });
+  };
+  step();
+}
+
 function renderWork(){
   var box=$('hwbody'); if(!box)return;
+  paintMyDrive();
   var me=null;
   for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
   fillHwFor();
@@ -4870,9 +4935,13 @@ function initWork(){
       kind:($('hw-kind')||{}).value||'file'});
     ['hw-title','hw-note','hw-brief'].forEach(function(id){var e=$(id); if(e)e.value=''});
     if(tpl)tpl.value='';
-    m.textContent='Set.'; m.className='msg show good';
+    m.textContent='Set. It is being added to the Drive folder of everyone it is for.'; m.className='msg show good';
     save(); syncClub(); renderWork();
+    /* After the club record has reached the sheet, so the backend sees it. */
+    if(!DEMO_ON)setTimeout(function(){runDriveSync(true)},5000);
   });
+  var mds=$('md-sync');
+  if(mds)mds.addEventListener('click',function(){runDriveSync(false)});
   renderWork();
 }
 
@@ -7259,6 +7328,35 @@ var TREQ={loaded:false,list:[],asked:''};
 /* Teammates picked so far, kept across re-renders (switching the kind of team
    rebuilds the form, and should not throw the names away). */
 var RQ_DRAFT=[];
+/* Which request an officer is changing the members of, if any. */
+var REQEDIT='';
+/* The same dropdown spots as the team cards: one per member, plus empty ones
+   up to the team's size (FLC 4) or one spare. A name that is not registered,
+   such as an email address sent in by mistake, stays selectable so it can be
+   swapped for the right person. */
+function reqSlots(q){
+  var mem=(q.members||[]).slice(), cap=TREQ_CAP[q.kind]||14;
+  var n=Math.min(cap,q.kind==='flc'?Math.max(cap,mem.length):mem.length+1);
+  var names=allNames();
+  var opts=function(cur){
+    var list=names.slice();
+    if(cur&&!list.some(function(x){return normName(x)===normName(cur)}))list.unshift(cur);
+    return list.map(function(nm){return '<option value="'+esc(nm)+'"'+(cur&&normName(nm)===normName(cur)||nm===cur?' selected':'')+'>'+esc(nm)+
+      (/@/.test(nm)?' (an email, not a name)':(findPersonByName(nm)?'':' (not on the roster)'))+'</option>'}).join('');
+  };
+  var h='<div class="sqslots">';
+  for(var i=0;i<n;i++){
+    var m=mem[i]||'';
+    h+='<div class="sqslot'+(m?'':' vacant')+'"><span class="slotno mono">'+(i+1)+'</span>'+
+      '<select class="sqswap rqslot" data-enh="1" aria-label="'+(m?'Member '+(i+1)+', '+esc(m):'Empty spot '+(i+1))+'">'+
+      '<option value=""'+(m?'':' selected')+'>'+(m?'— Take off this team —':'+ Add someone…')+'</option>'+opts(m)+'</select></div>';
+  }
+  return h+'</div>';
+}
+function demoEditReq(id,mem){
+  (DEMO.reqs||[]).forEach(function(q){if(q.id===id)q.members=mem.slice()});
+  demoStore(); return {ok:true};
+}
 var TREQ_CAP={consulting:14,flc:4,other:14};
 function selfTeamsOn(){return !(S.club&&S.club.selfTeams===false)}
 /* Only once somebody is signed in. Before that there is nobody to ask for,
@@ -7365,11 +7463,16 @@ function renderReqAdmin(){
   if(list.length){
     h+='<div class="reqlist">'+list.map(function(q){
       var checks=q.status==='pending'?reqChecks(q):[];
+      var editing=REQEDIT===q.id, tm=q.teamId?teamById(q.teamId):null;
       return '<div class="reqrow" data-id="'+esc(q.id)+'">'+
         '<div class="reqhead"><b>'+esc(q.name||reqWhat(q))+'</b> '+reqStatusChip(q)+
-          '<span class="savenote"> '+esc(reqWhat(q))+' · sent by '+esc(q.byName||'')+'</span></div>'+
-        '<div class="sqmembers" style="margin-top:6px">'+(q.members||[]).map(function(m){
-          return '<span class="sqm"><span class="nm'+(findPersonByName(m)?' linked" data-person="'+esc(m):'')+'">'+esc(m)+'</span></span>'}).join('')+'</div>'+
+          '<span class="savenote"> '+esc(reqWhat(q))+' · sent by '+esc(q.byName||'')+'</span>'+
+          (editing?'':'<button type="button" class="tiny ghost rqedit">Change members</button>')+'</div>'+
+        (editing?reqSlots(q)+
+          (q.status==='approved'?'<p class="savenote" style="margin:6px 0 0">'+(tm?'Saving also changes the team <b>'+esc(tm.name)+'</b>; anyone added is taken off any other '+(q.kind==='flc'?'FLC':q.kind==='consulting'?'consulting':'')+' team.':'The team this became has since been deleted; only the request changes.')+'</p>':'')+
+          '<div class="row" style="margin-top:8px"><button type="button" class="tiny rqsave">Save members</button><button type="button" class="tiny ghost rqcancel">Cancel</button></div>'
+        :'<div class="sqmembers" style="margin-top:6px">'+(q.members||[]).map(function(m){
+          return '<span class="sqm"><span class="nm'+(findPersonByName(m)?' linked" data-person="'+esc(m):'')+'">'+esc(m)+'</span></span>'}).join('')+'</div>')+
         (q.note?'<p class="hint" style="margin:6px 0 0">“'+esc(q.note)+'”</p>':'')+
         (checks.length?'<ul class="reqchecks">'+checks.map(function(c){return '<li>'+esc(c)+'</li>'}).join('')+'</ul>':
           (q.status==='pending'?'<p class="savenote" style="color:var(--accent)">No clashes found.</p>':''))+
@@ -7389,6 +7492,37 @@ function renderReqAdmin(){
   Array.prototype.forEach.call(box.querySelectorAll('.reqrow'),function(row){
     var q=TREQ.list.filter(function(x){return x.id===row.dataset.id})[0]; if(!q)return;
     var yes=row.querySelector('.rqyes'), no=row.querySelector('.rqno');
+    var ed=row.querySelector('.rqedit');
+    if(ed)ed.addEventListener('click',function(){REQEDIT=q.id;renderReqAdmin()});
+    var cn=row.querySelector('.rqcancel');
+    if(cn)cn.addEventListener('click',function(){REQEDIT='';renderReqAdmin()});
+    var sv=row.querySelector('.rqsave');
+    if(sv)sv.addEventListener('click',function(){
+      var seen={}, mem=Array.prototype.map.call(row.querySelectorAll('.rqslot'),function(x){return cleanLabel(x.value).trim()})
+        .filter(function(m){var k=normName(m)||m.toLowerCase();if(!m||seen[k])return false;seen[k]=1;return true});
+      if(!mem.length){say('A team needs at least one member.');return}
+      if(mem.length>TREQ_CAP[q.kind]){say('This kind of team takes up to '+TREQ_CAP[q.kind]+'.');return}
+      var moved=[], tm=q.status==='approved'&&q.teamId?teamById(q.teamId):null;
+      if(tm){
+        var names=mem.map(function(m){var p=findPersonByName(m);return p?p.name:m});
+        teamsList().forEach(function(t){
+          if(t.id===tm.id||kindOf(t)!==kindOf(tm))return;
+          var before=(t.members||[]).length;
+          t.members=(t.members||[]).filter(function(m){return !names.some(function(n){return normName(n)===normName(m)})});
+          if(t.members.length<before)moved.push(t.name);
+        });
+        (tm.members||[]).forEach(function(m){if(tm.assign&&!names.some(function(n){return normName(n)===normName(m)}))delete tm.assign[normName(m)]});
+        tm.members=names; saveTeams();
+      }
+      sv.disabled=true;
+      var go=DEMO_ON?Promise.resolve(demoEditReq(q.id,mem)):backendPost('editTeamRequest',{id:q.id,members:mem});
+      go.then(function(r){
+        sv.disabled=false;
+        if(r&&r.ok){q.members=mem;REQEDIT='';renderReqAdmin();
+          say('Members saved'+(tm?', and '+tm.name+' updated'+(moved.length?' (moved from '+moved.join(', ')+')':''):'')+'.','good')}
+        else say((r&&r.error)||'That did not save.'+(tm?' The team itself was updated.':''));
+      });
+    });
     if(yes)yes.addEventListener('click',function(){
       var checks=reqChecks(q);
       (checks.length?uiConfirm('Approve '+(q.name||reqWhat(q))+'?',checks.join('. ')+'.','Approve anyway'):Promise.resolve(true)).then(function(ok){
@@ -9433,6 +9567,13 @@ function demoBackend(action,pl){
       demoStore(); return {ok:true,status:'checked',points:+pl.points||0};
     }
     case 'calendarSync': return {ok:false,error:'The demo is not connected to Google Calendar. In the real app this pushes the season to the chapter calendar.'};
+    case 'ensureMyDrive': return {ok:true,url:'https://drive.google.com/drive/folders/demo',shared:true};
+    case 'syncMemberDrives': {
+      var nAcc=demoAccounts().length;
+      return {ok:true,processed:nAcc,remaining:0,failed:[],total:nAcc,folders:nAcc,shared:nAcc-2,
+        notGoogle:['Sam Whitlock','Jordan Lee'],needsService:false,rootUrl:'https://drive.google.com/drive/folders/demo-root'};
+    }
+    case 'editTeamRequest': return demoEditReq(pl.id,pl.members||[]);
     case 'memberCard': case 'getAll': case 'whoami': return null;
     default: return {ok:true};
   }
@@ -9584,6 +9725,7 @@ function buildDemo(){
     unlockNav();scoreAll();renderDraft();renderCup();renderTeamBoard();renderSquads();renderBoard();
     demoStore();
     demoEnter();
+    ensureMyDriveSoon();
   };
   if(saved&&saved.state&&!fresh){
     var d=saved.demo||{};
