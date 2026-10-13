@@ -1259,6 +1259,7 @@ tr.mine td{background:var(--warmwash)}
       <div class="field" style="margin-top:10px"><label for="jn-code">Join code</label>
         <input type="text" id="jn-code" class="mono" placeholder="from your club officers" autocapitalize="none" spellcheck="false"></div>
       <button type="submit" id="jn-go" style="width:100%;margin-top:14px">Join this club</button>
+      <button type="button" id="jn-out" class="ghost" style="width:100%;margin-top:8px">Use a different account</button>
     </form>
 
     <div class="gateswitch"><button type="button" id="gateswitch">New here? Create an account</button></div>
@@ -2406,6 +2407,13 @@ function gateMsg(t,bad){
 }
 function showGate(on){var g=$('gate'); if(g)g.classList.toggle('off',!on)}
 
+/* The page a role starts on. Draft shows every Org and its notes, so it is
+   an officer's first page and never a member's: falling back to it put
+   members on the officers' board until the sheet answered. */
+function homeView(){
+  if(canEdit())return S.orgs.length?'v-draft':'v-intake';
+  return S.orgs.length?'v-teams':'v-cup';
+}
 /* The one place the role is allowed to change. */
 function setRole(role,claims){
   A.role=role||'none';
@@ -2436,7 +2444,7 @@ function applyRole(){
   if(cur){
     var btn=document.querySelector('#nav button[data-view="'+cur.id+'"]');
     var need=btn&&btn.getAttribute('data-req');
-    if(need&&!roleAtLeast(need))setView(S.orgs.length?'v-draft':'v-cup');
+    if(need&&!roleAtLeast(need))setView(homeView());
   }
 
   if(S.orgs.length){renderDraft(); if($('v-teams').classList.contains('on'))renderTeam()}
@@ -2588,7 +2596,11 @@ function resumeSession(){
       showGate(true);return false;
     }
     PROVISIONAL=false;
-    A.email=r.email||A.email||''; A.name=r.name||r.email||A.name||'';
+    A.email=r.email||A.email||'';
+    /* A backend that knows no name answers with the address. The Google
+       token's own name is better than that: roster rows, teams and hand-ins
+       are filed under names, and an address matches none of them. */
+    A.name=(r.name&&r.name!==r.email)?r.name:(A.name||r.name||r.email||'');
     if(A.via!=='google')A.pic='';
     A.aff=r.aff||''; A.affName=r.affName||r.aff||''; A.needsAff=!!r.needsAff;
     setRole(r.role,null);
@@ -2609,6 +2621,9 @@ function gateMode(mode){
   $('gateor').style.display   = showSignIn?'':'none';
   $('sugoogle').style.display = showSignUp?'':'none';
   $('gateswitch').style.display = showJoin?'none':'';
+  /* Signed in with the wrong Google account, the join screen was a dead end:
+     the switch is hidden there and Sign out sits behind the card. */
+  if($('jn-out'))$('jn-out').style.display=(showJoin&&!DEMO_ON)?'':'none';
   $('gateswitch').firstChild.textContent = showSignUp
     ? 'Already have an account? Sign in'
     : 'New here? Create an account';
@@ -2712,6 +2727,7 @@ function wireGateForms(){
     });
     $('suform').addEventListener('submit',function(e){e.preventDefault();doSignupSubmit()});
     $('joinform').addEventListener('submit',function(e){e.preventDefault();doJoinSubmit()});
+    $('jn-out').addEventListener('click',signOut);
     $('gateswitch').addEventListener('click',function(){
       gateMode($('suform').style.display==='none'?'signup':'signin');
     });
@@ -3752,8 +3768,11 @@ function renderDraftTarget(){
       if(a.code===A.aff)return;
       h+='<option value="c:'+esc(a.code)+'">'+esc(a.name)+' \u2014 replaces its current teams</option>';
     });
+    /* A new club is master-only too: an admin's writes stay pinned to the
+       club they joined, so "drafting into a new club" replaced that club's
+       teams and renamed it instead. */
+    h+='<option value="__new">A new club\u2026</option>';
   }
-  h+='<option value="__new">A new club\u2026</option>';
   sel.innerHTML=h;
   if(keep){var ok=false;
     Array.prototype.forEach.call(sel.options,function(o){if(o.value===keep)ok=true});
@@ -4268,8 +4287,11 @@ function gcalLink(e){
   var start,end;
   if(t){
     start=d+'T'+t.h+t.mi+'00';
-    var eh=String((+t.h+1)%24).padStart(2,'0');
-    end=d+'T'+eh+t.mi+'00';
+    /* An hour later, on the next day if that is past midnight -- an 11 pm
+       start used to end at midnight of the same day, before it began. */
+    var en=new Date(+p[0],+p[1]-1,+p[2],+t.h+1,+t.mi);
+    end=ymd(en.getFullYear(),en.getMonth(),en.getDate()).replace(/-/g,'')+
+      'T'+String(en.getHours()).padStart(2,'0')+String(en.getMinutes()).padStart(2,'0')+'00';
   } else {
     /* All day, through the last day of a span; Google's end date is exclusive. */
     var q=String(e.end&&e.end>e.date?e.end:e.date).split('-');
@@ -6328,7 +6350,7 @@ function openMemberCard(name){
     if(!r||!r.ok){box.innerHTML='<p class="empty">'+esc((r&&r.error)||'Could not load that member.')+'</p>';return}
     var m=r.member;
     var h='<div class="profhead">'+
-      (m.photo?'<img class="profavatar" src="'+esc(m.photo)+'" alt="">'
+      (String(m.photo||'').trim()?'<img class="profavatar" src="'+esc(m.photo)+'" alt="">'
              :'<div class="profavatar">'+esc(profInitials(m.name))+'</div>')+
       '<div><div class="profname">'+esc(m.name)+'</div><div class="profmeta">'+
       esc(String(m.org||''))+(m.track?' · '+esc(trackLabel(String(m.track))||String(m.track)):'')+
@@ -7849,7 +7871,8 @@ function renderProfile(){
       var saved=(pr&&pr.ok&&pr.profile)||{};
       if($('me-first'))$('me-first').value=saved.FirstName||(String(A.name||'').split(' ')[0]||'');
       if($('me-last')) $('me-last').value =saved.LastName ||(String(A.name||'').split(' ').slice(1).join(' ')||'');
-      if(saved.Photo){
+      /* A removed picture is stored as a single space, which is truthy. */
+      if(String(saved.Photo||'').trim()){
         var av=$('profbody').querySelector('.profavatar');
         if(av){var img=document.createElement('img');img.className='profavatar';img.src=saved.Photo;av.replaceWith(img)}
       }
@@ -8193,7 +8216,7 @@ function renderClubRosterTable(){
     (canKill?'<th class="l"></th>':'')+'</tr></thead><tbody>';
   rows.forEach(function(u,ri){
     var nm=((u.first||'')+' '+(u.last||'')).trim();
-    h+='<tr><td class="l">'+(u.photo?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
+    h+='<tr><td class="l">'+(String(u.photo||'').trim()?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
       '<td class="l"><span class="nm linked" data-person="'+esc(nm||u.email||u.who)+'">'+
         esc(nm||u.email||u.who)+'</span></td>'+
       '<td class="l"><span class="mono" style="font-size:12px">'+esc(u.email||u.who)+'</span></td>'+
@@ -8777,7 +8800,7 @@ function renderSignupTable(){
     '<th class="l"></th></tr></thead><tbody>';
   rows.forEach(function(u,ri){
     var nm=((u.first||'')+' '+(u.last||'')).trim();
-    h+='<tr><td class="l">'+(u.photo?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
+    h+='<tr><td class="l">'+(String(u.photo||'').trim()?'<img src="'+esc(u.photo)+'" alt="" style="width:26px;height:26px;border-radius:50%;display:block">':'')+'</td>'+
       '<td class="l name">'+esc(nm||'—')+'</td>'+
       '<td class="l"><span class="mono" style="font-size:12px">'+esc(u.email||u.who)+'</span></td>'+
       '<td class="l">'+esc(u.affName||u.aff)+'</td>'+
@@ -9484,7 +9507,7 @@ $('wipe').addEventListener('click',function(){
 function afterSignIn(pre){
   unlockNav();
   if(A.needsAff){ busyClear(); showGate(true); gateMode('join'); return; }
-  if($('v-intake').classList.contains('on')&&!canEdit())setView(S.orgs.length?'v-draft':'v-cup');
+  if($('v-intake').classList.contains('on')&&!canEdit())setView(homeView());
   (pre?Promise.resolve(pre):backendGet()).then(function(data){
     busyClear();
     if(data&&data.ok){
@@ -10034,7 +10057,9 @@ function initRouting(){
   var d=loadSaved();
   if(d&&restore(d)){
     unlockNav();syncRuleInputs();scoreAll();renderDraft();renderCup();
-    if(!applyRoute())setView('v-draft');
+    /* The role is not known yet; the one this browser last signed in with
+       decides between the officers' board and a member's first page. */
+    if(!applyRoute())setView(who&&RANK[who.role]>=RANK.admin?'v-draft':homeView());
     say('Restored your saved draft \u2014 '+S.people.length+' members, '+S.orgs.length+' Orgs, '+S.log.length+' log entries.','info');
     /* Everything above has already been rendered behind the sign-in overlay.
        If this browser has signed in before, show it now rather than holding a

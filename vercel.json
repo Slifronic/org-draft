@@ -71,6 +71,10 @@
       "destination": "/"
     },
     {
+      "source": "/orgs",
+      "destination": "/"
+    },
+    {
       "source": "/teams",
       "destination": "/"
     },

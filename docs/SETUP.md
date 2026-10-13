@@ -36,10 +36,16 @@ Nothing in the demo is saved or sent anywhere. Use "Reset demo" in the demo bar 
 ## For members
 
 1. **Sign up.** Open the site → *Create an account* → *Sign up with Google* using your own
-   email. Pick **De Anza PBL** and enter the join code EBOD gives you.
-2. **Onboard.** The *Sign-up form* tab opens first. Answer year, track (Consulting /
-   Case competition (FLC) / Polaris / Not sure yet), MBTI (there is a link to the test) and
-   when you are usually available. Your answers are saved to your profile.
+   email. Pick **De Anza PBL** and enter the join code EBOD gives you. Signed in with the
+   wrong Google account? *Use a different account* on the join screen signs you out.
+2. **Onboard (required).** Until you send the *Sign-up form*, it is the only page you can
+   open: the other tabs are shown but locked, and a link to any of them opens the form
+   instead (you land where the link pointed once it is sent). Answer year, track
+   (Consulting / Case competition (FLC) / Polaris / Not sure yet), MBTI (there is a link to
+   the test) and when you are usually available. Your answers are saved to your profile,
+   and another device lets you straight in. Officers are never held, and a club with no
+   form linked holds nobody. If the form will not load in the app, fill it in on Google
+   and press *I sent it there — check again*.
 3. **Take the walkthrough** that opens the first time you sign in (Orgs → Teams → Homework →
    Calendar → Org Cup → Profile).
 4. **Competing at FLC?** On the **Teams** tab, rank your three events, optionally pick a

@@ -421,14 +421,22 @@ function appendRows(key, objs) {
    a burst of writes doesn't mean a round trip each. */
 
 function verifiedEmail(token) {
+  var v = verifiedToken_(token);
+  return v ? v.email : null;
+}
+/* The verified address, plus the name on the Google account. The name is
+   what a Google member is known by until they put one on their profile;
+   without it they were known only by their address, and nothing filed under
+   their name -- their Org, teams, hand-ins -- ever matched them. */
+function verifiedToken_(token) {
   if (!token) return null;
   if (!CLIENT_ID) return null;
 
   var cache = CacheService.getScriptCache();
-  var key = 'tok_' + Utilities.base64Encode(
+  var key = 'tok2_' + Utilities.base64Encode(
     Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token));
   var hit = cache.get(key);
-  if (hit) return hit;
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
 
   var res = UrlFetchApp.fetch(
     'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token),
@@ -443,9 +451,9 @@ function verifiedEmail(token) {
   if (String(p.email_verified) !== 'true') return null;
   if (!p.email) return null;
 
-  var email = String(p.email).toLowerCase();
-  cache.put(key, email, 300);
-  return email;
+  var v = {email: String(p.email).toLowerCase(), name: String(p.name || '').slice(0, 80)};
+  cache.put(key, JSON.stringify(v), 300);
+  return v;
 }
 
 /* ---------------- passwords & sessions ----------------
@@ -652,8 +660,8 @@ function identify(body) {
             name: (rec.first + ' ' + rec.last).trim() || rec.username,
             aff: normAff(rec.affiliation || DEFAULT_AFF)};
   }
-  var email;
-  try { email = verifiedEmail(body.token); }
+  var email, gName = '';
+  try { var vt = verifiedToken_(body.token); email = vt && vt.email; gName = (vt && vt.name) || ''; }
   catch (err) { return {ok: false, error: 'Token check failed: ' + err}; }
   if (!email) {
     return {ok: false, error: CLIENT_ID
@@ -664,12 +672,17 @@ function identify(body) {
      for one; everyone else is pinned to the affiliation they joined. A Google
      address with no affiliation yet is signed in but unplaced, and the page
      shows them the join screen rather than another club's data. */
-  if (email === String(MASTER_EMAIL).toLowerCase())
-    return {ok: true, who: email, role: 'master', via: 'google',
-            aff: normAff(body.aff || DEFAULT_AFF), isRoot: true};
+  if (email === String(MASTER_EMAIL).toLowerCase()) {
+    var mAff = normAff(body.aff || DEFAULT_AFF);
+    return {ok: true, who: email, role: 'master', via: 'google', aff: mAff, isRoot: true,
+            name: profileName_(mAff, email) || gName};
+  }
   var hit = affForEmail(email);
-  if (!hit) return {ok: true, who: email, role: 'member', via: 'google', aff: '', needsAff: true};
-  return {ok: true, who: email, role: RANK[hit.role] ? hit.role : 'member', via: 'google', aff: hit.aff};
+  if (!hit) return {ok: true, who: email, role: 'member', via: 'google', aff: '', needsAff: true, name: gName};
+  /* The name on their profile is the one the roster was built from, so it
+     wins; the Google account's own name covers anyone who has not saved one. */
+  return {ok: true, who: email, role: RANK[hit.role] ? hit.role : 'member', via: 'google', aff: hit.aff,
+          name: profileName_(hit.aff, email) || gName};
 }
 
 function roleFor(email) {
@@ -746,6 +759,17 @@ function doPost(e) {
     if (RANK[role] < RANK[NEEDS[action]]) {
       return out({ok: false, error: 'Your account is ' + role + '. That action needs ' +
         NEEDS[action] + '.', role: role});
+    }
+
+    /* A Google account that has not joined a club yet is signed in but
+       belongs nowhere. Without this it fell through to the default club and
+       could read that club's roster and points with no join code at all. It
+       may learn who it is and join; nothing else. */
+    if (id.needsAff && action !== 'joinAffiliation' && action !== 'whoami') {
+      if (action === 'getAll')
+        return out({ok: true, role: role, email: email, name: id.name || email, via: id.via,
+                    aff: '', needsAff: true});
+      return out({ok: false, error: 'Join your club first.', needsAff: true});
     }
 
     /* Reads do not queue behind the write lock. At a meeting, forty members
@@ -1125,7 +1149,11 @@ function dispatch(action, payload, email, role, id) {
          the same person, so both sides are flattened to letters and digits
          before comparing. An officer may pass a name to look up instead. */
       var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
-      var meName = flat((payload || {}).name || email);
+      /* Only an officer may look somebody else up. A member is matched on
+         who they signed in as -- a name in the payload let any member read
+         another's teams row, points and history. */
+      var askName = RANK[role] >= RANK.admin ? (payload || {}).name : '';
+      var meName = flat(askName || id.name || email);
       var mine = null;
       readScoped('teams', aff).forEach(function (r) {
         if (flat(r.MemberName) === meName) mine = r;
@@ -1678,7 +1706,7 @@ function dispatch(action, payload, email, role, id) {
       var idxP = {}; for (var c0 = 0; c0 < vP[0].length; c0++) idxP[String(vP[0][c0])] = c0;
       for (var i0 = 1; i0 < vP.length; i0++) {
         if (String(vP[i0][idxP.Email]).toLowerCase() !== pE) continue;
-        if (String(vP[i0][idxP.Affiliation]).toLowerCase() !== aff) continue;
+        if (normAff(vP[i0][idxP.Affiliation]) !== aff) continue;
         if (pf) shP.getRange(i0 + 1, idxP.FirstName + 1).setValue(pf);
         if (pl) shP.getRange(i0 + 1, idxP.LastName + 1).setValue(pl);
         if (ph) shP.getRange(i0 + 1, idxP.Photo + 1).setValue(ph);
@@ -1711,6 +1739,16 @@ function dispatch(action, payload, email, role, id) {
       rowP[idxP.Email] = pE; rowP[idxP.Affiliation] = aff;
       rowP[idxP.FirstName] = pf; rowP[idxP.LastName] = pl; rowP[idxP.Photo] = ph;
       var pay0 = payload || {};
+      /* The same member-owned fields the update above writes. A first save
+         used to keep only the name and photo and still answer "saved". */
+      if (pay0.track !== undefined && idxP.Track !== undefined)
+        rowP[idxP.Track] = String(pay0.track).slice(0, 40);
+      if (pay0.mbti !== undefined && idxP.MBTI !== undefined)
+        rowP[idxP.MBTI] = String(pay0.mbti).toUpperCase().slice(0, 4);
+      if (pay0.notes !== undefined && idxP.FormNotes !== undefined)
+        rowP[idxP.FormNotes] = String(pay0.notes).slice(0, 300);
+      if (pay0.bday !== undefined && idxP.Birthday !== undefined)
+        rowP[idxP.Birthday] = String(pay0.bday).slice(0, 10);
       if (pay0.availability !== undefined && idxP.Availability !== undefined)
         rowP[idxP.Availability] = String(pay0.availability).slice(0, 120);
       if (pay0.prefs !== undefined && idxP.Prefs !== undefined) {
@@ -1828,9 +1866,15 @@ function dispatch(action, payload, email, role, id) {
       var r2 = UrlFetchApp.fetch(act, {method: 'post', payload: body2,
                                        muteHttpExceptions: true, followRedirects: true});
       var code = r2.getResponseCode();
-      return (code === 200 || code === 302)
-        ? {ok: true, submitted: true}
-        : {ok: false, error: 'The form rejected that (HTTP ' + code + ').'};
+      if (code !== 200 && code !== 302)
+        return {ok: false, error: 'The form rejected that (HTTP ' + code + ').'};
+      /* Filed on the account straight away. The page holds a member at the
+         form until their profile says it was sent, and reading it back from
+         the club's response sheet can fail (no sheet linked, a name that does
+         not match), which would ask them again on every other device. What
+         the sheet says, once read back, still replaces these. */
+      try { stampFormSent_(aff, email, (payload || {}).summary || {}); } catch (e) {}
+      return {ok: true, submitted: true};
     }
 
     /* Every account on the system, with the club it belongs to. Master only,
@@ -1918,6 +1962,10 @@ function dispatch(action, payload, email, role, id) {
        only to the caller. Nothing is read from or written to the club being
        left behind. */
     case 'forkClub': {
+      /* An admin's identity is pinned to the club they joined, so every write
+         after the fork still landed in the old club -- replacing its teams and
+         renaming it. Only master can be pointed at a different club. */
+      if (RANK[role] < RANK.master) return {ok: false, error: 'Only the master account can start a new club.'};
       var fc = normAff((payload || {}).code);
       var fn = String((payload || {}).name || '').trim();
       var fj = String((payload || {}).joinCode || '').trim();
@@ -2329,7 +2377,7 @@ function dispatch(action, payload, email, role, id) {
     /* Lays out member Drive folders for the whole club, as far as the time
        allows; the page calls again until nothing is left. */
     case 'syncMemberDrives': {
-      var lockD = LockService.getDocumentLock();
+      var lockD = docLock_();
       if (!lockD.tryLock(5000)) return {ok: false, error: 'Another officer is setting up folders right now. Try again in a minute.'};
       try { return syncDrivesFor_(aff, Math.min(Number((payload || {}).budgetMs) || 40000, 240000)); }
       finally { lockD.releaseLock(); }
@@ -2337,7 +2385,7 @@ function dispatch(action, payload, email, role, id) {
 
     /* A member's own folder, made the first time they open the page. */
     case 'ensureMyDrive': {
-      var lockM = LockService.getDocumentLock();
+      var lockM = docLock_();
       if (!lockM.tryLock(8000)) return {ok: false, error: 'busy'};
       try {
         var mCfg = null; readTab('config').forEach(function (r) { if (String(r.Key) === 'club:' + aff) { try { mCfg = JSON.parse(r.Value); } catch (e) {} } });
@@ -2406,10 +2454,25 @@ function dispatch(action, payload, email, role, id) {
 
     case 'setConfig': {
       var ckey = 'club:' + aff;
-      var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), json = JSON.stringify(payload || {});
+      var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), next = payload || {};
       for (var q = 1; q < v0.length; q++) {
-        if (String(v0[q][0]) === ckey) { sh0.getRange(q + 1, 2).setValue(json); return {ok: true, saved: true}; }
+        if (String(v0[q][0]) === ckey) {
+          /* The browser saves the whole club, but only the server ever learns
+             the file ids of a form it made. A save that does not carry them
+             would otherwise drop them, and the in-app form editor with them.
+             They are kept only while the form is still the same one. */
+          var prev0 = {};
+          try { prev0 = JSON.parse(v0[q][1]) || {}; } catch (e) {}
+          if (prev0.formUrl && next.formUrl === prev0.formUrl) {
+            ['formId', 'sheetId'].forEach(function (k) {
+              if (next[k] === undefined && prev0[k]) next[k] = prev0[k];
+            });
+          }
+          sh0.getRange(q + 1, 2).setValue(JSON.stringify(next));
+          return {ok: true, saved: true};
+        }
       }
+      var json = JSON.stringify(next);
       sh0.appendRow([ckey, json]);
       return {ok: true, saved: true};
     }
@@ -2795,12 +2858,53 @@ function syncDrivesFor_(aff, budgetMs) {
   return {ok: true, processed: done, remaining: left, failed: failed, total: accts.length,
     folders: ks.length, rootUrl: dd.root ? folderUrl_(dd.root) : ''};
 }
+/* Records that this account sent the club's form, with the few answers the
+   page could pick out, on its Profiles row. Only empty cells are filled: the
+   read-back from the response sheet is the better source and wins. */
+function stampFormSent_(aff, email, sum) {
+  var e = String(email || '').toLowerCase();
+  var sh = tab('profiles'), v = sh.getDataRange().getValues(), ix = {};
+  for (var c = 0; c < v[0].length; c++) ix[String(v[0][c])] = c;
+  var clip = function (x, n) { return String(x || '').replace(/[<>\u0000-\u001F]/g, ' ').slice(0, n); };
+  var fill = {Year: clip(sum.year, 40), Track: clip(sum.track, 40),
+              MBTI: clip(sum.mbti, 8).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4),
+              Availability: clip(sum.avail, 120), FormNotes: clip(sum.notes, 500)};
+  for (var r = 1; r < v.length; r++) {
+    if (String(v[r][ix.Email]).toLowerCase() !== e) continue;
+    if (normAff(v[r][ix.Affiliation]) !== aff) continue;
+    Object.keys(fill).forEach(function (k) {
+      if (ix[k] !== undefined && fill[k] && !String(v[r][ix[k]] || '').trim())
+        sh.getRange(r + 1, ix[k] + 1).setValue(fill[k]);
+    });
+    if (ix.FormAt !== undefined) sh.getRange(r + 1, ix.FormAt + 1).setValue(new Date());
+    return;
+  }
+  var row = [];
+  for (var k2 = 0; k2 < v[0].length; k2++) row.push('');
+  row[ix.Email] = e; row[ix.Affiliation] = aff;
+  Object.keys(fill).forEach(function (k) { if (ix[k] !== undefined) row[ix[k]] = fill[k]; });
+  if (ix.FormAt !== undefined) row[ix.FormAt] = new Date();
+  sh.appendRow(row);
+}
+
+/* The Drive work below keeps a document lock so an editor run and a web
+   request cannot lay out the same folders at once. Apps Script can answer
+   null for a document lock inside a web app call, and calling tryLock on that
+   threw before any folder was made. Every web path here already runs under
+   doPost's script lock, so a stand-in that always succeeds is safe there. */
+function docLock_() {
+  var l = null;
+  try { l = LockService.getDocumentLock(); } catch (e) {}
+  return l || {tryLock: function () { return true; }, waitLock: function () {},
+               releaseLock: function () {}, hasLock: function () { return true; }};
+}
+
 /* Run from the editor to give every existing member of every club a folder
    now, instead of waiting for each to open the app. Safe to run again: it
    only does what is missing. Stops after about five minutes; run it again if
    the log says some are left. */
 function setUpMemberFolders() {
-  var lock = LockService.getDocumentLock();
+  var lock = docLock_();
   if (!lock.tryLock(10000)) { Logger.log('Another run is going. Try again in a minute.'); return; }
   try {
     var t0 = new Date().getTime(), lines = [];
@@ -2817,7 +2921,7 @@ function setUpMemberFolders() {
 }
 /* The subfolder one member's hand-in for one assignment goes into. */
 function workFolderFor_(aff, cfg, acct, workId) {
-  var lock = LockService.getDocumentLock();
+  var lock = docLock_();
   if (!lock.tryLock(15000)) throw new Error('The club Drive is busy. Try again in a moment.');
   try {
     var d = readDrive_(aff);
