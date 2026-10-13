@@ -640,6 +640,7 @@ function doSignup(payload) {
   tab('users').appendRow([email, String(p.clientSalt), ssalt, hashDk(p.dk, ssalt),
                           Number(p.iterations) || PBKDF2_ITERS, 'member', 0, '',
                           'self sign-up', new Date(), aff.code, first, last, email]);
+  bumpShared_(aff.code);
   var exp = Date.now() + SESSION_MS;
   return {ok: true, session: signSession(email, exp), role: 'member',
           username: email, name: (first + ' ' + last).trim(), email: email,
@@ -782,7 +783,12 @@ function doPost(e) {
       catch (err) { return out({ok: false, error: 'Sheet busy, try again.'}); }
     }
     try {
-      return out(dispatch(action, body.payload, email, role, id));
+      var res = dispatch(action, body.payload, email, role, id);
+      /* A member's own folder is not part of what the club sees, and it is
+         touched on every visit -- bumping for it would empty the cache for
+         everyone each time a member opened the page. */
+      if (!READ_ONLY[action] && action !== 'ensureMyDrive') bumpShared_(id.aff || DEFAULT_AFF);
+      return out(res);
     } catch (err) {
       return out(failRef_('dispatch:' + action, err));
     } finally {
@@ -1058,6 +1064,38 @@ function gcalFor_(g, cfg, role) {
     list.push(c);
   });
   return {events: list, syncedAt: g.syncedAt || 0, calId: g.calId || '', error: isAdmin ? (g.error || '') : ''};
+}
+
+/* One club as every page load sees it, before anything is trimmed for the
+   caller's role. Cached (see shared_); photos and passwords never go in. */
+function clubSnapshot_(aff) {
+  return shared_('all', aff, function () {
+    /* The club's vocabulary lives in the sheet too, so a second officer
+       opening the page sees the same words as the officer who set them. */
+    var key = 'club:' + aff, cfg = null;
+    readTab('config').forEach(function (r) {
+      if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
+    });
+    /* The connected calendar refreshes itself here, at most every half hour,
+       so members see what is on it without an officer pressing anything. */
+    var gAll = {};
+    try { gAll = refreshGcal_(aff, cfg, false); } catch (e) { gAll = {}; }
+    var drive = {};
+    var dm = readDrive_(aff).members || {};
+    Object.keys(dm).forEach(function (k) { if (dm[k] && dm[k].f) drive[k] = 1; });
+    var prof = {};
+    readTab('profiles').forEach(function (r) {
+      if (normAff(r.Affiliation) !== aff || !r.Email) return;
+      /* The same test the page used: any answer on file means it was sent. */
+      prof[String(r.Email).toLowerCase()] = {formAt: !!(r.FormAt || r.Year || r.Track || r.MBTI),
+                                             prefs: String(r.Prefs || '')};
+    });
+    return {cfg: cfg, gcal: gAll, drive: drive, prof: prof, reqs: readReqs_(aff),
+            memberNames: memberNames_(aff), affName: (findAff(aff) || {}).name || aff,
+            teamBoard: teamBoard_(aff, cfg), orgBoard: orgBoard_(aff, cfg),
+            teams: readScoped('teams', aff), pointsLog: readScoped('pointsLog', aff),
+            attendance: readScoped('attendance', aff)};
+  });
 }
 
 /* The names members registered under, for picking teammates and roommates.
@@ -1735,6 +1773,7 @@ function dispatch(action, payload, email, role, id) {
       var already = affForEmail(email);
       if (already) return {ok: false, error: 'You are already in ' + already.aff + '.'};
       tab('roles').appendRow([email, 'member', 'self join', new Date(), ja.code]);
+      bumpShared_(ja.code);
       return {ok: true, joined: ja.code, name: ja.name};
     }
 
@@ -2520,42 +2559,42 @@ function dispatch(action, payload, email, role, id) {
     }
 
     case 'getAll': {
-      /* The club's vocabulary lives in the sheet too, so a second officer
-         opening the page sees the same words as the officer who set them
-         rather than falling back to the defaults. */
-      var key = 'club:' + aff, cfg = null;
-      readTab('config').forEach(function (r) {
-        if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
-      });
-      /* The connected calendar refreshes itself here, at most every half hour,
-         so members see what is on it without an officer pressing anything. */
-      var gAll = {};
-      try { gAll = refreshGcal_(aff, cfg, false); } catch (e) { gAll = {}; }
-      /* This carries everything whoami answers as well, so signing in is one
-         round trip rather than two. Apps Script costs about a second per call
-         plus a redirect, and that second call was pure latency. */
-      var dMine = (readDrive_(aff).members || {})[String(email).toLowerCase()] || null;
+      /* Everything the club looks like, shared by every caller and read
+         through the short-lived cache above. */
+      var sh = clubSnapshot_(aff);
+      var cfg = sh.cfg, me = String(email).toLowerCase();
       var officer = RANK[role] >= RANK.admin, meRow = id.name || email;
+      var myP = sh.prof[me] || {};
+      /* What the page used to ask for in three more calls after this one --
+         whether the sign-up form is in, the member's FLC choices, and the
+         team requests that involve them -- rides along, so a member's page is
+         ready after one round trip instead of two. */
+      var meN = String(id.name || '').toLowerCase().replace(/[^a-z]/g, '');
+      var myReqs = officer ? sh.reqs : sh.reqs.filter(function (r) {
+        return r.by === me || (meN && (r.members || []).some(function (m) {
+          return String(m).toLowerCase().replace(/[^a-z]/g, '') === meN; }));
+      }).map(function (r) { var c = {}; for (var k in r) if (k !== 'by') c[k] = r[k]; c.mine = r.by === me; return c; });
       return {
         /* Whether this person's folder exists yet; the page asks for it in the
            background if not. No link: members are not given access. */
-        myDriveReady: !!(dMine && dMine.f),
-        gcal:        gcalFor_(gAll, cfg, role),
-        memberNames: memberNames_(aff),
+        myDriveReady: !!sh.drive[me],
+        gcal:        gcalFor_(sh.gcal, cfg, role),
+        memberNames: sh.memberNames,
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
-        config: RANK[role] >= RANK.admin ? cfg : memberCfg_(cfg, id.name || email),
-        aff: aff, affName: (findAff(aff) || {}).name || aff,
+        config: officer ? cfg : memberCfg_(cfg, id.name || email),
+        aff: aff, affName: sh.affName,
         needsAff: !!id.needsAff,
         affiliations: id.isRoot ? allAffiliations().map(function (a) {
           return {code: a.code, name: a.name}; }) : null,
-        teamBoard:  teamBoard_(aff, cfg),
-        orgBoard:   orgBoard_(aff, cfg),
+        teamBoard:  sh.teamBoard,
+        orgBoard:   sh.orgBoard,
+        me: {formSent: !!myP.formAt, prefs: myP.prefs || '', requests: myReqs},
         /* The raw form-responses tab used to ride along here, for every club,
            to any signed-in member. Nothing in the page read it; officers get
            the roster they need from clubRoster, scoped to their own club. */
-        teams:      officer ? readScoped('teams', aff) : memberRows_('teams', readScoped('teams', aff), meRow),
-        pointsLog:  officer ? readScoped('pointsLog', aff) : memberRows_('pointsLog', readScoped('pointsLog', aff), meRow),
-        attendance: officer ? readScoped('attendance', aff) : memberRows_('attendance', readScoped('attendance', aff), meRow)
+        teams:      officer ? sh.teams : memberRows_('teams', sh.teams, meRow),
+        pointsLog:  officer ? sh.pointsLog : memberRows_('pointsLog', sh.pointsLog, meRow),
+        attendance: officer ? sh.attendance : memberRows_('attendance', sh.attendance, meRow)
       };
     }
 
@@ -3070,14 +3109,65 @@ function acctFor_(aff, email, id) {
   if (hit && !String((hit.first || '') + (hit.last || '')).trim() && id && id.name) { hit = JSON.parse(JSON.stringify(hit)); hit.name = id.name; }
   return hit || {email: k, who: k, first: '', last: '', name: id && id.name};
 }
-/* The name a member registered with, for labels other people read. */
+/* ---- what every page load reads, kept for a couple of minutes ----
+   Opening the page cost about eight seconds, nearly all of it reading the
+   same dozen sheets for every member of the club in turn. The club-wide part
+   is now kept in the script cache, compressed, under a version number that
+   every write through this script bumps -- so anyone who changes something
+   sees it at once. Edits made straight in the spreadsheet show up within
+   SHARED_TTL_ seconds. Nothing per-person is cached here except what that
+   person is allowed to see anyway, and photos never are. */
+var SHARED_TTL_ = 120, SHARED_CHUNK_ = 90000;
+function sharedVer_(aff) {
+  try { return CacheService.getScriptCache().get('ver:' + aff) || '0'; } catch (e) { return '0'; }
+}
+function bumpShared_(aff) {
+  try { CacheService.getScriptCache().put('ver:' + normAff(aff), Utilities.getUuid().slice(0, 8), 21600); } catch (e) {}
+}
+function sharedGet_(name, aff, ver) {
+  try {
+    var c = CacheService.getScriptCache(), base = 'sh:' + name + ':' + aff + ':' + ver;
+    var n = Number(c.get(base) || 0); if (!n) return null;
+    var keys = []; for (var i = 0; i < n; i++) keys.push(base + ':' + i);
+    var got = c.getAll(keys), b64 = '';
+    for (var j = 0; j < n; j++) { if (!got[keys[j]]) return null; b64 += got[keys[j]]; }
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip');
+    return JSON.parse(Utilities.ungzip(blob).getDataAsString());
+  } catch (e) { return null; }
+}
+function sharedPut_(name, aff, ver, obj) {
+  try {
+    var b64 = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(obj), 'application/json')).getBytes());
+    var n = Math.ceil(b64.length / SHARED_CHUNK_); if (n > 20) return;   // too big to be worth it
+    var c = CacheService.getScriptCache(), base = 'sh:' + name + ':' + aff + ':' + ver, put = {};
+    for (var i = 0; i < n; i++) put[base + ':' + i] = b64.slice(i * SHARED_CHUNK_, (i + 1) * SHARED_CHUNK_);
+    c.putAll(put, SHARED_TTL_ + 30);
+    c.put(base, String(n), SHARED_TTL_);
+  } catch (e) {}
+}
+/* Read through the cache: the version is taken before anything is read, so
+   a write landing mid-way files this copy under a version nobody asks for. */
+function shared_(name, aff, compute) {
+  var ver = sharedVer_(aff), hit = sharedGet_(name, aff, ver);
+  if (hit) return hit;
+  var val = compute();
+  sharedPut_(name, aff, ver, val);
+  return val;
+}
+
+/* The name a member registered with, for labels other people read. Asked on
+   every request from a Google account, so it comes from the cache too. */
 function profileName_(aff, email) {
-  var k = String(email || '').toLowerCase(), out = '';
-  readTab('profiles').forEach(function (r) {
-    if (String(r.Email).toLowerCase() === k && normAff(r.Affiliation) === aff)
-      out = capName_((r.FirstName || '') + ' ' + (r.LastName || ''));
+  var k = String(email || '').toLowerCase();
+  var names = shared_('names', aff, function () {
+    var m = {};
+    readTab('profiles').forEach(function (r) {
+      if (normAff(r.Affiliation) !== aff || !r.Email) return;
+      m[String(r.Email).toLowerCase()] = capName_((r.FirstName || '') + ' ' + (r.LastName || '')).slice(0, 60);
+    });
+    return m;
   });
-  return out.slice(0, 60);
+  return String(names[k] || '');
 }
 
 /* Run from the editor: checks every way the backend touches Google Drive and

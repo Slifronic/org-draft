@@ -3091,6 +3091,19 @@ function mergeBackendData(data){
     });
     changed=true;
   }
+  /* The caller's own bits, sent with the club so the page does not have to
+     ask for them one by one after it: whether their sign-up form is in, their
+     FLC choices and the team requests that involve them. An older backend
+     leaves this out and the page asks as it always did. */
+  if(data.ok&&data.me){
+    if(data.me.formSent)markFormDone();
+    FORM_CHECKED=true;
+    var pr=data.me.prefs;
+    if(typeof pr==='string'){try{pr=pr?JSON.parse(pr):null}catch(e){pr=null}}
+    if(pr&&(pr.flc||pr.hotel||pr.group||pr.attend===false))MYPREFS=pr;
+    MYPREFS_ASKED=String(A.email||A.name||'');
+    if(Array.isArray(data.me.requests)&&treqWho())TREQ={loaded:true,list:data.me.requests,asked:treqWho(),error:''};
+  }
   if(A.role==='member')scrubForMember();
   return changed;
 }
