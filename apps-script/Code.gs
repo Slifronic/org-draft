@@ -2662,8 +2662,30 @@ function folderUnder(parent, name) {
 var MEMBER_ROOT_SUFFIX = ' — member folders';
 var WORK_TAG = 'Org System assignment: ';
 function readDrive_(aff) {
-  var r = cfgRow_('drive:' + aff);
-  try { return JSON.parse(r.val || '{}') || {}; } catch (e) { return {}; }
+  var r = cfgRow_('drive:' + aff), d;
+  try { d = JSON.parse(r.val || '{}') || {}; } catch (e) { d = {}; }
+  /* The folders belong to whichever account runs this script. When that
+     changes (the club moved the backend to its own account), a tree owned by
+     the old account is left where it is and a fresh one is laid out in the
+     new account's Drive. Checked once every few hours, not on every call. */
+  if (d.root) {
+    var cache = CacheService.getScriptCache(), ck = 'drootok:' + d.root;
+    if (!cache.get(ck)) {
+      var mine = false;
+      try {
+        var rf = DriveApp.getFolderById(d.root);
+        mine = !rf.isTrashed() && rf.getOwner() && rf.getOwner().getEmail() === myDriveEmail_();
+      } catch (e) { mine = false; }
+      if (mine) cache.put(ck, '1', 6 * 3600);
+      else d = {movedFrom: d.root};
+    }
+  }
+  return d;
+}
+var MY_DRIVE_EMAIL_ = '';
+function myDriveEmail_() {
+  if (!MY_DRIVE_EMAIL_) { try { MY_DRIVE_EMAIL_ = DriveApp.getRootFolder().getOwner().getEmail(); } catch (e) { MY_DRIVE_EMAIL_ = ''; } }
+  return MY_DRIVE_EMAIL_;
 }
 function writeDrive_(aff, d) {
   var r = cfgRow_('drive:' + aff), j = JSON.stringify(d);
@@ -2838,7 +2860,7 @@ function checkDriveIntegrations() {
     try { var r = fn(); out.push('OK    ' + label + (r ? ' — ' + r : '')); }
     catch (e) { out.push('FAIL  ' + label + ' — ' + (e && e.message ? e.message : e)); }
   };
-  step('Drive reachable (My Drive root)', function () { return DriveApp.getRootFolder().getName(); });
+  step('Drive reachable (My Drive root)', function () { return DriveApp.getRootFolder().getName() + ' of ' + myDriveEmail_(); });
   step('Folder lookup skips the bin', function () {
     tmp = DriveApp.createFolder('Org System Drive check — safe to delete');
     var again = folderUnder(null, 'Org System Drive check — safe to delete');
