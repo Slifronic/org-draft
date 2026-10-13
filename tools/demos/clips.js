@@ -103,9 +103,17 @@ const CLIPS = [
      if (await p.isVisible('#tourskip').catch(() => false)) await r.click(p.locator('#tourskip'), 500);
      await r.caption('Sent. Every tab is open now, and a short tour shows you around the first time.', 300);
    } },
- { id: 'orgs', n: '2 of 8', title: 'Orgs', line: 'Your family in the chapter: who is in it and who to ask.', as: 'member', tab: 'Orgs',
+ { id: 'orgs', n: '2 of 8', title: 'Orgs', line: 'Your week at a glance, and your family in the chapter.', as: 'member', tab: 'Orgs',
    run: async (p, r) => {
-     await r.caption('<b>Orgs</b> shows your Org: 8 to 10 members, a mix of 1st and 2nd years.');
+     const wk = p.locator('#weekpanel');
+     if (await wk.count()) {
+       await r.moveTo(p.locator('#weekpanel .wk').first(), 700);
+       await r.caption('<b>This week</b> comes first: what is due next, with a button to hand it in.');
+       await r.moveTo(p.locator('#weekpanel .wk').nth(1), 600);
+       await r.caption('The next two events on the calendar, and your <b>Org</b>, EBOD contact and teams.');
+     }
+     await r.into(p.locator('#teampick'));
+     await r.caption('Below it, <b>Orgs</b> shows your Org: 8 to 10 members, a mix of 1st and 2nd years.');
      await r.moveTo(p.locator('#teampick button', { hasText: 'yours' }).first(), 700);
      await r.caption('Yours is marked <b>yours</b>. You can look at the other Orgs too.');
      await r.moveTo(p.locator('#v-teams').getByText('EBOD contact', { exact: false }).first(), 700);
@@ -124,8 +132,10 @@ const CLIPS = [
    run: async (p, r) => {
      const mine = p.locator('#squadbody .squad.mine').first();
      if (await mine.count()) { await r.into(mine); await r.moveTo(mine, 700); }
-     await r.caption('<b>Teams</b> shows the teams you are on, marked <b>your team</b>: a consulting client team, and an FLC team if you compete.');
+     await r.caption('<b>Teams</b> opens on <b>your teams</b>: a consulting client team, and an FLC team if you compete.');
      await r.caption('Consulting teams list the two PMs and your initiative.');
+     const all = p.locator('details.allteams > summary');
+     if (await all.count()) { await r.moveTo(all, 600); await r.caption('Every other team in the club is one tap away, under <b>See all teams</b>.'); }
      const form = p.locator('#myteamreq'); await r.into(form); await r.moveTo(p.locator('#myteamreq h2'), 600);
      await r.caption('Already know who you want to work with? <b>Form your own team</b>.');
      const ev = await p.$$eval('#rq-target option', os => os.map(o => o.textContent).filter(Boolean));
@@ -160,7 +170,7 @@ const CLIPS = [
    } },
  { id: 'cup', n: '5 of 8', title: 'Org Cup', line: 'Cups your Org earns together. Nobody is ranked.', as: 'member', tab: 'Org Cup',
    run: async (p, r) => {
-     await r.caption('The <b>Org Cup</b> is earned together, not by individuals.');
+     await r.caption('The <b>Org Cup</b> is earned together, not by individuals. Your Org is listed first.');
      const mine = p.locator('#v-cup').getByText('yours', { exact: false }).first();
      if (await mine.count()) await r.moveTo(mine, 700);
      await r.caption('Your Org gets a cup each time <b>80%</b> of its members hand an assignment in on time.');
@@ -193,8 +203,12 @@ const CLIPS = [
      const url = urls.nth(i); await r.into(url);
      await r.caption('Upload a PDF, document, slides or an image, or paste a shared link to a Google Doc or Slides.');
      await r.type(url, 'https://docs.google.com/document/d/mock-case-brief', 28);
-     await r.click(p.locator('#v-work .hwsendlink').nth(i)); await r.sleep(1300);
-     await r.caption('Only EBOD sees what you hand in. Handing in again replaces it, and your first on-time hand-in still counts.', 300);
+     await r.click(p.locator('#v-work .hwsendlink').nth(i)); await r.sleep(900);
+     if (await p.isVisible('#modalwrap').catch(() => false)) {
+       await r.caption('Already handed it in? It asks first: the new one replaces what EBOD sees.');
+       await r.click(p.locator('#modalyes'), 600); await r.sleep(1200);
+     } else await r.sleep(400);
+     await r.caption('Only EBOD sees what you hand in. Your first on-time hand-in still counts for your Org.', 300);
    } },
  { id: 'profile', n: '8 of 8', title: 'Profile', line: 'Your details, your commitment log and what others can see.', as: 'member', tab: 'Profile',
    run: async (p, r) => {
