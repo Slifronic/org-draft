@@ -1,0 +1,30 @@
+# Keeps the Apps Script backend warm.
+#
+# Apps Script spins a web app down after a quiet spell, and the first request
+# afterwards waited 12-17 seconds while it started again -- usually a member
+# opening the site for the first time. A light request every ten minutes
+# keeps it running. It asks for the club list, which needs no sign-in and
+# reads nothing private. Free on a public repository. GitHub pauses scheduled
+# workflows after 60 days with no commits; run it once by hand to restart it.
+name: Keep backend warm
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: index.html
+          sparse-checkout-cone-mode: false
+      - name: Ping the backend
+        run: |
+          URL=$(grep -o "var WEBAPP_URL='[^']*'" index.html | cut -d"'" -f2)
+          curl -sL -m 60 -o /dev/null -w "backend %{http_code} in %{time_total}s\n" \
+            -H 'Content-Type: text/plain;charset=utf-8' \
+            -d '{"action":"listAffiliations","payload":null}' "$URL"
