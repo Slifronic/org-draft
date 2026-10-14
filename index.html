@@ -2352,8 +2352,7 @@ var F26={
         {name:'William',pos:'VP Finance'},{name:'Jayden',pos:'VP Ops'},{name:'Ruirui',pos:'VP Marketing'},
         {name:'Bryant',pos:'VP Comms'},{name:'Elena',pos:'Director'},{name:'Angelo',pos:'Director'},
         {name:'Lehem',pos:'Director'},{name:'Emmanuel',pos:'Director'},{name:'Timothy',pos:'Director'}],
-  clients:['Chroma Aromatics','Habitat for Humanity','City Year Bay Area','Stanford Reach Lab',
-           'SJ Camera & Video','Sky Campus','Figma (tentative)'],
+  clients:['Ecology Action','Habitat for Humanity','Chroma Aromatics','Orkizz','Sky Campus'],
   flcEvents:['Finance','Marketing','Management','Accounting','Business Ethics'],
   /* Built into the calendar for everyone. An officer can hide one; nobody has
      to import them. Times and rooms are left for EBOD to add. */
@@ -2373,6 +2372,7 @@ var F26={
   orgMin:8, orgMax:10
 };
 function ebodList(){return (S.club.ebod&&S.club.ebod.length)?S.club.ebod:F26.ebod}
+function ordinal(n){var t=n%100;return n+((t>10&&t<14)?'th':(['th','st','nd','rd'][n%10]||'th'))}
 function clientList(){return (S.club.clients&&S.club.clients.length)?S.club.clients:F26.clients}
 function flcEventList(){return (S.club.flcEvents&&S.club.flcEvents.length)?S.club.flcEvents:F26.flcEvents}
 function orgContact(i){return (S.club.orgEbod||[])[i]||''}
@@ -7416,17 +7416,26 @@ function formFlcTeams(){
 }
 /* One team per client that does not have one yet. */
 function makeClientTeams(){
+  /* A client dropped from the list takes its team with it, but only while
+     nobody is on it; a team with members stays for EBOD to move them. */
+  var listed={};clientList().forEach(function(c){listed[c.toLowerCase()]=1});
+  var before=teamsList().length;
+  S.club.teams=teamsList().filter(function(t){
+    return !(kindOf(t)==='consulting'&&!listed[String(t.client||t.name).toLowerCase()]&&!(t.members||[]).length&&!(t.pms||[]).length);
+  });
   var have={};teamsList().forEach(function(t){if(kindOf(t)==='consulting')have[String(t.client||t.name).toLowerCase()]=1});
   var add=clientList().filter(function(c){return !have[c.toLowerCase()]}).map(function(c,i){
     return cloneTeam({id:'t'+Date.now().toString(36)+i,name:c,kind:'consulting',track:'c',client:c,
       members:[],pms:[],initiatives:[]});
   });
+  CLIENT_DROPPED=before-teamsList().length;
   S.club.teams=teamsList().concat(add);
   return add.length;
 }
+var CLIENT_DROPPED=0;
 /* Members not on a client team yet. Anyone who ranked clients -- whatever
    track they put on the sign-up form -- goes to their 1st choice, then 2nd,
-   then 3rd, while that team has room. Consulting-track members who ranked
+   and so on down their ranking, while that team has room. Consulting-track members who ranked
    nothing, and anyone whose choices were full, are dealt across the smallest
    teams so each gets a mix of years. */
 var CLIENT_CAP=12;
@@ -7439,7 +7448,7 @@ function fillClientTeams(){
   }).sort(function(a,b){return b.year-a.year});
   var teamFor=function(c){c=String(c).toLowerCase();return cts.filter(function(t){return String(t.client||t.name).toLowerCase()===c})[0]};
   var placed={};
-  for(var round=0;round<3;round++){
+  for(var round=0;round<cts.length;round++){
     shuffle(free.slice()).sort(function(a,b){return b.year-a.year}).forEach(function(p){
       if(placed[p.name])return;
       var t=teamFor(ranked(p)[round]||'');
@@ -7686,11 +7695,11 @@ function renderPrefsPanel(){
     h+='<h3 class="sqsec" style="margin-top:16px">Consulting client interest</h3><p class="hint">'+cnames.length+' member'+(cnames.length===1?'':'s')+
       ' ranked clients, from any track. “Set up every client team” above places them by these rankings first.</p>'+
       '<div class="tablewrap scrollcard" style="max-height:220px"><table><thead><tr><th class="l">Member</th><th class="l">Track</th>'+
-      '<th class="l">1st</th><th class="l">2nd</th><th class="l">3rd</th><th class="l">On</th></tr></thead><tbody>';
+      clientList().map(function(_,i){return '<th class="l">'+ordinal(i+1)+'</th>'}).join('')+'<th class="l">On</th></tr></thead><tbody>';
     cnames.sort().forEach(function(k){
       var pr=PREFS.byName[k], p=findPersonByName(k)||{name:PREFS.names[k]||k}, on=teamsOf(p.name).filter(function(t){return kindOf(t)==='consulting'})[0];
       h+='<tr><td class="l name">'+esc(p.name)+'</td><td class="l">'+esc(p.track?trackLabel(p.track)||'':'')+'</td>'+
-        [0,1,2].map(function(i){return '<td class="l">'+esc((pr.clients||[])[i]||'—')+'</td>'}).join('')+
+        clientList().map(function(_,i){return '<td class="l">'+esc((pr.clients||[])[i]||'—')+'</td>'}).join('')+
         '<td class="l">'+(on?esc(on.name):'<span style="color:var(--mute)">—</span>')+'</td></tr>';
     });
     h+='</tbody></table></div>';
@@ -7933,10 +7942,12 @@ function initSquads(){
   });
   var mc=$('sq-clients');
   if(mc)mc.addEventListener('click',function(){loadPrefs().then(function(){
-    var n=makeClientTeams();
+    var n=makeClientTeams(), gone=CLIENT_DROPPED;
     var f=fillClientTeams();
-    sqSay(n?('Set up '+n+' client team'+(n===1?'':'s')+(f?' and placed '+f+' members across them, by their client rankings first':'')+'. Name two PMs on each.'):
-            (f?'Placed '+f+' members across the client teams, by their client rankings first.':'Every client already has a team, and everyone who ranked clients or picked consulting is on one.'),'good');
+    if(gone)sqSay('Removed '+gone+' empty team'+(gone===1?'':'s')+' for clients no longer on the list. ','good');
+    var said=gone?$('sqmsg').textContent:'';
+    sqSay(said+(n?('Set up '+n+' client team'+(n===1?'':'s')+(f?' and placed '+f+' members across them, by their client rankings first':'')+'. Name two PMs on each.'):
+            (f?'Placed '+f+' members across the client teams, by their client rankings first.':'Every client already has a team, and everyone who ranked clients or picked consulting is on one.')),'good');
     saveTeams();
   })});
 }
@@ -8024,26 +8035,27 @@ function renderMyClients(){
   if(canEdit()){box.hidden=true;box.innerHTML='';return}
   box.hidden=false;
   var cl=clientList(), cur=(MYPREFS&&MYPREFS.clients)||[];
-  var sel=function(i){
-    return '<div class="field" style="flex:1;min-width:140px"><label for="mc-c'+i+'">'+['1st','2nd','3rd'][i]+' choice</label>'+
+  var sel=function(_,i){
+    return '<div class="field" style="flex:1;min-width:140px"><label for="mc-c'+i+'">'+ordinal(i+1)+' choice</label>'+
       '<select id="mc-c'+i+'"><option value="">—</option>'+cl.map(function(c){
         return '<option'+(cur[i]===c?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></div>';
   };
   box.innerHTML='<h2>Your consulting client interest</h2>'+
-    '<p class="hint">Rank the clients you would most like to work with. EBOD forms one team per client from these rankings, '+
+    '<p class="hint">Rank all '+cl.length+' clients, from the one you most want to work with to the one you least do. EBOD forms one team per client from these rankings, '+
     'so there is no team to send in. Open to everyone, whatever track you picked on the sign-up form — and you can still rank FLC events below.</p>'+
-    '<div class="row" style="margin-top:0">'+sel(0)+sel(1)+sel(2)+'</div>'+
+    '<div class="row" style="margin-top:0">'+cl.map(sel).join('')+'</div>'+
     '<div class="row"><button type="button" id="mc-save">Send my client ranking</button></div><div class="msg" id="mc-msg"></div>';
   $('mc-save').addEventListener('click',function(){
-    var clients=[0,1,2].map(function(i){return $('mc-c'+i).value}).filter(String)
-      .filter(function(v,i,a){return a.indexOf(v)===i});
+    var clients=cl.map(function(_,i){return $('mc-c'+i).value});
+    var m=$('mc-msg');
+    if(clients.some(function(v){return !v})){m.textContent='Rank all '+cl.length+' clients, 1st to '+ordinal(cl.length)+'.';m.className='msg show';return}
+    if(clients.some(function(v,i){return clients.indexOf(v)!==i})){m.textContent='Each client can only be ranked once.';m.className='msg show';return}
     var base=MYPREFS||{flc:[],mate:'',attend:true,group:'',roomies:[],rnote:''}, pr={};
     for(var k in base)pr[k]=base[k];
     pr.clients=clients;pr.at=Date.now();
-    var m=$('mc-msg');
     m.textContent='Sending…';m.className='msg show info wait';
     backendPost('saveProfile',{prefs:JSON.stringify(pr)}).then(function(r){
-      if(r&&r.ok){MYPREFS=pr;m.textContent=clients.length?'Sent. EBOD will use your ranking when they form the client teams.':'Cleared your client ranking.';m.className='msg show good';PREFS.loaded=false}
+      if(r&&r.ok){MYPREFS=pr;m.textContent='Sent. EBOD will use your ranking when they form the client teams.';m.className='msg show good';PREFS.loaded=false}
       else{m.textContent=(r&&r.error)||'That did not send. If this keeps happening, the backend needs its latest version.';m.className='msg show'}
     });
   });
