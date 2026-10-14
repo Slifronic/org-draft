@@ -1054,7 +1054,8 @@ function orgBoard_(aff, cfg) {
 }
 
 /* FLC preferences arrive as JSON text from the member's own page. Parsed and
-   rebuilt here so only the known shape is stored: up to three event names,
+   rebuilt here so only the known shape is stored: up to three ranked
+   consulting clients, up to three event names,
    one requested teammate, whether they can attend, and the rooming answers --
    which rooming group, up to three roommates asked for, and a short note only
    officers read. Everyone who attends stays at the conference hotel, so
@@ -1065,9 +1066,10 @@ function cleanPrefs_(raw) {
   if (!o || typeof o !== 'object') return null;
   var txt = function (v, n) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').slice(0, n); };
   var flc = (o.flc || []).slice(0, 3).map(function (v) { return txt(v, 40); }).filter(String);
+  var clients = (o.clients || []).slice(0, 3).map(function (v) { return txt(v, 60); }).filter(String);
   var roomies = (o.roomies || []).slice(0, 3).map(function (v) { return txt(v, 60); }).filter(String);
   var group = ['w', 'm', 'x'].indexOf(String(o.group)) > -1 ? String(o.group) : '';
-  return JSON.stringify({flc: flc, mate: txt(o.mate, 60), attend: o.attend !== false,
+  return JSON.stringify({flc: flc, clients: clients, mate: txt(o.mate, 60), attend: o.attend !== false,
     hotel: o.attend !== false, group: group, roomies: roomies, rnote: txt(o.rnote, 160),
     at: Number(o.at) || Date.now()});
 }

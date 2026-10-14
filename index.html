@@ -1792,13 +1792,14 @@ details.allteams>summary{cursor:pointer;font-size:14px;color:var(--slate);paddin
         <input type="text" id="sq-name" placeholder="Filled in from the client or event"></div>
       <div class="field" style="width:auto"><label>&nbsp;</label><button id="sq-add" type="button">Add team</button></div>
     </div>
-    <div class="row"><button id="sq-clients" class="ghost" type="button">Set up every client team and place consulting-track members</button></div>
+    <div class="row"><button id="sq-clients" class="ghost" type="button">Set up every client team and place members by their client rankings</button></div>
     <div class="msg" id="sqmsg"></div>
   </div>
   <div class="panel" id="sqprefs" data-req="admin" hidden></div>
   <div class="panel" id="sqrooms" data-req="admin" hidden></div>
   <div class="panel" id="sqreqs" data-req="admin" hidden></div>
   <div class="panel" id="myteamreq" hidden></div>
+  <div class="panel" id="myclients" hidden></div>
   <div class="panel" id="myprefs" hidden></div>
   <div id="squadbody"></div>
 </div>
@@ -3397,7 +3398,7 @@ function mergeBackendData(data){
     FORM_CHECKED=true;
     var pr=data.me.prefs;
     if(typeof pr==='string'){try{pr=pr?JSON.parse(pr):null}catch(e){pr=null}}
-    if(pr&&(pr.flc||pr.hotel||pr.group||pr.attend===false))MYPREFS=pr;
+    if(hasPrefs(pr))MYPREFS=pr;
     MYPREFS_ASKED=String(A.email||A.name||'');
     if(Array.isArray(data.me.requests)&&treqWho())TREQ={loaded:true,list:data.me.requests,asked:treqWho(),error:''};
   }
@@ -7333,6 +7334,7 @@ function onTimeLine(t){
    officers through the club roster. */
 var PREFS={loaded:false,byName:{}};
 function prefsFor(name){return PREFS.byName[normName(name)]||null}
+function hasPrefs(pr){return !!(pr&&((pr.flc&&pr.flc.length)||(pr.clients&&pr.clients.length)||pr.hotel||pr.group||pr.attend===false))}
 function loadPrefs(force){
   if(PREFS.loaded&&!force)return Promise.resolve(PREFS);
   var src=DEMO_ON?Promise.resolve({ok:true,roster:demoAccounts()}):
@@ -7346,8 +7348,8 @@ function prefsFromRoster(roster){
     var pr=u.prefs; if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
     /* Someone going only for the hotel, or saying they cannot go, sent
        something too -- it is not only event choices that count. */
-    if(pr&&((pr.flc&&pr.flc.length)||pr.hotel||pr.group||pr.attend===false)){
-      pr.flc=pr.flc||[];
+    if(hasPrefs(pr)){
+      pr.flc=pr.flc||[];pr.clients=pr.clients||[];
       PREFS.byName[normName(nm)]=pr; PREFS.names[normName(nm)]=nm;
     }
   });
@@ -7422,15 +7424,30 @@ function makeClientTeams(){
   S.club.teams=teamsList().concat(add);
   return add.length;
 }
-/* Consulting-track members who are not on a client team yet, dealt across
-   the client teams so each gets a mix of years. */
+/* Members not on a client team yet. Anyone who ranked clients -- whatever
+   track they put on the sign-up form -- goes to their 1st choice, then 2nd,
+   then 3rd, while that team has room. Consulting-track members who ranked
+   nothing, and anyone whose choices were full, are dealt across the smallest
+   teams so each gets a mix of years. */
+var CLIENT_CAP=12;
 function fillClientTeams(){
   var cts=teamsList().filter(function(t){return kindOf(t)==='consulting'});
   if(!cts.length)return 0;
+  var ranked=function(p){var pr=prefsFor(p.name);return (pr&&pr.clients)||[]};
   var free=S.people.filter(function(p){
-    return p.track==='c'&&!teamsOf(p.name).some(function(t){return kindOf(t)==='consulting'});
+    return (p.track==='c'||ranked(p).length)&&!teamsOf(p.name).some(function(t){return kindOf(t)==='consulting'});
   }).sort(function(a,b){return b.year-a.year});
-  free.forEach(function(p){
+  var teamFor=function(c){c=String(c).toLowerCase();return cts.filter(function(t){return String(t.client||t.name).toLowerCase()===c})[0]};
+  var placed={};
+  for(var round=0;round<3;round++){
+    shuffle(free.slice()).sort(function(a,b){return b.year-a.year}).forEach(function(p){
+      if(placed[p.name])return;
+      var t=teamFor(ranked(p)[round]||'');
+      if(!t||(t.members||[]).length>=CLIENT_CAP)return;
+      t.members=(t.members||[]).concat([p.name]);placed[p.name]=1;
+    });
+  }
+  free.filter(function(p){return !placed[p.name]}).forEach(function(p){
     var best=cts[0];cts.forEach(function(t){if((t.members||[]).length<(best.members||[]).length)best=t});
     best.members=(best.members||[]).concat([p.name]);
   });
@@ -7664,6 +7681,20 @@ function renderPrefsPanel(){
     });
     h+='</tbody></table></div>';
   }
+  var cnames=Object.keys(PREFS.byName).filter(function(k){return (PREFS.byName[k].clients||[]).length});
+  if(cnames.length){
+    h+='<h3 class="sqsec" style="margin-top:16px">Consulting client interest</h3><p class="hint">'+cnames.length+' member'+(cnames.length===1?'':'s')+
+      ' ranked clients, from any track. “Set up every client team” above places them by these rankings first.</p>'+
+      '<div class="tablewrap scrollcard" style="max-height:220px"><table><thead><tr><th class="l">Member</th><th class="l">Track</th>'+
+      '<th class="l">1st</th><th class="l">2nd</th><th class="l">3rd</th><th class="l">On</th></tr></thead><tbody>';
+    cnames.sort().forEach(function(k){
+      var pr=PREFS.byName[k], p=findPersonByName(k)||{name:PREFS.names[k]||k}, on=teamsOf(p.name).filter(function(t){return kindOf(t)==='consulting'})[0];
+      h+='<tr><td class="l name">'+esc(p.name)+'</td><td class="l">'+esc(p.track?trackLabel(p.track)||'':'')+'</td>'+
+        [0,1,2].map(function(i){return '<td class="l">'+esc((pr.clients||[])[i]||'—')+'</td>'}).join('')+
+        '<td class="l">'+(on?esc(on.name):'<span style="color:var(--mute)">—</span>')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
   h+='<div class="row"><button type="button" id="flcform"'+(names.length?'':' disabled')+'>Form FLC teams from preferences</button>'+
      '<button type="button" class="ghost" id="flcreload">Refresh</button></div><div class="msg" id="flcmsg"></div>';
   box.innerHTML=h;
@@ -7769,6 +7800,7 @@ function renderSquads(){
   renderReqAdmin();
   renderReqMember();
   renderMyPrefs();
+  renderMyClients();
   layoutSquads();
   var teams=teamsList().slice();
   if(!teams.length){
@@ -7900,13 +7932,13 @@ function initSquads(){
     saveTeams();
   });
   var mc=$('sq-clients');
-  if(mc)mc.addEventListener('click',function(){
+  if(mc)mc.addEventListener('click',function(){loadPrefs().then(function(){
     var n=makeClientTeams();
     var f=fillClientTeams();
-    sqSay(n?('Set up '+n+' client team'+(n===1?'':'s')+(f?' and placed '+f+' consulting-track members across them':'')+'. Name two PMs on each.'):
-            (f?'Placed '+f+' consulting-track members across the client teams.':'Every client already has a team, and every consulting-track member is on one.'),'good');
+    sqSay(n?('Set up '+n+' client team'+(n===1?'':'s')+(f?' and placed '+f+' members across them, by their client rankings first':'')+'. Name two PMs on each.'):
+            (f?'Placed '+f+' members across the client teams, by their client rankings first.':'Every client already has a team, and everyone who ranked clients or picked consulting is on one.'),'good');
     saveTeams();
-  });
+  })});
 }
 
 /* ---- a member's own FLC choices ---- */
@@ -7930,7 +7962,7 @@ function renderMyPrefs(){
     (rm.no?' · room '+esc(rm.no):' · room number at check-in')+
     '<br><span class="savenote">'+(mates.length?'With '+esc(mates.join(', ')):'Nobody else in it yet')+'.</span></div>';
   h+='<p class="hint">Competing at FLC (Nov 13–15, Emeryville)? Rank the events you want. EBOD forms teams of up to '+F26.flcMax+
-    ', up to '+F26.flcTeamsPerEvent+' per event, from these. Going without competing? Leave the events empty and fill in your room.</p>'+
+    ', up to '+F26.flcTeamsPerEvent+' per event, from these, and confirms them. Open to everyone, whatever track you picked on the sign-up form. Going without competing? Leave the events empty and fill in your room.</p>'+
     '<div class="row" style="margin-top:0">'+sel(0)+sel(1)+sel(2)+'</div>'+
     '<div class="row"><div class="field" style="flex:2;min-width:220px"><label for="mp-mate">Someone you would like on your team (optional)</label>'+
       '<div id="mp-mate-box"></div></div>'+
@@ -7960,7 +7992,7 @@ function renderMyPrefs(){
     var attend=$('mp-attend').checked, group=$('mp-group').value;
     var m=$('mp-msg');
     if(attend&&!group){m.textContent='Choose a rooming group so EBOD can put you in a room.';m.className='msg show';$('mp-group').focus();return}
-    var pr={flc:flc,mate:cleanLabel(matePick.get()[0]||'').slice(0,60),attend:attend,hotel:attend,group:attend?group:'',
+    var pr={flc:flc,clients:(MYPREFS&&MYPREFS.clients)||[],mate:cleanLabel(matePick.get()[0]||'').slice(0,60),attend:attend,hotel:attend,group:attend?group:'',
       roomies:attend?roomPick.get().map(function(x){return cleanLabel(x).trim()}).filter(function(x){return x&&!isMe({name:x})}).slice(0,3):[],
       rnote:attend?String($('mp-rnote').value||'').replace(/[<>\u0000-\u001F]/g,'').slice(0,160):'',at:Date.now()};
     m.textContent='Sending…';m.className='msg show info wait';
@@ -7976,11 +8008,46 @@ function renderMyPrefs(){
     backendPost('getProfile',null).then(function(r){
       var pr=r&&r.ok&&r.profile&&r.profile.Prefs;
       if(typeof pr==='string'){try{pr=JSON.parse(pr)}catch(e){pr=null}}
-      if(pr&&(pr.flc||pr.hotel||pr.group||pr.attend===false)){MYPREFS=pr;renderMyPrefs()}
+      if(hasPrefs(pr)){MYPREFS=pr;renderMyPrefs();renderMyClients()}
     });
   }
 }
 var MYPREFS=null, MYPREFS_ASKED='';
+
+/* ---- a member's consulting client interest ----
+   Consulting teams are formed by EBOD, one per client, so a member does not
+   send a team -- they rank the clients they want. Open to everyone: the track
+   picked on the sign-up form does not limit it, nor the FLC choices. Saved on
+   the same profile prefs, so each save carries the other half along. */
+function renderMyClients(){
+  var box=$('myclients'); if(!box)return;
+  if(canEdit()){box.hidden=true;box.innerHTML='';return}
+  box.hidden=false;
+  var cl=clientList(), cur=(MYPREFS&&MYPREFS.clients)||[];
+  var sel=function(i){
+    return '<div class="field" style="flex:1;min-width:140px"><label for="mc-c'+i+'">'+['1st','2nd','3rd'][i]+' choice</label>'+
+      '<select id="mc-c'+i+'"><option value="">—</option>'+cl.map(function(c){
+        return '<option'+(cur[i]===c?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></div>';
+  };
+  box.innerHTML='<h2>Your consulting client interest</h2>'+
+    '<p class="hint">Rank the clients you would most like to work with. EBOD forms one team per client from these rankings, '+
+    'so there is no team to send in. Open to everyone, whatever track you picked on the sign-up form — and you can still rank FLC events below.</p>'+
+    '<div class="row" style="margin-top:0">'+sel(0)+sel(1)+sel(2)+'</div>'+
+    '<div class="row"><button type="button" id="mc-save">Send my client ranking</button></div><div class="msg" id="mc-msg"></div>';
+  $('mc-save').addEventListener('click',function(){
+    var clients=[0,1,2].map(function(i){return $('mc-c'+i).value}).filter(String)
+      .filter(function(v,i,a){return a.indexOf(v)===i});
+    var base=MYPREFS||{flc:[],mate:'',attend:true,group:'',roomies:[],rnote:''}, pr={};
+    for(var k in base)pr[k]=base[k];
+    pr.clients=clients;pr.at=Date.now();
+    var m=$('mc-msg');
+    m.textContent='Sending…';m.className='msg show info wait';
+    backendPost('saveProfile',{prefs:JSON.stringify(pr)}).then(function(r){
+      if(r&&r.ok){MYPREFS=pr;m.textContent=clients.length?'Sent. EBOD will use your ranking when they form the client teams.':'Cleared your client ranking.';m.className='msg show good';PREFS.loaded=false}
+      else{m.textContent=(r&&r.error)||'That did not send. If this keeps happening, the backend needs its latest version.';m.className='msg show'}
+    });
+  });
+}
 
 /* ---- FLC hotel rooms ----
    Everyone going stays at the hotel. Members say which rooming group they are
@@ -8425,13 +8492,13 @@ function renderReqMember(){
   }
   var mine=TREQ.list.filter(function(q){return q.mine||(DEMO_ON&&isMe({name:q.byName}))});
   var listed=TREQ.list.filter(function(q){return mine.indexOf(q)<0});
-  var cur=box.dataset.kind||'flc';
-  var targets=cur==='consulting'?clientList():cur==='flc'?flcEventList():tracksOf().map(function(t){return t.label});
-  var h='<h2>Form your own team</h2><p class="hint">Already know who you want to work with? Pick what the team is for, name it and list your teammates, then send it to EBOD. '+
+  var cur=box.dataset.kind==='other'?'other':'flc';
+  var targets=cur==='flc'?flcEventList():tracksOf().map(function(t){return t.label});
+  var h='<h2>Form your own team</h2><p class="hint">Already know who you want to compete with? Pick what the team is for, name it and list your teammates, then send it to EBOD. Consulting teams are not sent in — rank the clients you want instead. '+
     'It becomes a team once EBOD has checked it — they look for people already on a team, the size limits (FLC: up to '+F26.flcMax+', '+F26.flcTeamsPerEvent+' teams per event) and names they cannot find.</p>'+
     '<div class="row" style="margin-top:0">'+
       '<div class="field" style="flex:1;min-width:170px"><label for="rq-kind">Team for</label><select id="rq-kind">'+
-        [['flc','FLC case competition'],['consulting','Consulting client'],['other','A track (e.g. Polaris)']].map(function(o){
+        [['flc','FLC case competition'],['other','A track (e.g. Polaris)']].map(function(o){
           return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select></div>'+
       '<div class="field" style="flex:1;min-width:170px"><label for="rq-target">'+(cur==='flc'?'Event (case)':cur==='consulting'?'Client':'Track')+'</label>'+
         '<select id="rq-target">'+(cur==='other'?'<option value="">No particular track</option>':'')+targets.map(function(t){return '<option>'+esc(t)+'</option>'}).join('')+'</select></div>'+
