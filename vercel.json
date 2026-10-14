@@ -1,4 +1,8 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install --no-audit --no-fund",
+  "framework": null,
   "cleanUrls": true,
   "headers": [
     {
@@ -33,6 +37,24 @@
           "value": "same-origin-allow-popups"
         }
       ]
+    },
+    {
+      "source": "/(media|icons)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/logo.svg",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
     }
   ],
   "rewrites": [
@@ -50,6 +72,10 @@
     },
     {
       "source": "/draft",
+      "destination": "/"
+    },
+    {
+      "source": "/orgs",
       "destination": "/"
     },
     {
@@ -90,6 +116,10 @@
     },
     {
       "source": "/homework",
+      "destination": "/"
+    },
+    {
+      "source": "/home-screen",
       "destination": "/"
     }
   ]

@@ -4,3 +4,6 @@ docs/
 apps-script/
 slides/
 tools/
+.claude/
+dist/
+node_modules/

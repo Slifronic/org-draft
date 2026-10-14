@@ -1,0 +1,10 @@
+{
+  "name": "org-draft",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.23.1"
+  }
+}

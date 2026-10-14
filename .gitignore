@@ -1,1 +1,8 @@
 .vercel
+.claude/
+tools/demos/exe.txt
+tools/demos/out/
+tools/demos/out2/
+tools/demos/out3/
+dist/
+node_modules/

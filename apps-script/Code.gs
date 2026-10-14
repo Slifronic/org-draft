@@ -38,7 +38,8 @@ var NEEDS = {
   clubRoster: 'admin', cloneForm: 'admin', republishForm: 'admin',
   forkClub: 'admin',
   submitTeamRequest: 'member', withdrawTeamRequest: 'member', listTeamRequests: 'member',
-  reviewTeamRequest: 'admin'
+  reviewTeamRequest: 'admin', editTeamRequest: 'admin', reviewSubmissions: 'admin', deleteTeamRequest: 'admin',
+  syncMemberDrives: 'admin', ensureMyDrive: 'member'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -181,11 +182,11 @@ function accountsFor(only) {
   function push(who, kind, a, pr, r, joined, how, email) {
     if (only && a !== normAff(only)) return;
     out.push({who: who, kind: kind,
-              first: r.FirstName || pr.first || '', last: r.LastName || pr.last || '',
+              first: capName_(r.FirstName || pr.first || ''), last: capName_(r.LastName || pr.last || ''),
               email: email, role: String(r.Role || 'member').toLowerCase(),
               aff: a, affName: affNames[a] || a, joined: joined || '',
               how: how || '', photo: pr.photo || '',
-              year: String(pr.year || ''), track: String(pr.track || ''), mbti: String(pr.mbti || ''),
+              year: String(pr.year || ''), track: String(pr.track || ''), mbti: fmtMbti_(pr.mbti),
               avail: String(pr.avail || ''), notes: String(pr.notes || ''), prefs: String(pr.prefs || '')});
   }
   readTab('users').forEach(function (r) {
@@ -420,14 +421,22 @@ function appendRows(key, objs) {
    a burst of writes doesn't mean a round trip each. */
 
 function verifiedEmail(token) {
+  var v = verifiedToken_(token);
+  return v ? v.email : null;
+}
+/* The verified address, plus the name on the Google account. The name is
+   what a Google member is known by until they put one on their profile;
+   without it they were known only by their address, and nothing filed under
+   their name -- their Org, teams, hand-ins -- ever matched them. */
+function verifiedToken_(token) {
   if (!token) return null;
   if (!CLIENT_ID) return null;
 
   var cache = CacheService.getScriptCache();
-  var key = 'tok_' + Utilities.base64Encode(
+  var key = 'tok2_' + Utilities.base64Encode(
     Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token));
   var hit = cache.get(key);
-  if (hit) return hit;
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
 
   var res = UrlFetchApp.fetch(
     'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token),
@@ -442,9 +451,9 @@ function verifiedEmail(token) {
   if (String(p.email_verified) !== 'true') return null;
   if (!p.email) return null;
 
-  var email = String(p.email).toLowerCase();
-  cache.put(key, email, 300);
-  return email;
+  var v = {email: String(p.email).toLowerCase(), name: String(p.name || '').slice(0, 80)};
+  cache.put(key, JSON.stringify(v), 300);
+  return v;
 }
 
 /* ---------------- passwords & sessions ----------------
@@ -520,15 +529,27 @@ function findAff(code) {
   for (var i = 0; i < all.length; i++) if (all[i].code === c) return all[i];
   return null;
 }
-/* The affiliation a Google address belongs to, from the Roles tab. */
+/* The affiliation a Google address belongs to, from the Roles tab. Every
+   signed-in request asks, so the tab is read once and kept for five minutes;
+   any write through the page drops the copy (see doPost). An edit made
+   straight in the sheet shows within those five minutes. */
 function affForEmail(email) {
-  var rows = readTab('roles'), e = String(email || '').toLowerCase();
-  for (var i = 0; i < rows.length; i++)
-    if (String(rows[i].Email).toLowerCase().trim() === e)
-      return {aff: normAff(rows[i].Affiliation || DEFAULT_AFF),
-              role: String(rows[i].Role || 'member').toLowerCase()};
-  return null;
+  var e = String(email || '').toLowerCase().trim();
+  return rolesMap_()[e] || null;
 }
+function rolesMap_() {
+  var c = null, hit = null;
+  try { c = CacheService.getScriptCache(); hit = c.get('rolesmap'); } catch (err) {}
+  if (hit) { try { return JSON.parse(hit); } catch (err) {} }
+  var m = {};
+  readTab('roles').forEach(function (r) {
+    var e = String(r.Email || '').toLowerCase().trim();
+    if (e && !m[e]) m[e] = {aff: normAff(r.Affiliation || DEFAULT_AFF), role: String(r.Role || 'member').toLowerCase()};
+  });
+  try { var j = JSON.stringify(m); if (c && j.length < 90000) c.put('rolesmap', j, 300); } catch (err) {}
+  return m;
+}
+function dropRoles_() { try { CacheService.getScriptCache().remove('rolesmap'); } catch (err) {} }
 
 function findUser(username) {
   var u = normUser(username);
@@ -606,8 +627,8 @@ function doLogin(payload) {
    login handle. */
 function doSignup(payload) {
   var p = payload || {};
-  var first = String(p.firstName || '').trim();
-  var last  = String(p.lastName || '').trim();
+  var first = capName_(p.firstName);
+  var last  = capName_(p.lastName);
   var email = String(p.email || '').toLowerCase().trim();
   var aff = findAff(p.affiliation);
   var given = String(p.joinCode || '').trim();
@@ -631,6 +652,7 @@ function doSignup(payload) {
   tab('users').appendRow([email, String(p.clientSalt), ssalt, hashDk(p.dk, ssalt),
                           Number(p.iterations) || PBKDF2_ITERS, 'member', 0, '',
                           'self sign-up', new Date(), aff.code, first, last, email]);
+  bumpShared_(aff.code);
   var exp = Date.now() + SESSION_MS;
   return {ok: true, session: signSession(email, exp), role: 'member',
           username: email, name: (first + ' ' + last).trim(), email: email,
@@ -651,8 +673,8 @@ function identify(body) {
             name: (rec.first + ' ' + rec.last).trim() || rec.username,
             aff: normAff(rec.affiliation || DEFAULT_AFF)};
   }
-  var email;
-  try { email = verifiedEmail(body.token); }
+  var email, gName = '';
+  try { var vt = verifiedToken_(body.token); email = vt && vt.email; gName = capName_((vt && vt.name) || ''); }
   catch (err) { return {ok: false, error: 'Token check failed: ' + err}; }
   if (!email) {
     return {ok: false, error: CLIENT_ID
@@ -663,12 +685,17 @@ function identify(body) {
      for one; everyone else is pinned to the affiliation they joined. A Google
      address with no affiliation yet is signed in but unplaced, and the page
      shows them the join screen rather than another club's data. */
-  if (email === String(MASTER_EMAIL).toLowerCase())
-    return {ok: true, who: email, role: 'master', via: 'google',
-            aff: normAff(body.aff || DEFAULT_AFF), isRoot: true};
+  if (email === String(MASTER_EMAIL).toLowerCase()) {
+    var mAff = normAff(body.aff || DEFAULT_AFF);
+    return {ok: true, who: email, role: 'master', via: 'google', aff: mAff, isRoot: true,
+            name: profileName_(mAff, email) || gName};
+  }
   var hit = affForEmail(email);
-  if (!hit) return {ok: true, who: email, role: 'member', via: 'google', aff: '', needsAff: true};
-  return {ok: true, who: email, role: RANK[hit.role] ? hit.role : 'member', via: 'google', aff: hit.aff};
+  if (!hit) return {ok: true, who: email, role: 'member', via: 'google', aff: '', needsAff: true, name: gName};
+  /* The name on their profile is the one the roster was built from, so it
+     wins; the Google account's own name covers anyone who has not saved one. */
+  return {ok: true, who: email, role: RANK[hit.role] ? hit.role : 'member', via: 'google', aff: hit.aff,
+          name: profileName_(hit.aff, email) || gName};
 }
 
 function roleFor(email) {
@@ -680,9 +707,138 @@ function roleFor(email) {
 
 /* ---------------- entry points ---------------- */
 
-function doGet() {
+function doGet(e) {
+  /* The one GET: the members' calendar feed, which calendar apps fetch on
+     their own and cannot sign in for. It is opened by a per-club key that
+     only reaches signed-in members, and it holds exactly what members see
+     on the Calendar tab. The officers' calendar itself stays private. */
+  var p = (e && e.parameter) || {};
+  if (p.feed === 'ics') {
+    try {
+      var fAff = normAff(p.club || DEFAULT_AFF);
+      if (!findAff(fAff) || !p.key || String(p.key) !== feedKey_(fAff))
+        return ContentService.createTextOutput('Not found').setMimeType(ContentService.MimeType.TEXT);
+      /* Kept with the club's other cached reads, so it is rebuilt only after a
+         change (or a calendar refresh), not every time a calendar app asks. */
+      var ics = shared_('ics', fAff, function () { return {t: memberIcs_(fAff)}; }).t;
+      return ContentService.createTextOutput(ics).setMimeType(ContentService.MimeType.ICAL);
+    } catch (err) {
+      try { console.error('feed: ' + (err && err.stack ? err.stack : err)); } catch (e2) {}
+      return ContentService.createTextOutput('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//The Org System//EN\r\nEND:VCALENDAR\r\n')
+        .setMimeType(ContentService.MimeType.ICAL);
+    }
+  }
   // Reads moved to POST so the token travels in the body, never in a URL.
   return out({ok: false, error: 'This endpoint expects a POST carrying a Google ID token.'});
+}
+
+/* ---- the members' calendar feed ----
+   The season's fixed dates, as the page has them (F26.season in index.html):
+   they live in the page, not on any calendar, so the feed needs its own copy.
+   Keep the two in step. */
+var SEASON_EVENTS_ = [
+  {id: 'f26-orient', title: 'IM orientation', date: '2026-10-15'},
+  {id: 'f26-boot1', title: 'Bootcamp 1 + team formation', date: '2026-10-20'},
+  {id: 'f26-boot2', title: 'Bootcamp 2 \u2014 FLC / consulting split rooms', date: '2026-10-22'},
+  {id: 'f26-mock', title: 'Mock case stations (week of Oct 27)', date: '2026-10-27'},
+  {id: 'f26-flc1', title: 'FLC \u2014 Emeryville (day 1)', date: '2026-11-13', where: 'Emeryville'},
+  {id: 'f26-flc2', title: 'FLC \u2014 Emeryville (day 2)', date: '2026-11-14', where: 'Emeryville'},
+  {id: 'f26-flc3', title: 'FLC \u2014 Emeryville (day 3)', date: '2026-11-15', where: 'Emeryville'},
+  {id: 'f26-final', title: 'Consulting finals', date: '2026-11-19'}
+];
+/* A random key per club, made the first time anyone asks. Changing it (delete
+   the FEED_ property) cuts off every subscription made with the old one. */
+function feedKey_(aff) {
+  var props = PropertiesService.getScriptProperties(), k = 'FEED_' + normAff(aff);
+  var v = props.getProperty(k);
+  if (!v) { v = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8); props.setProperty(k, v); }
+  return v;
+}
+/* What a member sees on the Calendar tab: the club's own events that are not
+   EBOD-only, the season's dates, and the Google Calendar's events that are
+   not hidden from members. */
+function memberEvents_(aff) {
+  var key = 'club:' + aff, cfg = {};
+  readTab('config').forEach(function (r) {
+    if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  var gAll = readGcal_(aff), pulledOk = !!(gAll && gAll.events);
+  var off = {}, have = {}, seen = {}, out = [];
+  (cfg.seasonOff || []).forEach(function (id) { off[id] = 1; });
+  var flat = function (t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var add = function (ev) {
+    if (!ev || !ev.date || !/^\d{4}-\d{2}-\d{2}$/.test(String(ev.date))) return;
+    var k = flat(ev.title) + '|' + ev.date;
+    if (seen[k]) return;
+    seen[k] = 1; out.push(ev);
+  };
+  (cfg.events || []).forEach(function (ev) {
+    if (!ev || ev.ebod || off[ev.id]) return;
+    if (ev.pulled && pulledOk) return;      /* superseded by the stored Google copy */
+    have[ev.id] = 1; add(ev);
+  });
+  /* Google's copy first: when a season date is also on the calendar, that
+     one carries the time and the room. */
+  gcalFor_(gAll || {}, cfg, 'member').events.forEach(add);
+  SEASON_EVENTS_.forEach(function (ev) { if (!have[ev.id] && !off[ev.id]) add(ev); });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+function icsText_(v) {
+  return String(v || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+/* Lines longer than 75 octets are folded, as the format requires. */
+function icsFold_(line) {
+  if (line.length <= 37) return line;          /* cannot reach 75 bytes even at 2 per char */
+  var out = [], cur = '', n = 0;
+  for (var i = 0; i < line.length; i++) {
+    var code = line.charCodeAt(i), ch = line.charAt(i), b;
+    if (code >= 0xD800 && code <= 0xDBFF && i + 1 < line.length) { ch += line.charAt(++i); b = 4; }
+    else b = code < 0x80 ? 1 : code < 0x800 ? 2 : 3;
+    if (n + b > 74) { out.push(cur); cur = ' '; n = 1; }
+    cur += ch; n += b;
+  }
+  out.push(cur);
+  return out.join('\r\n');
+}
+/* "5:00 pm", "7pm", "10:30 AM" -> [hours, minutes], or null when there is no
+   clock time (an all-day event). */
+function icsClock_(t) {
+  var m = String(t || '').match(/^\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m?\.?/i);
+  if (!m) return null;
+  var h = Number(m[1]) % 12 + (/p/i.test(m[3]) ? 12 : 0);
+  return [h, Number(m[2] || 0)];
+}
+function memberIcs_(aff) {
+  var tz = Session.getScriptTimeZone() || 'America/Los_Angeles';
+  var name = (findAff(aff) || {}).name || aff;
+  var stamp = Utilities.formatDate(new Date(), 'UTC', "yyyyMMdd'T'HHmmss'Z'");
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var ymd = function (d) { return String(d).replace(/-/g, ''); };
+  var nextDay = function (d) {
+    var p = String(d).split('-'), t = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + 1));
+    return t.getUTCFullYear() + pad(t.getUTCMonth() + 1) + pad(t.getUTCDate());
+  };
+  var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//The Org System//' + icsText_(name) + '//EN',
+           'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:' + icsText_(name),
+           'X-WR-TIMEZONE:' + tz, 'X-PUBLISHED-TTL:PT1H', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H'];
+  memberEvents_(aff).forEach(function (ev) {
+    var uid = String(ev.gid ? ev.id : ev.id || (ev.title + ev.date)).replace(/[^A-Za-z0-9_.-]/g, '') + '@org.deanzapbl.com';
+    var clock = icsClock_(ev.time);
+    L.push('BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + stamp);
+    if (clock && !ev.end) {
+      var s = ymd(ev.date) + 'T' + pad(clock[0]) + pad(clock[1]) + '00';
+      var eh = clock[0] + 1, e2 = (eh < 24 ? ymd(ev.date) + 'T' + pad(eh) + pad(clock[1]) + '00' : ymd(ev.date) + 'T235900');
+      L.push('DTSTART;TZID=' + tz + ':' + s, 'DTEND;TZID=' + tz + ':' + e2);
+    } else {
+      L.push('DTSTART;VALUE=DATE:' + ymd(ev.date), 'DTEND;VALUE=DATE:' + nextDay(ev.end || ev.date));
+    }
+    L.push('SUMMARY:' + icsText_(ev.title));
+    if (ev.where) L.push('LOCATION:' + icsText_(ev.where));
+    L.push('TRANSP:TRANSPARENT', 'END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  return L.map(icsFold_).join('\r\n') + '\r\n';
 }
 
 /* Every path returns JSON. An exception escaping this function makes Apps
@@ -703,6 +859,10 @@ function doPost(e) {
     /* Names only. The join code is never sent to the browser -- it is the
        thing being proved, so returning it would defeat the point. */
     if (action === 'listAffiliations') {
+      /* The keep-warm ping (every ten minutes) also does the slow work a
+         member's first page load used to do: reading the Google Calendar and
+         building the club's cached snapshot. Members then find it ready. */
+      if ((body.payload || {}).warm) { try { warmClubs_(); } catch (err) {} }
       try {
         return out({ok: true, affiliations: allAffiliations().map(function (a) {
           return {code: a.code, name: a.name};
@@ -711,11 +871,21 @@ function doPost(e) {
     }
 
     if (action === 'signup') {
-      var lockS = LockService.getScriptLock();
+      var lockS = LockService.getScriptLock(), su;
       try { lockS.waitLock(20000); } catch (e) { return out({ok: false, error: 'Busy, try again.'}); }
-      try { return out(doSignup(body.payload)); }
+      try { su = doSignup(body.payload); }
       catch (err) { return out({ok: false, error: 'Sign-up failed: ' + err}); }
       finally { try { lockS.releaseLock(); } catch (e2) {} }
+      /* Everything the page would ask for next rides along, so a new account
+         opens in one round trip rather than two. Built after the lock is
+         released, so it does not hold up anybody else signing up. */
+      if (su && su.ok) {
+        MEMO_ROWS_ = true;
+        try { su.all = dispatch('getAll', null, su.email, 'member',
+                                {who: su.email, role: 'member', via: 'password', aff: su.aff, name: su.name}); }
+        catch (e3) {}
+      }
+      return out(su);
     }
 
     if (action === 'getSalt') {
@@ -747,6 +917,17 @@ function doPost(e) {
         NEEDS[action] + '.', role: role});
     }
 
+    /* A Google account that has not joined a club yet is signed in but
+       belongs nowhere. Without this it fell through to the default club and
+       could read that club's roster and points with no join code at all. It
+       may learn who it is and join; nothing else. */
+    if (id.needsAff && action !== 'joinAffiliation' && action !== 'whoami') {
+      if (action === 'getAll')
+        return out({ok: true, role: role, email: email, name: id.name || email, via: id.via,
+                    aff: '', needsAff: true});
+      return out({ok: false, error: 'Join your club first.', needsAff: true});
+    }
+
     /* Reads do not queue behind the write lock. At a meeting, forty members
        opening the page at once were served one at a time, each waiting on
        whoever was ahead -- a read cannot corrupt anything, so it skips the
@@ -756,13 +937,28 @@ function doPost(e) {
       try { lock = LockService.getScriptLock(); lock.waitLock(20000); }
       catch (err) { return out({ok: false, error: 'Sheet busy, try again.'}); }
     }
+    var res, rebuild = false;
     try {
-      return out(dispatch(action, body.payload, email, role, id));
+      res = dispatch(action, body.payload, email, role, id);
+      /* A member's own folder is not part of what the club sees, and it is
+         touched on every visit -- bumping for it would empty the cache for
+         everyone each time a member opened the page. */
+      if (!READ_ONLY[action] && clubWide_(action, body.payload)) { bumpShared_(id.aff || DEFAULT_AFF); rebuild = true; }
+      if (OWN_BITS_[action]) dropMe_(normAff(id.aff || DEFAULT_AFF), email);
+      if (!READ_ONLY[action]) dropRoles_();
     } catch (err) {
       return out(failRef_('dispatch:' + action, err));
     } finally {
       try { if (lock) lock.releaseLock(); } catch (err2) {}
     }
+    /* The write emptied the club's cached snapshot. Rebuilding it here, after
+       the lock is let go, costs the officer's background save a few seconds;
+       leaving it cost the next member to open the page the same seconds,
+       with a spinner in front of them. */
+    if (rebuild && res && res.ok !== false) {
+      try { ROWS_ = {}; MEMO_ROWS_ = true; clubSnapshot_(normAff(id.aff || DEFAULT_AFF)); } catch (err3) {}
+    }
+    return out(res);
   } catch (fatal) {
     return out(failRef_('doPost', fatal));
   }
@@ -858,20 +1054,23 @@ function orgBoard_(aff, cfg) {
 }
 
 /* FLC preferences arrive as JSON text from the member's own page. Parsed and
-   rebuilt here so only the known shape is stored: up to three event names,
-   one requested teammate, whether they can attend, and the hotel answers --
-   whether they need a bed, which rooming group, up to three roommates asked
-   for, and a short note only officers read. */
+   rebuilt here so only the known shape is stored: up to three ranked
+   consulting clients, up to three event names,
+   one requested teammate, whether they can attend, and the rooming answers --
+   which rooming group, up to three roommates asked for, and a short note only
+   officers read. Everyone who attends stays at the conference hotel, so
+   "hotel" simply follows "attend"; it is kept for pages still sending it. */
 function cleanPrefs_(raw) {
   var o;
   try { o = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return null; }
   if (!o || typeof o !== 'object') return null;
   var txt = function (v, n) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').slice(0, n); };
   var flc = (o.flc || []).slice(0, 3).map(function (v) { return txt(v, 40); }).filter(String);
+  var clients = (o.clients || []).slice(0, 3).map(function (v) { return txt(v, 60); }).filter(String);
   var roomies = (o.roomies || []).slice(0, 3).map(function (v) { return txt(v, 60); }).filter(String);
   var group = ['w', 'm', 'x'].indexOf(String(o.group)) > -1 ? String(o.group) : '';
-  return JSON.stringify({flc: flc, mate: txt(o.mate, 60), attend: o.attend !== false,
-    hotel: o.hotel === true, group: group, roomies: roomies, rnote: txt(o.rnote, 160),
+  return JSON.stringify({flc: flc, clients: clients, mate: txt(o.mate, 60), attend: o.attend !== false,
+    hotel: o.attend !== false, group: group, roomies: roomies, rnote: txt(o.rnote, 160),
     at: Number(o.at) || Date.now()});
 }
 
@@ -899,29 +1098,336 @@ function withLock_(fn) {
   try { return fn(); } finally { l.releaseLock(); }
 }
 
-/* Whether an event brought back from a shared chapter calendar is one the
-   whole membership should see. The chapter's real calendar also carries
-   officer meetings, ICC and client calls with meeting links in them; those
-   come back marked for officers only, and an officer can show any of them. */
-function memberFacing_(title) {
-  var t = String(title || '');
-  if (/\b(EBOD|E-?board|ICC|exec|officers?|scope call|1:1|interview|budget|intro(ductory)? call)\b/i.test(t)) return false;
-  return /\b(IM|general meeting|orientation|bootcamp|workshop|social|mixer|mock|FLC|SFBLC|NLC|conference|competition|finals?|info session|deadline|registration)\b/i.test(t);
-}
-
 /* Officers see the whole club record. Members get the same record without
-   the events kept for officers. */
-function memberCfg_(cfg) {
-  if (!cfg || !cfg.events) return cfg;
+   the events kept for officers, the links to the club's own files (the
+   response sheet holds every member's answers), and every hotel room but
+   their own -- who rooms with whom, and in which group, is not club news. */
+var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide'];
+function memberCfg_(cfg, meName) {
+  if (!cfg) return cfg;
   var c = {};
   for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) c[k] = cfg[k];
-  c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
+  MEMBER_HIDDEN_CFG_.forEach(function (k) { delete c[k]; });
+  if (cfg.events) c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
+  if (cfg.rooms) {
+    var me = flatName_(meName);
+    c.rooms = me ? cfg.rooms.filter(function (r) {
+      return (r && r.members || []).some(function (m) { return flatName_(m) === me; });
+    }) : [];
+  }
   return c;
+}
+
+/* What a member's browser gets of the club's rows. Everybody's name, Org,
+   year and track is ordinary club knowledge -- it is on every Org page. A
+   personality type, availability, leadership interest and officer notes are
+   not, and neither are anybody else's points or attendance. These used to
+   ride along to every member and were only hidden on screen, so anyone could
+   read them out of the page or the browser's saved copy. */
+function memberRows_(kind, rows, meName) {
+  var me = flatName_(meName);
+  if (kind === 'pointsLog' || kind === 'attendance')
+    return rows.filter(function (r) { return me && flatName_(r.MemberName) === me; });
+  return rows.map(function (r) {
+    var mine = me && flatName_(r.MemberName) === me, c = {};
+    for (var k in r) if (Object.prototype.hasOwnProperty.call(r, k)) c[k] = r[k];
+    c.Notes = '';
+    if (!mine) { c.MBTI = ''; c.LeadInterest = ''; c.Availability = ''; }
+    return c;
+  });
+}
+
+/* ---- the chapter's Google Calendar, as members see it ----
+   Everything on the connected calendar is shared with members unless an
+   officer hides it -- one occurrence, or every occurrence of a repeating
+   event. What came back from Google lives under a key of its own rather than
+   on the club record: a season of weekly meetings is a few hundred rows, and
+   the club record is one spreadsheet cell, which Sheets caps at 50,000
+   characters. The hide list is small and stays on the club record
+   (cfg.calHide), where officers already save. */
+var GCAL_BACK_DAYS = 30, GCAL_AHEAD_DAYS = 240, GCAL_STALE_MS = 30 * 60 * 1000, GCAL_MAX_CHARS = 45000;
+var GCAL_LATE_MS = 6 * 60 * 60 * 1000;
+function readGcal_(aff) {
+  var r = cfgRow_('gcal:' + aff);
+  try { return JSON.parse(r.val || '{}') || {}; } catch (e) { return {}; }
+}
+function writeGcal_(aff, g) {
+  /* Kept under the cell limit by dropping the furthest-out events first: the
+     next refresh brings them back as they come into range. */
+  while (g.events && g.events.length && JSON.stringify(g).length > GCAL_MAX_CHARS) g.events.pop();
+  var r = cfgRow_('gcal:' + aff), j = JSON.stringify(g);
+  if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow(['gcal:' + aff, j]);
+}
+function gcalHidden_(cfg, ev) {
+  var h = (cfg && cfg.calHide) || {};
+  return (h.ids || []).indexOf(ev.id) > -1 || (!!ev.gid && (h.series || []).indexOf(ev.gid) > -1);
+}
+/* Reads the calendar over the window and returns plain rows. Events the page
+   itself put there (ownGids) are skipped: the page already shows them. */
+function pullGcal_(cal, ownGids) {
+  var tz = Session.getScriptTimeZone(), out = [], seen = {};
+  var from = new Date(); from.setDate(from.getDate() - GCAL_BACK_DAYS);
+  var to = new Date(); to.setDate(to.getDate() + GCAL_AHEAD_DAYS);
+  cal.getEvents(from, to).forEach(function (gev) {
+    var gid = gev.getId(), st = gev.getStartTime(), all = gev.isAllDayEvent();
+    var day = Utilities.formatDate(all ? gev.getAllDayStartDate() : st, tz, 'yyyy-MM-dd');
+    if (ownGids[gid + '|' + day] || seen[gid + '|' + day]) return;
+    seen[gid + '|' + day] = true;
+    /* A meeting link is not a place, and members should not be handed one
+       from an officer's calendar. */
+    var where = String(gev.getLocation() || '');
+    if (/^https?:|teams\.microsoft|zoom\.us|meet\.google/i.test(where)) where = 'Online';
+    var row = {
+      id: 'g' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(
+        Utilities.DigestAlgorithm.MD5, gid + '|' + day)).replace(/[^a-z0-9]/gi, '').slice(0, 14),
+      gid: gid, title: String(gev.getTitle() || 'Event').slice(0, 80), date: day,
+      time: all ? '' : Utilities.formatDate(st, tz, 'h:mm a').toLowerCase(),
+      where: where.slice(0, 60)
+    };
+    if (all) {
+      /* Google's all-day end is the day after; the page wants the last day. */
+      var last = new Date(gev.getAllDayEndDate().getTime() - 86400000);
+      var lastDay = Utilities.formatDate(last, tz, 'yyyy-MM-dd');
+      if (lastDay > day) row.end = lastDay;
+    }
+    try { if (gev.isRecurringEvent()) row.rec = 1; } catch (e) {}
+    out.push(row);
+  });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+/* Brings the stored copy up to date when it is older than GCAL_STALE_MS.
+   Cheap to call: it only talks to Google when the copy is stale, and only
+   one request at a time does that -- anyone else is answered from the copy
+   already there instead of queueing behind it. */
+function refreshGcal_(aff, cfg, force) {
+  var g = readGcal_(aff);
+  if (!cfg || !cfg.gcalId) return g;
+  if (!force && g.syncedAt && (new Date().getTime() - g.syncedAt) < GCAL_STALE_MS && g.calId === cfg.gcalId) return g;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(force ? 10000 : 50)) return g;
+  try {
+    var cal = null;
+    try { cal = CalendarApp.getCalendarById(cfg.gcalId); } catch (e) { cal = null; }
+    if (!cal) { g.error = 'The connected calendar cannot be opened.'; return g; }
+    var own = {};
+    (cfg.events || []).forEach(function (ev) { if (ev && ev.gid && !ev.pulled) own[ev.gid + '|' + ev.date] = true; });
+    g = {calId: cfg.gcalId, syncedAt: new Date().getTime(), events: pullGcal_(cal, own)};
+    writeGcal_(aff, g);
+    return g;
+  } catch (e) {
+    g.error = String(e.message || e);
+    return g;
+  } finally { lock.releaseLock(); }
+}
+/* What the page gets: officers see every event with its hidden state;
+   members only ever receive what is shared with them. */
+function gcalFor_(g, cfg, role) {
+  var isAdmin = RANK[role] >= RANK.admin, list = [];
+  (g.events || []).forEach(function (ev) {
+    var hid = gcalHidden_(cfg, ev);
+    if (hid && !isAdmin) return;
+    var c = {}; for (var k in ev) c[k] = ev[k];
+    if (hid) c.hidden = 1;
+    list.push(c);
+  });
+  return {events: list, syncedAt: g.syncedAt || 0, calId: g.calId || '', error: isAdmin ? (g.error || '') : ''};
+}
+
+/* One club as every page load sees it, before anything is trimmed for the
+   caller's role. Cached (see shared_); photos and passwords never go in. */
+function clubSnapshot_(aff) {
+  return shared_('all', aff, function () {
+    /* The club's vocabulary lives in the sheet too, so a second officer
+       opening the page sees the same words as the officer who set them. */
+    var key = 'club:' + aff, cfg = null;
+    readTab('config').forEach(function (r) {
+      if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
+    });
+    /* The connected calendar refreshes itself here, at most every half hour,
+       so members see what is on it without an officer pressing anything. */
+    /* The calendar is refreshed by the keep-warm ping, off the request
+       path: reading 270 days of Google Calendar inline added seconds to
+       whichever member happened to arrive when it was stale. Only a copy
+       much older than that (the ping has stopped) is refreshed here. */
+    var gAll = {};
+    try {
+      gAll = readGcal_(aff);
+      if (cfg && cfg.gcalId && (!gAll.syncedAt || new Date().getTime() - gAll.syncedAt > GCAL_LATE_MS))
+        gAll = refreshGcal_(aff, cfg, false);
+    } catch (e) { gAll = {}; }
+    var drive = {};
+    var dm = readDrive_(aff).members || {};
+    Object.keys(dm).forEach(function (k) { if (dm[k] && dm[k].f) drive[k] = 1; });
+    return {cfg: cfg, gcal: gAll, drive: drive, reqs: readReqs_(aff),
+            memberNames: memberNames_(aff), affName: (findAff(aff) || {}).name || aff,
+            teamBoard: teamBoard_(aff, cfg), orgBoard: orgBoard_(aff, cfg),
+            teams: readScoped('teams', aff), pointsLog: readScoped('pointsLog', aff),
+            attendance: readScoped('attendance', aff)};
+  });
+}
+
+/* Called by the keep-warm ping. Refreshes each club's calendar when it is
+   stale and makes sure the club's snapshot is cached, so no member is the one
+   who waits for either. Quick when there is nothing to do. */
+function warmClubs_() {
+  allAffiliations().forEach(function (a) {
+    var key = 'club:' + a.code, cfg = null;
+    readTab('config').forEach(function (r) {
+      if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
+    });
+    if (cfg && cfg.gcalId) {
+      var before = readGcal_(a.code);
+      if (!before.syncedAt || new Date().getTime() - before.syncedAt > GCAL_STALE_MS) {
+        var after = refreshGcal_(a.code, cfg, false);
+        if (after.syncedAt !== before.syncedAt) bumpShared_(a.code);
+      }
+    }
+    clubSnapshot_(a.code);
+  });
+}
+
+/* The names members registered under, for picking teammates and roommates.
+   Names only: no addresses, no roles, nothing a member could not already
+   read off the roster once the Orgs are formed. */
+function memberNames_(aff) {
+  var seen = {}, out = [];
+  accountsFor(aff).forEach(function (u) {
+    var nm = String(((u.first || '') + ' ' + (u.last || '')).trim()).replace(/[<>\u0000-\u001F]/g, '').slice(0, 60);
+    var k = nm.toLowerCase().replace(/[^a-z]/g, '');
+    if (!k || seen[k]) return;
+    seen[k] = 1; out.push(nm);
+  });
+  return out.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
 }
 
 /* A hand-in that is a link rather than a file. Same one-row-per-member rule
    and the same first-hand-in timestamp as a file, so it counts for the Org
    Cup exactly the same way. */
+/* A page's changes to the club, merged into what is stored: {set: {key: value},
+   del: [key], items: {key: {up: [item], rm: [id], order: [id]}}}. Items that
+   another officer added in the meantime are kept, after the ones this page
+   ordered. */
+/* Several officers -- often several browsers on the one club account -- edit
+   at once, each from the copy they last read. A page sends what it changed
+   together with what that thing looked like when it read it (`was`), and
+   this keeps both people's changes: a field this page did not touch keeps
+   what is stored; a list of names gets this page's additions and removals
+   applied to the stored list; anything both changed goes to the later save. */
+function merge3_(srv, cli, was) {
+  var J = function (v) { return JSON.stringify(v === undefined ? null : v); };
+  if (was === undefined || srv === undefined) return cli;
+  if (J(cli) === J(was)) return srv;           /* this page did not change it */
+  if (J(srv) === J(was)) return cli;           /* nobody else did */
+  var isSet = function (a) {
+    if (!Array.isArray(a)) return false;
+    var seen = {};
+    for (var i = 0; i < a.length; i++) {
+      var v = a[i];
+      if ((typeof v !== 'string' && typeof v !== 'number') || v === '' || seen['k' + v]) return false;
+      seen['k' + v] = 1;
+    }
+    return true;
+  };
+  if (isSet(srv) && isSet(cli) && isSet(was)) {
+    var key = function (v) { return 'k' + v; }, inCli = {}, inWas = {}, outSet = {};
+    cli.forEach(function (v) { inCli[key(v)] = 1; });
+    was.forEach(function (v) { inWas[key(v)] = 1; });
+    var res = srv.filter(function (v) { return !(inWas[key(v)] && !inCli[key(v)]); });
+    res.forEach(function (v) { outSet[key(v)] = 1; });
+    cli.forEach(function (v) { if (!inWas[key(v)] && !outSet[key(v)]) { res.push(v); outSet[key(v)] = 1; } });
+    return res;
+  }
+  var plain = function (o) { return o && typeof o === 'object' && !Array.isArray(o); };
+  if (plain(srv) && plain(cli) && plain(was)) {
+    var res2 = {}, keys = {};
+    [srv, cli, was].forEach(function (o) { Object.keys(o).forEach(function (k) { keys[k] = 1; }); });
+    Object.keys(keys).forEach(function (k) {
+      var inC = Object.prototype.hasOwnProperty.call(cli, k), inW = Object.prototype.hasOwnProperty.call(was, k),
+          inS = Object.prototype.hasOwnProperty.call(srv, k);
+      if (!inC && inW) { if (inS && J(srv[k]) !== J(was[k])) res2[k] = srv[k]; return; }  /* removed here; kept if changed there */
+      if (!inS) { if (inC) res2[k] = cli[k]; return; }
+      res2[k] = inC ? merge3_(srv[k], cli[k], inW ? was[k] : undefined) : srv[k];
+    });
+    return res2;
+  }
+  return cli;
+}
+function applyCfgPatch_(base, p) {
+  var out = {};
+  for (var k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+  var set = p.set || {}, del = p.del || [], items = p.items || {}, wasSet = p.was || {};
+  Object.keys(set).forEach(function (k) {
+    if (k === '__patch') return;
+    out[k] = Object.prototype.hasOwnProperty.call(wasSet, k) ? merge3_(out[k], set[k], wasSet[k]) : set[k];
+  });
+  del.forEach(function (k) { delete out[k]; });
+  Object.keys(items).forEach(function (k) {
+    var ch = items[k] || {}, list = Array.isArray(out[k]) ? out[k].slice() : [];
+    var rm = {}; (ch.rm || []).forEach(function (id) { rm[String(id)] = 1; });
+    list = list.filter(function (it) { return !(it && rm[String(it.id)]); });
+    var wasItems = ch.was || {};
+    (ch.up || []).forEach(function (it) {
+      if (!it || it.id === undefined) return;
+      var at = -1; for (var i = 0; i < list.length; i++) if (list[i] && String(list[i].id) === String(it.id)) { at = i; break; }
+      var w = wasItems[String(it.id)];
+      if (at > -1) list[at] = w ? merge3_(list[at], it, w) : it; else list.push(it);
+    });
+    if (Array.isArray(ch.order)) {
+      var pos = {}; ch.order.forEach(function (id, i) { pos[String(id)] = i; });
+      list.sort(function (a, b) {
+        var pa = pos.hasOwnProperty(String(a && a.id)) ? pos[String(a.id)] : 1e9 + list.indexOf(a);
+        var pb = pos.hasOwnProperty(String(b && b.id)) ? pos[String(b.id)] : 1e9 + list.indexOf(b);
+        return pa - pb;
+      });
+    }
+    out[k] = list;
+  });
+  return out;
+}
+
+/* This club's saved setup. */
+function clubCfg_(aff) {
+  var key = 'club:' + aff, c = {};
+  readTab('config').forEach(function (r) {
+    if (String(r.Key) === key) { try { c = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  return c;
+}
+/* Where a form's answers are posted, from the link members open. Mirrors the
+   address formSchema reads the questions from. */
+function formAction_(formUrl) {
+  var f = String(formUrl || '');
+  if (!/^https:\/\/docs\.google\.com\/forms\//.test(f)) return '';
+  var v = f.replace(/\/edit.*$/, '/viewform').replace(/\?.*$/, '');
+  if (v.indexOf('/viewform') < 0) v = v.replace(/\/*$/, '') + '/viewform';
+  return v.replace(/\/viewform$/, '/formResponse');
+}
+
+/* Whether a hand-in's first bytes match what its extension says it is.
+   Office files are either the old compound format or a zip; text has to be
+   text, and never markup a browser would run. */
+function looksLike_(ext, b) {
+  var u = function (i) { return (b[i] + 256) % 256; };
+  var starts = function (sig) { for (var i = 0; i < sig.length; i++) if (u(i) !== sig[i]) return false; return true; };
+  var ole = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1], zip = [0x50, 0x4B, 0x03, 0x04];
+  switch (ext) {
+    case 'pdf':  return starts([0x25, 0x50, 0x44, 0x46]);                       // %PDF
+    case 'png':  return starts([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+    case 'jpg': case 'jpeg': return starts([0xFF, 0xD8, 0xFF]);
+    case 'webp': return starts([0x52, 0x49, 0x46, 0x46]) && u(8) === 0x57 && u(9) === 0x45 && u(10) === 0x42 && u(11) === 0x50;
+    case 'heic': return b.length > 12 && u(4) === 0x66 && u(5) === 0x74 && u(6) === 0x79 && u(7) === 0x70; // ....ftyp
+    case 'doc': case 'xls': case 'ppt': return starts(ole);
+    case 'docx': case 'xlsx': case 'pptx': return starts(zip);
+    case 'csv': case 'txt': case 'md': {
+      var n = Math.min(b.length, 4096), head = '';
+      for (var i = 0; i < n; i++) { if (u(i) === 0) return false; head += String.fromCharCode(u(i)); }
+      return !/<\s*(script|html|iframe|svg|object|embed)\b/i.test(head);
+    }
+  }
+  return false;
+}
+
 function submitLink_(aff, id, email, swId, link) {
   var flatW = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
   var myOrg = '', myName = String(id.name || email);
@@ -1023,7 +1529,11 @@ function dispatch(action, payload, email, role, id) {
          the same person, so both sides are flattened to letters and digits
          before comparing. An officer may pass a name to look up instead. */
       var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
-      var meName = flat((payload || {}).name || email);
+      /* Only an officer may look somebody else up. A member is matched on
+         who they signed in as -- a name in the payload let any member read
+         another's teams row, points and history. */
+      var askName = RANK[role] >= RANK.admin ? (payload || {}).name : '';
+      var meName = flat(askName || id.name || email);
       var mine = null;
       readScoped('teams', aff).forEach(function (r) {
         if (flat(r.MemberName) === meName) mine = r;
@@ -1104,7 +1614,7 @@ function dispatch(action, payload, email, role, id) {
       var got = {
         year:  cYear  > -1 ? String(hit[cYear]  || '') : '',
         track: cTrack > -1 ? String(hit[cTrack] || '') : '',
-        mbti:  cMbti  > -1 ? String(hit[cMbti]  || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4) : '',
+        mbti:  cMbti  > -1 ? fmtMbti_(hit[cMbti]) : '',
         lead:  cLead  > -1 ? String(hit[cLead]  || '') : '',
         avail: cAvail > -1 ? String(hit[cAvail] || '').slice(0, 120) : '',
         notes: cNote  > -1 ? String(hit[cNote]  || '').slice(0, 500) : ''
@@ -1246,9 +1756,14 @@ function dispatch(action, payload, email, role, id) {
          runs past its limit gets killed with nothing saved. Twenty a run, the
          rest next time, and the caller is told how many are left. */
       var PUSH_MAX = 20, started = new Date().getTime();
+      /* An officer adding one event sends just that one; the rest wait for
+         an explicit Connect & refresh, so nothing is pushed by surprise. */
+      var pushOnly = (payload || {}).pushOnly;
+      pushOnly = Array.isArray(pushOnly) ? pushOnly.map(String) : null;
       for (var pi = 0; pi < incoming.length; pi++) {
         var ev = incoming[pi];
-        if (ev.gid) continue;
+        if (ev.gid || ev.pulled) continue;
+        if (pushOnly && pushOnly.indexOf(String(ev.id)) < 0) continue;
         if (pushed >= PUSH_MAX || (new Date().getTime() - started) > 60000) { remaining++; continue; }
         var w = whenOf(ev);
         if (!w) continue;
@@ -1275,41 +1790,21 @@ function dispatch(action, payload, email, role, id) {
         } catch (e) {}
       }
 
-      /* Back, over a window narrow enough to stay quick. */
-      var from = new Date(); from.setDate(from.getDate() - 14);
-      var to   = new Date(); to.setDate(to.getDate() + 120);
-      var tz = Session.getScriptTimeZone();
-      try {
-        cal.getEvents(from, to).forEach(function (gev) {
-          var gid = gev.getId(), st = gev.getStartTime();
-          var day = Utilities.formatDate(st, tz, 'yyyy-MM-dd');
-          if (byGid[gid + '|' + day]) return;
-          byGid[gid + '|' + day] = true;
-          var title = String(gev.getTitle() || 'Event').slice(0, 80);
-          /* A meeting link is not a place, and members should not be handed
-             one from an officer's calendar. */
-          var where = String(gev.getLocation() || '');
-          if (/^https?:|teams\.microsoft|zoom\.us|meet\.google/i.test(where)) where = 'Online';
-          var row = {
-            id: 'g' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(
-              Utilities.DigestAlgorithm.MD5, gid + '|' + day)).replace(/[^a-z0-9]/gi, '').slice(0, 14),
-            title: title, date: day,
-            time: gev.isAllDayEvent() ? '' : Utilities.formatDate(st, tz, 'h:mm a').toLowerCase(),
-            where: where.slice(0, 60),
-            cat: 'meet', gid: gid, pulled: true
-          };
-          if (cCfg.gcalLinked && !memberFacing_(title)) row.ebod = true;
-          incoming.push(row);
-          pulled++;
-        });
-      } catch (e) {}
-
-      cCfg.events = incoming;
+      /* The club record keeps only the page's own events. Everything else on
+         the calendar is read back into its own store (see refreshGcal_), shared
+         with members unless an officer has hidden it. Older versions kept
+         those on the club record, marked pulled; they are dropped here. */
+      var own = incoming.filter(function (ev) { return !ev.pulled; });
+      cCfg.events = own;
       saveCfg();
+      var gNow = {}, gErr = '';
+      try { gNow = refreshGcal_(aff, cCfg, true); gErr = gNow.error || ''; }
+      catch (e) { gErr = String(e.message || e); }
+      pulled = (gNow.events || []).length;
 
-      return {ok: true, events: incoming, pushed: pushed, pulled: pulled, adopted: adopted, remaining: remaining,
-              calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '', linked: !!cCfg.gcalLinked,
-              sharedWith: calOwner, shareError: calShareErr};
+      return {ok: true, events: own, gcal: gcalFor_(gNow, cCfg, role), pushed: pushed, pulled: pulled, adopted: adopted,
+              remaining: remaining, calendarId: cCfg.gcalId, calendarUrl: cCfg.gcalUrl || '', linked: !!cCfg.gcalLinked,
+              sharedWith: calOwner, shareError: calShareErr || gErr};
     }
 
     /* ---- handing in work ----
@@ -1365,6 +1860,17 @@ function dispatch(action, payload, email, role, id) {
         return {ok: false, error: 'That kind of file is not accepted. Use a PDF, a document, a spreadsheet, or an image.'};
       if (swMime && ALLOW[ext].indexOf(swMime.split(';')[0].trim().toLowerCase()) < 0)
         return {ok: false, error: 'That file says it is a ' + swMime + ' but is named .' + ext + '.'};
+      /* The name and the declared type are both the sender's say-so. The
+         bytes are checked too, so a web page or a program renamed to .pdf is
+         refused, and the file is stored with the type its extension implies
+         rather than whatever the browser claimed. */
+      var swBytes;
+      try { swBytes = Utilities.base64Decode(swData); }
+      catch (e) { return {ok: false, error: 'That file did not arrive intact. Try again.'}; }
+      if (!swBytes.length) return {ok: false, error: 'That file is empty.'};
+      if (!looksLike_(ext, swBytes))
+        return {ok: false, error: 'That file is not really a .' + ext + ' file. Save it again as one and hand it in.'};
+      swMime = ALLOW[ext][0];
       /* Rebuilt from the parts rather than trusting the string: no directory
          separators, no leading dots, no control characters, bounded length. */
       var stem = bits.join('.').replace(/[^A-Za-z0-9 _-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -1415,18 +1921,33 @@ function dispatch(action, payload, email, role, id) {
       var root = folderUnder(null, clubName + ' — handed in');
       var f3 = folderUnder(folderUnder(folderUnder(root, taskFolder), myOrg), myName);
 
+      /* The file itself goes in the member's own folder, under this
+         assignment, where they can open it; the officers' tree gets a
+         shortcut to it. If the member folder cannot be reached the file
+         still lands in the officers' tree, as it always did. */
+      var dest = f3, inMine = false;
+      try { dest = workFolderFor_(aff, wCfg, acctFor_(aff, email, id), swId).folder; inMine = true; }
+      catch (e) { dest = f3; }
+
       var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmm');
       var file;
       try {
-        var blob = Utilities.newBlob(Utilities.base64Decode(swData), swMime || 'application/octet-stream',
-                                     stamp + ' ' + safeName);
-        file = f3.createFile(blob);
+        var blob = Utilities.newBlob(swBytes, swMime, stamp + ' ' + safeName);
+        file = dest.createFile(blob);
       } catch (e) {
         return {ok: false, error: 'That file could not be saved: ' + e.message};
       }
+      if (inMine) { try { f3.createShortcut(file.getId()); } catch (e) {} }
       /* The replaced file goes to the bin rather than being erased, so an
-         officer can recover a version a member overwrote by accident. */
-      if (prevFile) { try { DriveApp.getFileById(prevFile).setTrashed(true); } catch (e) {} }
+         officer can recover a version a member overwrote by accident. Its
+         shortcut goes with it, so officers are not left with a dead link. */
+      if (prevFile) {
+        try { DriveApp.getFileById(prevFile).setTrashed(true); } catch (e) {}
+        try {
+          var scs = f3.getFilesByType('application/vnd.google-apps.shortcut');
+          while (scs.hasNext()) { var sc = scs.next(); if (sc.getTargetId() === prevFile) sc.setTrashed(true); }
+        } catch (e) {}
+      }
       try { if (wCfg.ownerEmail) root.addEditor(wCfg.ownerEmail); } catch (e) {}
 
       var now = new Date(), rev = prevRev ? prevRev + 1 : 1;
@@ -1445,7 +1966,7 @@ function dispatch(action, payload, email, role, id) {
       if (mine > 0) shS.getRange(mine, 1, 1, row.length).setValues([row]);
       else shS.appendRow(row);
 
-      return {ok: true, filed: task + ' / ' + myOrg + ' / ' + myName,
+      return {ok: true, filed: inMine ? 'the club Drive, under ' + myName + ' / ' + task : task + ' / ' + myOrg + ' / ' + myName,
               fileId: file.getId(), revision: rev, replaced: rev > 1};
     }
 
@@ -1509,7 +2030,31 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, status: rvS, points: awarded};
     }
 
-    /* A signed-in Google address that has not joined a club yet.    /* A signed-in Google address that has not joined a club yet. Same join
+    /* Check off many hand-ins to one assignment at once ("everything that came
+       in on time"). One call instead of one per member -- seventy-nine of them
+       took minutes. No points: those are given one at a time, on purpose. */
+    case 'reviewSubmissions': {
+      var bW = String((payload || {}).workId || '');
+      var bNames = ((payload || {}).names || []).slice(0, 500);
+      if (!bW || !bNames.length) return {ok: false, error: 'Nothing to check off.'};
+      var flatB = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var want = {}; bNames.forEach(function (n) { want[flatB(n)] = 1; });
+      var shB = tab('submissions'), vB = shB.getDataRange().getValues();
+      var iB = {}; for (var cB = 0; cB < vB[0].length; cB++) iB[String(vB[0][cB])] = cB;
+      var nowB = new Date(), doneB = 0;
+      for (var rb = 1; rb < vB.length; rb++) {
+        if (normAff(vB[rb][iB.Affiliation]) !== aff) continue;
+        if (String(vB[rb][iB.WorkId]) !== bW) continue;
+        if (!want[flatB(vB[rb][iB.MemberName])]) continue;
+        if (String(vB[rb][iB.Status]) === 'checked') continue;
+        vB[rb][iB.Status] = 'checked'; vB[rb][iB.ReviewedBy] = email; vB[rb][iB.ReviewedAt] = nowB;
+        doneB++;
+      }
+      if (doneB) shB.getRange(1, 1, vB.length, vB[0].length).setValues(vB);
+      return {ok: true, checked: doneB};
+    }
+
+    /* A signed-in Google address that has not joined a club yet. Same join
        code rule as sign-up, and always as a member. */
     case 'joinAffiliation': {
       var ja = findAff((payload || {}).affiliation);
@@ -1523,7 +2068,13 @@ function dispatch(action, payload, email, role, id) {
       var already = affForEmail(email);
       if (already) return {ok: false, error: 'You are already in ' + already.aff + '.'};
       tab('roles').appendRow([email, 'member', 'self join', new Date(), ja.code]);
-      return {ok: true, joined: ja.code, name: ja.name};
+      bumpShared_(ja.code);
+      /* The page used to ask for everything again right after joining; it
+         rides along instead, one round trip fewer for a new member. */
+      var jAll = null;
+      try { jAll = dispatch('getAll', null, email, 'member',
+                            {who: email, role: 'member', via: 'google', aff: ja.code, name: id.name}); } catch (e) {}
+      return {ok: true, joined: ja.code, name: ja.name, all: jAll};
     }
 
     /* Renaming a club or rotating its join code, without touching its data. */
@@ -1566,16 +2117,21 @@ function dispatch(action, payload, email, role, id) {
 
     case 'saveProfile': {
       var pE = String(email).toLowerCase();
-      var pf = String((payload || {}).firstName || '').trim();
-      var pl = String((payload || {}).lastName || '').trim();
+      var pf = capName_((payload || {}).firstName);
+      var pl = capName_((payload || {}).lastName);
       var ph = String((payload || {}).photo || '');
       if (ph === 'none') ph = ' ';   /* explicit clear */
       if (ph.length > 200000) return {ok: false, error: 'That picture is too large.'};
+      /* Shown to everyone who opens this member's card, so only an inline
+         picture is kept. A web address here would load from somewhere else
+         every time an officer looked at them, telling that site who and when. */
+      if (ph && ph !== ' ' && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/]+=*$/.test(ph))
+        return {ok: false, error: 'That picture could not be used. Choose a JPEG or PNG.'};
       var shP = tab('profiles'), vP = shP.getDataRange().getValues();
       var idxP = {}; for (var c0 = 0; c0 < vP[0].length; c0++) idxP[String(vP[0][c0])] = c0;
       for (var i0 = 1; i0 < vP.length; i0++) {
         if (String(vP[i0][idxP.Email]).toLowerCase() !== pE) continue;
-        if (String(vP[i0][idxP.Affiliation]).toLowerCase() !== aff) continue;
+        if (normAff(vP[i0][idxP.Affiliation]) !== aff) continue;
         if (pf) shP.getRange(i0 + 1, idxP.FirstName + 1).setValue(pf);
         if (pl) shP.getRange(i0 + 1, idxP.LastName + 1).setValue(pl);
         if (ph) shP.getRange(i0 + 1, idxP.Photo + 1).setValue(ph);
@@ -1586,7 +2142,7 @@ function dispatch(action, payload, email, role, id) {
         if (pay.track !== undefined && idxP.Track !== undefined)
           shP.getRange(i0 + 1, idxP.Track + 1).setValue(String(pay.track).slice(0, 40));
         if (pay.mbti !== undefined && idxP.MBTI !== undefined)
-          shP.getRange(i0 + 1, idxP.MBTI + 1).setValue(String(pay.mbti).toUpperCase().slice(0, 4));
+          shP.getRange(i0 + 1, idxP.MBTI + 1).setValue(fmtMbti_(pay.mbti));
         if (pay.notes !== undefined && idxP.FormNotes !== undefined)
           shP.getRange(i0 + 1, idxP.FormNotes + 1).setValue(String(pay.notes).slice(0, 300));
         if (pay.bday !== undefined && idxP.Birthday !== undefined)
@@ -1608,6 +2164,16 @@ function dispatch(action, payload, email, role, id) {
       rowP[idxP.Email] = pE; rowP[idxP.Affiliation] = aff;
       rowP[idxP.FirstName] = pf; rowP[idxP.LastName] = pl; rowP[idxP.Photo] = ph;
       var pay0 = payload || {};
+      /* The same member-owned fields the update above writes. A first save
+         used to keep only the name and photo and still answer "saved". */
+      if (pay0.track !== undefined && idxP.Track !== undefined)
+        rowP[idxP.Track] = String(pay0.track).slice(0, 40);
+      if (pay0.mbti !== undefined && idxP.MBTI !== undefined)
+        rowP[idxP.MBTI] = fmtMbti_(pay0.mbti);
+      if (pay0.notes !== undefined && idxP.FormNotes !== undefined)
+        rowP[idxP.FormNotes] = String(pay0.notes).slice(0, 300);
+      if (pay0.bday !== undefined && idxP.Birthday !== undefined)
+        rowP[idxP.Birthday] = String(pay0.bday).slice(0, 10);
       if (pay0.availability !== undefined && idxP.Availability !== undefined)
         rowP[idxP.Availability] = String(pay0.availability).slice(0, 120);
       if (pay0.prefs !== undefined && idxP.Prefs !== undefined) {
@@ -1638,7 +2204,7 @@ function dispatch(action, payload, email, role, id) {
       tab('users').appendRow([mE, msalt, ss2, hashDk(mdk, ss2),
         Number((payload || {}).iterations) || PBKDF2_ITERS, role, 0, '',
         'linked from Google', new Date(), aff,
-        String((payload || {}).firstName || ''), String((payload || {}).lastName || ''), mE]);
+        capName_((payload || {}).firstName), capName_((payload || {}).lastName), mE]);
       return {ok: true, created: true};
     }
 
@@ -1664,7 +2230,11 @@ function dispatch(action, payload, email, role, id) {
                 member: {name: ((acct.first || '') + ' ' + (acct.last || '')).trim() || acct.who,
                          email: (RANK[role] >= RANK.admin || selfA) ? (acct.email || acct.who) : '',
                          org: '', track: '', mbti: '', lead: '', notes: '',
-                         role: acct.role, joined: acct.joined, kind: acct.kind,
+                         /* How someone signs in, their role and when they joined
+                            are account details: officers and the member only. */
+                         role: (RANK[role] >= RANK.admin || selfA) ? acct.role : '',
+                         joined: (RANK[role] >= RANK.admin || selfA) ? acct.joined : '',
+                         kind: (RANK[role] >= RANK.admin || selfA) ? acct.kind : '',
                          points: null, entries: null, photo: acct.photo || null}};
       }
       var self = flatN(id.name || email) === want;
@@ -1691,6 +2261,9 @@ function dispatch(action, payload, email, role, id) {
        copying field ids by hand. */
     case 'formSchema': {
       var furl = String((payload || {}).formUrl || '');
+      /* Officers check any form they are about to link. A member only ever
+         reads their own club's, so the script cannot be pointed elsewhere. */
+      if (RANK[role] < RANK.admin) furl = String(clubCfg_(aff).formUrl || '');
       if (!/^https:\/\/docs\.google\.com\/forms\//.test(furl))
         return {ok: false, error: 'That is not a Google Forms link.'};
       var viewUrl = furl.replace(/\/edit.*$/, '/viewform').replace(/\?.*$/, '');
@@ -1718,16 +2291,33 @@ function dispatch(action, payload, email, role, id) {
     }
 
     case 'submitForm': {
-      var act = String((payload || {}).action || '');
+      /* Posted only to this club's own form, worked out here rather than
+         taken from the page -- otherwise any signed-in member could have the
+         club's script post answers into any Google Form at all. */
+      var act = formAction_(clubCfg_(aff).formUrl);
+      if (!act) return {ok: false, error: 'This club has no sign-up form linked.'};
       if (!/^https:\/\/docs\.google\.com\/forms\/.*formResponse$/.test(act))
         return {ok: false, error: 'Bad form target.'};
-      var body2 = (payload || {}).answers || {};
+      /* Only question fields, as bounded text, go through to Google. */
+      var raw2 = (payload || {}).answers || {}, body2 = {};
+      Object.keys(raw2).slice(0, 80).forEach(function (k) {
+        if (!/^entry\.\d+$/.test(k)) return;
+        var v = raw2[k];
+        body2[k] = Array.isArray(v) ? v.slice(0, 30).map(function (x) { return String(x).slice(0, 500); })
+                                    : String(v == null ? '' : v).slice(0, 3000);
+      });
       var r2 = UrlFetchApp.fetch(act, {method: 'post', payload: body2,
                                        muteHttpExceptions: true, followRedirects: true});
       var code = r2.getResponseCode();
-      return (code === 200 || code === 302)
-        ? {ok: true, submitted: true}
-        : {ok: false, error: 'The form rejected that (HTTP ' + code + ').'};
+      if (code !== 200 && code !== 302)
+        return {ok: false, error: 'The form rejected that (HTTP ' + code + ').'};
+      /* Filed on the account straight away. The page holds a member at the
+         form until their profile says it was sent, and reading it back from
+         the club's response sheet can fail (no sheet linked, a name that does
+         not match), which would ask them again on every other device. What
+         the sheet says, once read back, still replaces these. */
+      try { stampFormSent_(aff, email, (payload || {}).summary || {}); } catch (e) {}
+      return {ok: true, submitted: true};
     }
 
     /* Every account on the system, with the club it belongs to. Master only,
@@ -1815,6 +2405,10 @@ function dispatch(action, payload, email, role, id) {
        only to the caller. Nothing is read from or written to the club being
        left behind. */
     case 'forkClub': {
+      /* An admin's identity is pinned to the club they joined, so every write
+         after the fork still landed in the old club -- replacing its teams and
+         renaming it. Only master can be pointed at a different club. */
+      if (RANK[role] < RANK.master) return {ok: false, error: 'Only the master account can start a new club.'};
       var fc = normAff((payload || {}).code);
       var fn = String((payload || {}).name || '').trim();
       var fj = String((payload || {}).joinCode || '').trim();
@@ -2149,7 +2743,12 @@ function dispatch(action, payload, email, role, id) {
       if (!TEAMREQ_KINDS[kind]) return {ok: false, error: 'Pick what kind of team this is.'};
       var clip = function (v, n) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').trim().slice(0, n); };
       var target = clip(tq.target, 60), tname = clip(tq.name, 60), note = clip(tq.note, 200);
-      var byName = clip(tq.me, 60) || String(id.name || email);
+      /* The name they registered with. A Google account with no name on it
+         reports its address as the name, and that is what officers ended up
+         reading on the request and on the team. */
+      var meClip = clip(tq.me, 60);
+      var byName = profileName_(aff, email) || (meClip && meClip.indexOf('@') < 0 ? meClip : '') ||
+        (String(id.name || '').indexOf('@') < 0 ? String(id.name || '') : '') || String(email).split('@')[0];
       if (kind !== 'other' && !target) return {ok: false, error: kind === 'flc' ? 'Pick the event.' : 'Pick the client.'};
       var seen = {}, mem = [byName].concat(tq.members || []).map(function (m) { return clip(m, 60); })
         .filter(function (m) { var k = m.toLowerCase().replace(/[^a-z]/g, ''); if (!k || seen[k]) return false; seen[k] = 1; return true; });
@@ -2181,6 +2780,20 @@ function dispatch(action, payload, email, role, id) {
       });
     }
 
+    /* Officers delete a request outright -- any status -- or every request
+       that became a team they have just deleted, so nobody is left looking at
+       "Approved" for a team that no longer exists. */
+    case 'deleteTeamRequest': {
+      var dq = payload || {}, dId = String(dq.id || ''), dTeam = String(dq.teamId || '');
+      if (!dId && !dTeam) return {ok: false, error: 'Which request?'};
+      return withLock_(function () {
+        var list = readReqs_(aff), n = list.length;
+        list = list.filter(function (r) { return !((dId && r.id === dId) || (dTeam && r.teamId === dTeam)); });
+        if (list.length !== n) writeReqs_(aff, list);
+        return {ok: true, deleted: n - list.length};
+      });
+    }
+
     /* Officers see every request. A member sees the ones they sent and the
        ones that list them, so they know when someone has put them on a team. */
     case 'listTeamRequests': {
@@ -2188,13 +2801,63 @@ function dispatch(action, payload, email, role, id) {
       if (RANK[role] >= RANK.admin) return {ok: true, requests: all};
       var whoL = String(email).toLowerCase();
       var flatN = function (x) { return String(x || '').toLowerCase().replace(/[^a-z]/g, ''); };
-      var meN = flatN((payload || {}).me || id.name || '');
+      /* Matched on who they signed in as. A name in the payload let a member
+         list every request naming somebody else. */
+      var meN = flatN(id.name || '');
       return {ok: true, requests: all.filter(function (r) {
         return r.by === whoL || (meN && (r.members || []).some(function (m) { return flatN(m) === meN; }));
       }).map(function (r) {
         var c = {}; for (var k in r) if (k !== 'by') c[k] = r[k];
         c.mine = r.by === whoL; return c;
       })};
+    }
+
+    /* Officers change who is on a request -- before approving it, or after,
+       when the team it became changes. The page updates the team itself;
+       this keeps the request members see in step with it. */
+    case 'editTeamRequest': {
+      var ed = payload || {}, eid = String(ed.id || '');
+      var clipE = function (v) { return String(v || '').replace(/[<>\u0000-\u001F]/g, '').trim().slice(0, 60); };
+      return withLock_(function () {
+        var list = readReqs_(aff), hit = null;
+        list.forEach(function (r) { if (r.id === eid) hit = r; });
+        if (!hit) return {ok: false, error: 'That request was withdrawn.'};
+        var seenE = {}, mem = (ed.members || []).map(clipE).filter(function (m) {
+          var k = m.toLowerCase().replace(/[^a-z]/g, ''); if (!k || seenE[k]) return false; seenE[k] = 1; return true; });
+        if (!mem.length) return {ok: false, error: 'A team needs at least one member.'};
+        if (mem.length > TEAMREQ_KINDS[hit.kind]) return {ok: false, error: 'This kind of team takes up to ' + TEAMREQ_KINDS[hit.kind] + '.'};
+        hit.members = mem;
+        /* Officers can rename a request, or point it at another event or
+           client, where it sits. Only what was sent is changed. */
+        if (ed.name !== undefined) hit.name = clipE(ed.name);
+        if (ed.target) hit.target = clipE(ed.target);
+        hit.editedBy = String(email); hit.editedAt = new Date().toISOString();
+        writeReqs_(aff, list);
+        return {ok: true, request: hit};
+      });
+    }
+
+    /* Lays out member Drive folders for the whole club, as far as the time
+       allows; the page calls again until nothing is left. */
+    case 'syncMemberDrives': {
+      var lockD = docLock_();
+      if (!lockD.tryLock(5000)) return {ok: false, error: 'Another officer is setting up folders right now. Try again in a minute.'};
+      try { return syncDrivesFor_(aff, Math.min(Number((payload || {}).budgetMs) || 40000, 240000)); }
+      finally { lockD.releaseLock(); }
+    }
+
+    /* A member's own folder, made the first time they open the page. */
+    case 'ensureMyDrive': {
+      var lockM = docLock_();
+      if (!lockM.tryLock(8000)) return {ok: false, error: 'busy'};
+      try {
+        var mCfg = null; readTab('config').forEach(function (r) { if (String(r.Key) === 'club:' + aff) { try { mCfg = JSON.parse(r.Value); } catch (e) {} } });
+        var md = readDrive_(aff);
+        ensureMemberDrive_(aff, mCfg || {}, md, acctFor_(aff, email, id), rosterIndex_(aff));
+        writeDrive_(aff, md);
+        /* No link back: the folder is the officers', not shared with the member. */
+        return {ok: true};
+      } finally { lockM.releaseLock(); }
     }
 
     case 'reviewTeamRequest': {
@@ -2214,40 +2877,82 @@ function dispatch(action, payload, email, role, id) {
     }
 
     case 'getAll': {
-      /* The club's vocabulary lives in the sheet too, so a second officer
-         opening the page sees the same words as the officer who set them
-         rather than falling back to the defaults. */
-      var key = 'club:' + aff, cfg = null;
-      readTab('config').forEach(function (r) {
-        if (String(r.Key) === key) { try { cfg = JSON.parse(r.Value); } catch (e) {} }
-      });
-      /* This carries everything whoami answers as well, so signing in is one
-         round trip rather than two. Apps Script costs about a second per call
-         plus a redirect, and that second call was pure latency. */
+      /* Everything the club looks like, shared by every caller and read
+         through the short-lived cache above. */
+      var sh = clubSnapshot_(aff);
+      var cfg = sh.cfg, me = String(email).toLowerCase();
+      var officer = RANK[role] >= RANK.admin, meRow = id.name || email;
+      var myP = meBits_(aff, me);
+      /* What the page used to ask for in three more calls after this one --
+         whether the sign-up form is in, the member's FLC choices, and the
+         team requests that involve them -- rides along, so a member's page is
+         ready after one round trip instead of two. */
+      var meN = String(id.name || '').toLowerCase().replace(/[^a-z]/g, '');
+      var myReqs = officer ? sh.reqs : sh.reqs.filter(function (r) {
+        return r.by === me || (meN && (r.members || []).some(function (m) {
+          return String(m).toLowerCase().replace(/[^a-z]/g, '') === meN; }));
+      }).map(function (r) { var c = {}; for (var k in r) if (k !== 'by') c[k] = r[k]; c.mine = r.by === me; return c; });
       return {
+        /* Whether this person's folder exists yet; the page asks for it in the
+           background if not. No link: members are not given access. */
+        myDriveReady: !!sh.drive[me],
+        gcal:        gcalFor_(sh.gcal, cfg, role),
+        /* Opens the members' calendar feed (see doGet). */
+        calFeedKey:  feedKey_(aff),
+        memberNames: sh.memberNames,
         ok: true, role: role, email: email, name: id.name || email, via: id.via,
-        config: RANK[role] >= RANK.admin ? cfg : memberCfg_(cfg),
-        aff: aff, affName: (findAff(aff) || {}).name || aff,
+        config: officer ? cfg : memberCfg_(cfg, id.name || email),
+        aff: aff, affName: sh.affName,
         needsAff: !!id.needsAff,
         affiliations: id.isRoot ? allAffiliations().map(function (a) {
           return {code: a.code, name: a.name}; }) : null,
-        teamBoard:  teamBoard_(aff, cfg),
-        orgBoard:   orgBoard_(aff, cfg),
-        roster:     readTab('roster'),
-        teams:      readScoped('teams', aff),
-        pointsLog:  readScoped('pointsLog', aff),
-        attendance: readScoped('attendance', aff)
+        teamBoard:  sh.teamBoard,
+        orgBoard:   sh.orgBoard,
+        me: {formSent: !!myP.formAt, prefs: myP.prefs || '', requests: myReqs},
+        /* The raw form-responses tab used to ride along here, for every club,
+           to any signed-in member. Nothing in the page read it; officers get
+           the roster they need from clubRoster, scoped to their own club. */
+        teams:      officer ? sh.teams : memberRows_('teams', sh.teams, meRow),
+        pointsLog:  officer ? sh.pointsLog : memberRows_('pointsLog', sh.pointsLog, meRow),
+        attendance: officer ? sh.attendance : memberRows_('attendance', sh.attendance, meRow)
       };
     }
 
     case 'setConfig': {
       var ckey = 'club:' + aff;
-      var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), json = JSON.stringify(payload || {});
-      for (var q = 1; q < v0.length; q++) {
-        if (String(v0[q][0]) === ckey) { sh0.getRange(q + 1, 2).setValue(json); return {ok: true, saved: true}; }
+      var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), next = payload || {};
+      /* Two officers saving at once used to cost one of them their change:
+         each save replaced the whole club. A page now sends only what it
+         changed -- whole values for most settings, and item by item for the
+         lists of things with ids (teams, rooms, cups, assignments, events) --
+         and it is merged into what is stored, under the write lock. */
+      if (next.__patch) {
+        var base0 = {};
+        for (var qp = 1; qp < v0.length; qp++) if (String(v0[qp][0]) === ckey) { try { base0 = JSON.parse(v0[qp][1]) || {}; } catch (e) {} }
+        next = applyCfgPatch_(base0, next);
       }
+      for (var q = 1; q < v0.length; q++) {
+        if (String(v0[q][0]) === ckey) {
+          /* The browser saves the whole club, but only the server ever learns
+             the file ids of a form it made. A save that does not carry them
+             would otherwise drop them, and the in-app form editor with them.
+             They are kept only while the form is still the same one. */
+          var prev0 = {};
+          try { prev0 = JSON.parse(v0[q][1]) || {}; } catch (e) {}
+          if (prev0.formUrl && next.formUrl === prev0.formUrl) {
+            ['formId', 'sheetId'].forEach(function (k) {
+              if (next[k] === undefined && prev0[k]) next[k] = prev0[k];
+            });
+          }
+          sh0.getRange(q + 1, 2).setValue(JSON.stringify(next));
+          /* The merged result goes back, so this page shows what the others
+             saved too, straight away. */
+          return {ok: true, saved: true, cfg: next};
+        }
+      }
+      var json = JSON.stringify(next);
       sh0.appendRow([ckey, json]);
-      return {ok: true, saved: true};
+      return {ok: true, saved: true, cfg: next};
     }
 
     /* An Org Lead runs their own Org, and naming it is the one piece of that
@@ -2295,11 +3000,37 @@ function dispatch(action, payload, email, role, id) {
       /* Replaces only this club's rows. Clearing the whole sheet would delete
          every other affiliation's roster, so the surviving rows are read
          first and written back alongside the new ones. */
-      var sh = tab('teams'), cols = TAB.teams.cols;
-      var others = readTab('teams').filter(function (r) {
+      var sh = tab('teams'), cols = TAB.teams.cols, allT = readTab('teams');
+      var others = allT.filter(function (r) {
         return String(r.Affiliation || DEFAULT_AFF).toLowerCase() !== aff;
       });
-      var mine = (payload || []).map(function (r) { r.Affiliation = aff; return r; });
+      /* Moving one member, or renaming an Org, sends only the rows that
+         changed, each with what it looked like when that page read it. Two
+         officers rearranging at once then both keep their moves. A new
+         draft still sends every row and replaces the club's roster. */
+      if (payload && payload.__patch) {
+        var flatT = function (n) { return String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+        var cur = allT.filter(function (r) { return String(r.Affiliation || DEFAULT_AFF).toLowerCase() === aff; });
+        var byN = {}, order = [];
+        cur.forEach(function (r) { var k = flatT(r.MemberName); if (k && !byN[k]) { byN[k] = r; order.push(k); } });
+        (payload.rm || []).forEach(function (n) { delete byN[flatT(n)]; });
+        (payload.up || []).forEach(function (u) {
+          var row = u && u.row; if (!row || !row.MemberName) return;
+          var k = flatT(row.MemberName), was = u.was, have = byN[k];
+          if (!have) { byN[k] = row; order.push(k); return; }
+          Object.keys(row).forEach(function (f) {
+            if (was && String(row[f] === undefined ? '' : row[f]) === String(was[f] === undefined ? '' : was[f])) return;
+            have[f] = row[f];
+          });
+        });
+        payload = order.filter(function (k) { return byN[k]; }).map(function (k) { return byN[k]; });
+      }
+      var mine = (payload || []).map(function (r) {
+        r.Affiliation = aff;
+        if (r.MemberName) r.MemberName = capName_(r.MemberName);
+        if (r.MBTI) r.MBTI = fmtMbti_(r.MBTI);
+        return r;
+      });
       sh.clear();
       sh.getRange(1, 1, 1, cols.length).setValues([cols]);
       sh.setFrozenRows(1);
@@ -2473,9 +3204,430 @@ function applyFormItem_(item, type, title, help, required, options) {
    allows two folders with the same name in one place, so an existing one is
    always reused rather than a second being made every submission. */
 function folderUnder(parent, name) {
-  var it = parent ? parent.getFoldersByName(name) : DriveApp.getFoldersByName(name);
+  /* Searched rather than listed by name: getFoldersByName also returns
+     folders in the bin, and at the root DriveApp.getFoldersByName searches
+     everything shared with this account too, so a club could file work into a
+     trashed folder or one somebody else owns. */
+  var p = parent || DriveApp.getRootFolder();
+  var q = 'title = "' + String(name).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '" and trashed = false';
+  var it = p.searchFolders(q);
   if (it.hasNext()) return it.next();
-  return parent ? parent.createFolder(name) : DriveApp.createFolder(name);
+  return p.createFolder(name);
+}
+
+/* ================= MEMBER DRIVE FOLDERS =================
+   Every member gets one folder in the club's Drive with a subfolder for each
+   assignment set for them, and their hand-ins are filed there. The folders
+   are for officers: they are not shared with members (EBOD's decision), who
+   keep handing in through the page. Officers also keep their usual tree,
+   "<club> — handed in / assignment / Org / name", which now holds a shortcut
+   to each file.
+
+   The map of who has which folder lives under its own Config row
+   ("drive:<club>"), kept small: one folder id and a stamp of which
+   assignments were last laid out, per member. */
+var MEMBER_ROOT_SUFFIX = ' — member folders';
+var WORK_TAG = 'Org System assignment: ';
+function readDrive_(aff) {
+  var r = cfgRow_('drive:' + aff), d;
+  try { d = JSON.parse(r.val || '{}') || {}; } catch (e) { d = {}; }
+  /* The folders belong to whichever account runs this script. When that
+     changes (the club moved the backend to its own account), a tree owned by
+     the old account is left where it is and a fresh one is laid out in the
+     new account's Drive. Checked once every few hours, not on every call. */
+  if (d.root) {
+    var cache = CacheService.getScriptCache(), ck = 'drootok:' + d.root;
+    if (!cache.get(ck)) {
+      var mine = false;
+      try {
+        var rf = DriveApp.getFolderById(d.root);
+        mine = !rf.isTrashed() && rf.getOwner() && rf.getOwner().getEmail() === myDriveEmail_();
+      } catch (e) { mine = false; }
+      if (mine) cache.put(ck, '1', 6 * 3600);
+      else d = {movedFrom: d.root};
+    }
+  }
+  return d;
+}
+var MY_DRIVE_EMAIL_ = '';
+function myDriveEmail_() {
+  if (!MY_DRIVE_EMAIL_) { try { MY_DRIVE_EMAIL_ = DriveApp.getRootFolder().getOwner().getEmail(); } catch (e) { MY_DRIVE_EMAIL_ = ''; } }
+  return MY_DRIVE_EMAIL_;
+}
+function writeDrive_(aff, d) {
+  var r = cfgRow_('drive:' + aff), j = JSON.stringify(d);
+  if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow(['drive:' + aff, j]);
+}
+function flatName_(x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+/* Every word of a name starts with a capital, after a hyphen or apostrophe
+   too; the rest stays as typed ("mary-jane o'neil" -> "Mary-Jane O'Neil"). */
+function capName_(v) {
+  return String(v == null ? '' : v).replace(/\s+/g, ' ').trim()
+    .replace(/(^|[\s\-'\u2019])([a-z\u00df-\u00ff])/g, function (m, a, b) { return a + b.toUpperCase(); });
+}
+/* A personality type in capitals: a proper four letters pulled out of
+   whatever surrounds them ("enfp-t" -> "ENFP"), else just upper-cased. */
+function fmtMbti_(v) {
+  var u = String(v == null ? '' : v).toUpperCase().replace(/[^A-Z]/g, '');
+  var m = u.match(/[EI][SN][TF][JP]/);
+  return m ? m[0] : u.slice(0, 4);
+}
+function folderUrl_(id) { return 'https://drive.google.com/drive/folders/' + id; }
+function safeFolderName_(x) { return String(x || '').replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').trim().slice(0, 90) || 'Untitled'; }
+/* The assignments a member should see: everyone's, their Org's, their teams'. */
+function workForMember_(cfg, rosterName, orgLabel) {
+  var n = flatName_(rosterName);
+  return (cfg.work || []).filter(function (w) {
+    if (!w || !w.id) return false;
+    if (w.team && w.team !== 'all') {
+      var t = (cfg.teams || []).filter(function (x) { return x.id === w.team; })[0];
+      return !!t && (t.members || []).some(function (m) { return flatName_(m) === n; });
+    }
+    if (w.org !== undefined && w.org !== null && w.org !== '' && w.org !== 'all')
+      return !!orgLabel && flatName_(w.orgName) === flatName_(orgLabel);
+    return true;
+  });
+}
+/* Changes when an assignment is added, removed, renamed or re-dated. */
+function workStamp_(list) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
+    list.map(function (w) { return w.id + ':' + w.title + ':' + (w.due || ''); }).sort().join('|'))).slice(0, 12);
+}
+/* The club roster rows (name and Org), for working out whose assignments are whose. */
+function rosterIndex_(aff) {
+  var idx = {};
+  readScoped('teams', aff).forEach(function (r) {
+    if (r.MemberName) idx[flatName_(r.MemberName)] = {name: String(r.MemberName), org: String(r.Org || '')};
+  });
+  return idx;
+}
+/* Makes sure one member's folder exists, is shared with them, and holds a
+   subfolder for each of their assignments (renaming ones whose title or due
+   date changed). Returns the map entry. Safe to call again: it only does what
+   is missing. */
+function ensureMemberDrive_(aff, cfg, d, acct, roster) {
+  var key = String(acct.email || acct.who || '').toLowerCase().trim();
+  if (!key) return null;
+  /* A real name when there is one: what they registered, else the name on
+     their Google account (only known when they themselves are signed in).
+     Failing both, the start of their address -- and a folder is never
+     renamed back to that from a real name. */
+  var realName = String(((acct.first || '') + ' ' + (acct.last || '')).trim() ||
+    (acct.name && String(acct.name).indexOf('@') < 0 ? acct.name : '')).slice(0, 60);
+  var display = realName || key.split('@')[0];
+  var rr = roster[flatName_(display)] || null;
+  var rosterName = rr ? rr.name : display;
+  d.members = d.members || {};
+  var e = d.members[key] || {};
+
+  if (!d.root) {
+    var clubName = (findAff(aff) || {}).name || aff;
+    var rootF = folderUnder(null, clubName + MEMBER_ROOT_SUFFIX);
+    d.root = rootF.getId();
+    try { if (cfg.ownerEmail) rootF.addEditor(cfg.ownerEmail); } catch (x) {}
+  }
+  var root = DriveApp.getFolderById(d.root);
+  var folder = null;
+  if (e.f) { try { folder = DriveApp.getFolderById(e.f); if (folder.isTrashed()) folder = null; } catch (x) { folder = null; } }
+  if (!folder) { folder = root.createFolder(safeFolderName_(rosterName)); e.f = folder.getId(); e.w = ''; }
+  else if (realName && folder.getName() !== safeFolderName_(rosterName)) { try { folder.setName(safeFolderName_(rosterName)); } catch (x) {} }
+
+  var list = workForMember_(cfg, rosterName, rr ? rr.org : '');
+  var stamp = workStamp_(list);
+  if (e.w !== stamp) {
+    var have = {};
+    var it = folder.getFolders();
+    while (it.hasNext()) {
+      var sub = it.next(), desc = String(sub.getDescription() || '');
+      var at = desc.indexOf(WORK_TAG);
+      if (at > -1) have[desc.slice(at + WORK_TAG.length).split(/\s/)[0]] = sub;
+    }
+    list.forEach(function (w) {
+      var nm = safeFolderName_((w.due ? 'Due ' + w.due + ' · ' : '') + w.title);
+      var sub = have[w.id];
+      if (!sub) {
+        sub = folder.createFolder(nm);
+        sub.setDescription((w.brief ? String(w.brief).slice(0, 900) + '\n\n' : '') + WORK_TAG + w.id);
+      } else if (sub.getName() !== nm) { try { sub.setName(nm); } catch (x) {} }
+    });
+    e.w = stamp;
+  }
+  e.n = rosterName; e.at = new Date().getTime();
+  d.members[key] = e;
+  return e;
+}
+/* Lays out folders for a whole club for up to budgetMs; reports what is left. */
+function syncDrivesFor_(aff, budgetMs) {
+  var t0 = new Date().getTime();
+  var dCfg = null; readTab('config').forEach(function (r) { if (String(r.Key) === 'club:' + aff) { try { dCfg = JSON.parse(r.Value); } catch (e) {} } });
+  dCfg = dCfg || {};
+  var dd = readDrive_(aff), roster = rosterIndex_(aff), accts = accountsFor(aff), seenA = {};
+  accts = accts.filter(function (u) { var k = String(u.email || u.who || '').toLowerCase(); if (!k || seenA[k]) return false; seenA[k] = 1; return true; });
+  var done = 0, left = 0, failed = [];
+  for (var ai = 0; ai < accts.length; ai++) {
+    if (new Date().getTime() - t0 > budgetMs) { left = accts.length - ai; break; }
+    try { ensureMemberDrive_(aff, dCfg, dd, accts[ai], roster); done++; }
+    catch (e) { failed.push(String(((accts[ai].first || '') + ' ' + (accts[ai].last || '')).trim() || accts[ai].email) + ': ' + String(e.message || e).slice(0, 120)); }
+    if (ai % 10 === 9) writeDrive_(aff, dd);      /* banked as it goes */
+  }
+  writeDrive_(aff, dd);
+  var mm = dd.members || {}, ks = Object.keys(mm);
+  return {ok: true, processed: done, remaining: left, failed: failed, total: accts.length,
+    folders: ks.length, rootUrl: dd.root ? folderUrl_(dd.root) : ''};
+}
+/* Records that this account sent the club's form, with the few answers the
+   page could pick out, on its Profiles row. Only empty cells are filled: the
+   read-back from the response sheet is the better source and wins. */
+function stampFormSent_(aff, email, sum) {
+  var e = String(email || '').toLowerCase();
+  var sh = tab('profiles'), v = sh.getDataRange().getValues(), ix = {};
+  for (var c = 0; c < v[0].length; c++) ix[String(v[0][c])] = c;
+  var clip = function (x, n) { return String(x || '').replace(/[<>\u0000-\u001F]/g, ' ').slice(0, n); };
+  var fill = {Year: clip(sum.year, 40), Track: clip(sum.track, 40),
+              MBTI: fmtMbti_(clip(sum.mbti, 40)),
+              Availability: clip(sum.avail, 120), FormNotes: clip(sum.notes, 500)};
+  for (var r = 1; r < v.length; r++) {
+    if (String(v[r][ix.Email]).toLowerCase() !== e) continue;
+    if (normAff(v[r][ix.Affiliation]) !== aff) continue;
+    Object.keys(fill).forEach(function (k) {
+      if (ix[k] !== undefined && fill[k] && !String(v[r][ix[k]] || '').trim())
+        sh.getRange(r + 1, ix[k] + 1).setValue(fill[k]);
+    });
+    if (ix.FormAt !== undefined) sh.getRange(r + 1, ix.FormAt + 1).setValue(new Date());
+    return;
+  }
+  var row = [];
+  for (var k2 = 0; k2 < v[0].length; k2++) row.push('');
+  row[ix.Email] = e; row[ix.Affiliation] = aff;
+  Object.keys(fill).forEach(function (k) { if (ix[k] !== undefined) row[ix[k]] = fill[k]; });
+  if (ix.FormAt !== undefined) row[ix.FormAt] = new Date();
+  sh.appendRow(row);
+}
+
+/* The Drive work below keeps a document lock so an editor run and a web
+   request cannot lay out the same folders at once. Apps Script can answer
+   null for a document lock inside a web app call, and calling tryLock on that
+   threw before any folder was made. Every web path here already runs under
+   doPost's script lock, so a stand-in that always succeeds is safe there. */
+function docLock_() {
+  var l = null;
+  try { l = LockService.getDocumentLock(); } catch (e) {}
+  return l || {tryLock: function () { return true; }, waitLock: function () {},
+               releaseLock: function () {}, hasLock: function () { return true; }};
+}
+
+/* Run from the editor to give every existing member of every club a folder
+   now, instead of waiting for each to open the app. Safe to run again: it
+   only does what is missing. Stops after about five minutes; run it again if
+   the log says some are left. */
+function setUpMemberFolders() {
+  var lock = docLock_();
+  if (!lock.tryLock(10000)) { Logger.log('Another run is going. Try again in a minute.'); return; }
+  try {
+    var t0 = new Date().getTime(), lines = [];
+    allAffiliations().forEach(function (a) {
+      var left = 300000 - (new Date().getTime() - t0);
+      if (left < 15000) { lines.push((a.name || a.code) + ': not reached, run again'); return; }
+      var r = syncDrivesFor_(normAff(a.code), left - 10000);
+      lines.push((a.name || a.code) + ': ' + r.folders + ' member folders' +
+        (r.remaining ? ', ' + r.remaining + ' left (run again)' : '') +
+        (r.failed.length ? ', failed: ' + r.failed.join('; ') : '') + (r.rootUrl ? '\n  ' + r.rootUrl : ''));
+    });
+    Logger.log(lines.join('\n'));
+  } finally { lock.releaseLock(); }
+}
+/* The subfolder one member's hand-in for one assignment goes into. */
+function workFolderFor_(aff, cfg, acct, workId) {
+  var lock = docLock_();
+  if (!lock.tryLock(15000)) throw new Error('The club Drive is busy. Try again in a moment.');
+  try {
+    var d = readDrive_(aff);
+    var e = ensureMemberDrive_(aff, cfg, d, acct, rosterIndex_(aff));
+    writeDrive_(aff, d);
+    var folder = DriveApp.getFolderById(e.f), it = folder.getFolders();
+    while (it.hasNext()) {
+      var sub = it.next();
+      if (String(sub.getDescription() || '').indexOf(WORK_TAG + workId) > -1) return {folder: sub, entry: e};
+    }
+    var w = (cfg.work || []).filter(function (x) { return x.id === workId; })[0] || {title: 'Assignment'};
+    var made = folder.createFolder(safeFolderName_((w.due ? 'Due ' + w.due + ' · ' : '') + w.title));
+    made.setDescription(WORK_TAG + workId);
+    return {folder: made, entry: e};
+  } finally { lock.releaseLock(); }
+}
+/* The account record for whoever is calling, shaped like accountsFor's rows. */
+function acctFor_(aff, email, id) {
+  var k = String(email || '').toLowerCase();
+  var hit = accountsFor(aff).filter(function (u) { return String(u.email || u.who || '').toLowerCase() === k; })[0];
+  if (hit && !String((hit.first || '') + (hit.last || '')).trim() && id && id.name) { hit = JSON.parse(JSON.stringify(hit)); hit.name = id.name; }
+  return hit || {email: k, who: k, first: '', last: '', name: id && id.name};
+}
+/* Writes that change only the caller's own things. They leave the club's
+   cache alone (forty members sending the sign-up form at orientation would
+   otherwise empty it forty times) and refresh just that member's bits. A
+   profile save that changes a name does touch the club: names are on the
+   roster everybody picks teammates from. */
+var OWN_BITS_ = {saveProfile: 1, submitForm: 1, myFormAnswers: 1};
+function clubWide_(action, payload) {
+  if (action === 'ensureMyDrive' || action === 'submitForm' || action === 'myFormAnswers' ||
+      action === 'changePassword' || action === 'setMyPassword') return false;
+  if (action === 'saveProfile') return !!(payload && (payload.firstName || payload.lastName));
+  return true;
+}
+
+/* ---- what every page load reads, kept for a couple of minutes ----
+   Opening the page cost about eight seconds, nearly all of it reading the
+   same dozen sheets for every member of the club in turn. The club-wide part
+   is now kept in the script cache, compressed, under a version number that
+   every write through this script bumps -- so anyone who changes something
+   sees it at once. Edits made straight in the spreadsheet show up within
+   SHARED_TTL_ seconds. Nothing per-person is cached here except what that
+   person is allowed to see anyway, and photos never are. */
+/* Every write through the page bumps the version, so the TTL only bounds how
+   long an edit made straight in the sheet takes to show. The keep-warm ping
+   rebuilds it every ten minutes, inside this window. */
+var SHARED_TTL_ = 1500, SHARED_CHUNK_ = 90000;
+function sharedVer_(aff) {
+  try { return CacheService.getScriptCache().get('ver:' + aff) || '0'; } catch (e) { return '0'; }
+}
+function bumpShared_(aff) {
+  try { CacheService.getScriptCache().put('ver:' + normAff(aff), Utilities.getUuid().slice(0, 8), 21600); } catch (e) {}
+}
+function sharedGet_(name, aff, ver) {
+  try {
+    var c = CacheService.getScriptCache(), base = 'sh:' + name + ':' + aff + ':' + ver;
+    var n = Number(c.get(base) || 0); if (!n) return null;
+    var keys = []; for (var i = 0; i < n; i++) keys.push(base + ':' + i);
+    var got = c.getAll(keys), b64 = '';
+    for (var j = 0; j < n; j++) { if (!got[keys[j]]) return null; b64 += got[keys[j]]; }
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip');
+    return JSON.parse(Utilities.ungzip(blob).getDataAsString());
+  } catch (e) { return null; }
+}
+function sharedPut_(name, aff, ver, obj) {
+  try {
+    var b64 = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(obj), 'application/json')).getBytes());
+    var n = Math.ceil(b64.length / SHARED_CHUNK_); if (n > 20) return;   // too big to be worth it
+    var c = CacheService.getScriptCache(), base = 'sh:' + name + ':' + aff + ':' + ver, put = {};
+    for (var i = 0; i < n; i++) put[base + ':' + i] = b64.slice(i * SHARED_CHUNK_, (i + 1) * SHARED_CHUNK_);
+    c.putAll(put, SHARED_TTL_ + 30);
+    c.put(base, String(n), SHARED_TTL_);
+  } catch (e) {}
+}
+/* Read through the cache: the version is taken before anything is read, so
+   a write landing mid-way files this copy under a version nobody asks for. */
+function shared_(name, aff, compute) {
+  var ver = sharedVer_(aff), hit = sharedGet_(name, aff, ver);
+  if (hit) return hit;
+  /* Forty members opening the page together after a change all missed the
+     cache at once and all rebuilt it -- forty times the work, and Apps Script
+     only runs thirty at a time. The first one rebuilds; the rest wait a few
+     seconds for its result rather than starting their own. */
+  var c = null, flag = 'bld:' + name + ':' + aff + ':' + ver;
+  try { c = CacheService.getScriptCache(); } catch (e) {}
+  if (c && c.get(flag)) {
+    for (var w = 0; w < 16; w++) {
+      Utilities.sleep(500);
+      hit = sharedGet_(name, aff, ver);
+      if (hit) return hit;
+    }
+  }
+  try { if (c) c.put(flag, '1', 30); } catch (e) {}
+  var val = compute();
+  sharedPut_(name, aff, ver, val);
+  try { if (c) c.remove(flag); } catch (e) {}
+  return val;
+}
+/* One member's own bits for the page (form sent, FLC choices), kept apart
+   from the club so that a member saving them does not empty the club's cache
+   for everyone else. */
+function meBits_(aff, email) {
+  var k = 'me:' + aff + ':' + String(email).toLowerCase(), c = null;
+  try { c = CacheService.getScriptCache(); var got = c.get(k); if (got) return JSON.parse(got); } catch (e) {}
+  var me = {formAt: false, prefs: ''};
+  readTab('profiles').forEach(function (r) {
+    if (normAff(r.Affiliation) !== aff || String(r.Email).toLowerCase() !== String(email).toLowerCase()) return;
+    me = {formAt: !!(r.FormAt || r.Year || r.Track || r.MBTI), prefs: String(r.Prefs || '')};
+  });
+  try { if (c) c.put(k, JSON.stringify(me), 21600); } catch (e) {}
+  return me;
+}
+function dropMe_(aff, email) {
+  try { CacheService.getScriptCache().remove('me:' + aff + ':' + String(email).toLowerCase()); } catch (e) {}
+}
+
+/* The name a member registered with, for labels other people read. Asked on
+   every request from a Google account, so it comes from the cache too. */
+function profileName_(aff, email) {
+  var k = String(email || '').toLowerCase();
+  var names = shared_('names', aff, function () {
+    var m = {};
+    readTab('profiles').forEach(function (r) {
+      if (normAff(r.Affiliation) !== aff || !r.Email) return;
+      m[String(r.Email).toLowerCase()] = capName_((r.FirstName || '') + ' ' + (r.LastName || '')).slice(0, 60);
+    });
+    return m;
+  });
+  return String(names[k] || '');
+}
+
+/* Run from the editor: checks every way the backend touches Google Drive and
+   says which work. It creates one test folder, a test file and a shortcut,
+   then puts all three in the bin. Nothing belonging to a club is changed. */
+function checkDriveIntegrations() {
+  var out = [], t0 = new Date().getTime(), tmp = null;
+  var step = function (label, fn) {
+    try { var r = fn(); out.push('OK    ' + label + (r ? ' — ' + r : '')); }
+    catch (e) { out.push('FAIL  ' + label + ' — ' + (e && e.message ? e.message : e)); }
+  };
+  step('Drive reachable (My Drive root)', function () { return DriveApp.getRootFolder().getName() + ' of ' + myDriveEmail_(); });
+  step('Folder lookup skips the bin', function () {
+    tmp = DriveApp.createFolder('Org System Drive check — safe to delete');
+    var again = folderUnder(null, 'Org System Drive check — safe to delete');
+    if (again.getId() !== tmp.getId()) throw new Error('found a different folder');
+    return 'reuses the live folder';
+  });
+  step('Create a file in a folder (hand-ins)', function () {
+    var f = tmp.createFile(Utilities.newBlob('check', 'text/plain', 'check.txt'));
+    return f.getName();
+  });
+  step('Shortcut in the officers’ tree', function () {
+    var f = tmp.getFilesByName('check.txt').next();
+    var sc = tmp.createShortcut(f.getId());
+    if (sc.getTargetId() !== f.getId()) throw new Error('shortcut points elsewhere');
+    return 'points at the file';
+  });
+  step('Member folders stay private', function () {
+    var viewers = tmp.getViewers().length + tmp.getEditors().length;
+    return viewers + ' people besides the owner on a new folder';
+  });
+  step('Form template readable (club sign-up forms)', function () {
+    return DriveApp.getFileById(FORM_TEMPLATE_ID).getName();
+  });
+  step('Hand-in folders', function () {
+    var n = 0, names = [];
+    allAffiliations().forEach(function (a) {
+      var it = DriveApp.getRootFolder().searchFolders('title = "' + (a.name || a.code) + ' — handed in" and trashed = false');
+      if (it.hasNext()) { n++; names.push(a.name || a.code); }
+    });
+    return n + ' club' + (n === 1 ? '' : 's') + (names.length ? ' (' + names.join(', ') + ')' : '');
+  });
+  step('Member folders', function () {
+    return allAffiliations().map(function (a) {
+      var d = readDrive_(normAff(a.code)), ks = Object.keys(d.members || {});
+      return (a.name || a.code) + ': ' + ks.length + ' folders';
+    }).join('; ');
+  });
+  step('Submissions sheet links open', function () {
+    var rows = readTab('submissions').filter(function (r) { return r.FileId; }).slice(-5), bad = 0;
+    rows.forEach(function (r) { try { DriveApp.getFileById(String(r.FileId)).getName(); } catch (e) { bad++; } });
+    if (bad) throw new Error(bad + ' of the last ' + rows.length + ' hand-in files cannot be opened');
+    return rows.length + ' most recent hand-in files open';
+  });
+  if (tmp) { try { tmp.setTrashed(true); out.push('      (test folder moved to the bin)'); } catch (e) {} }
+  var msg = out.join('\n') + '\nChecked in ' + Math.round((new Date().getTime() - t0) / 100) / 10 + ' s.';
+  Logger.log(msg);
+  return msg;
 }
 
 /* ================= ONE-TIME AUTHORISATION =================

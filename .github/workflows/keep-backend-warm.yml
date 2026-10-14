@@ -4,7 +4,9 @@
 # afterwards waited 12-17 seconds while it started again -- usually a member
 # opening the site for the first time. A light request every ten minutes
 # keeps it running. It asks for the club list, which needs no sign-in and
-# reads nothing private. Free on a public repository. GitHub pauses scheduled
+# reads nothing private. With {"warm":true} the backend also refreshes the
+# Google Calendar and rebuilds the club's cached snapshot, so the first member
+# after a quiet spell does not wait for either. Free on a public repository. GitHub pauses scheduled
 # workflows after 60 days with no commits; run it once by hand to restart it.
 name: Keep backend warm
 on:
@@ -20,8 +22,8 @@ jobs:
       # The live site names the backend it uses, whichever branch deployed it.
       - name: Ping the backend
         run: |
-          URL=$(curl -s -m 30 https://org.deanzapbl.com/ | grep -o "var WEBAPP_URL='[^']*'" | cut -d"'" -f2)
+          URL=$(curl -s -m 30 https://org.deanzapbl.com/ | grep -o "https://script.google.com/macros/s/[A-Za-z0-9_-]*/exec" | head -1)
           test -n "$URL" || { echo "Could not read the backend address from the site"; exit 1; }
           curl -sL -m 60 -o /dev/null -w "backend %{http_code} in %{time_total}s\n" \
             -H 'Content-Type: text/plain;charset=utf-8' \
-            -d '{"action":"listAffiliations","payload":null}' "$URL"
+            -d '{"action":"listAffiliations","payload":{"warm":true}}' "$URL"

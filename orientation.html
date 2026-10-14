@@ -32,7 +32,8 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet"></noscript>
 <style>
 :root{
   color-scheme:dark;
@@ -180,9 +181,9 @@ footer a{color:var(--slate)}
   <!-- The member walkthrough is the orientation now. Served from this site so
        it plays inline on phones, with no account or third-party player. -->
   <section class="watch" id="watch" aria-label="Member walkthrough video">
-    <video controls playsinline preload="metadata" poster="/media/member-walkthrough.jpg">
-      <source src="/media/member-walkthrough.mp4" type="video/mp4">
-      Your browser cannot play this video. <a href="/media/member-walkthrough.mp4">Download the walkthrough (MP4, 10 MB)</a>.
+    <video controls playsinline preload="metadata" poster="/media/member-walkthrough.jpg?v=20261013c">
+      <source src="/media/member-walkthrough.mp4?v=20261013c" type="video/mp4">
+      Your browser cannot play this video. <a href="/media/member-walkthrough.mp4?v=20261013c">Download the walkthrough (MP4, 6 MB)</a>.
     </video>
     <p class="cap">Member walkthrough · 3 min · signing up, your Org, Teams and FLC choices, homework, the calendar and the Org Cup.</p>
   </section>
@@ -195,40 +196,40 @@ footer a{color:var(--slate)}
     <p class="cap" style="margin-top:0">Short silent clips, one per tab. The same ones are on a <i>Watch</i> button at the top of each tab in the app.</p>
     <div class="clips">
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/signup.jpg"><source src="/media/demos/signup.mp4" type="video/mp4"></video>
-        <figcaption><b>Sign up</b><span>Account, join code and the sign-up form · 41s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/signup.jpg?v=20261013c"><source src="/media/demos/signup.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>Sign up</b><span>Account, join code and the sign-up form · 62s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/orgs.jpg"><source src="/media/demos/orgs.mp4" type="video/mp4"></video>
-        <figcaption><b>Orgs</b><span>Your Org and your EBOD contact · 26s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/orgs.jpg?v=20261013c"><source src="/media/demos/orgs.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>Orgs</b><span>Your week, your Org and your EBOD contact · 50s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/teams.jpg"><source src="/media/demos/teams.mp4" type="video/mp4"></video>
-        <figcaption><b>Teams</b><span>Your teams, and forming your own · 42s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/teams.jpg?v=20261013c"><source src="/media/demos/teams.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>Teams</b><span>Your teams, and forming your own · 52s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/flc.jpg"><source src="/media/demos/flc.mp4" type="video/mp4"></video>
-        <figcaption><b>FLC choices and hotel</b><span>Rank events, ask for a bed · 50s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/flc.jpg?v=20261013c"><source src="/media/demos/flc.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>FLC choices and hotel</b><span>Rank events, choose your roommates · 59s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/cup.jpg"><source src="/media/demos/cup.mp4" type="video/mp4"></video>
-        <figcaption><b>Org Cup</b><span>Cups your Org earns together · 24s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/cup.jpg?v=20261013c"><source src="/media/demos/cup.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>Org Cup</b><span>Cups your Org earns together · 27s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/calendar.jpg"><source src="/media/demos/calendar.mp4" type="video/mp4"></video>
+        <video controls playsinline muted preload="none" poster="/media/demos/calendar.jpg?v=20261013c"><source src="/media/demos/calendar.mp4?v=20261013c" type="video/mp4"></video>
         <figcaption><b>Calendar</b><span>The season and the org calendar · 37s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/homework.jpg"><source src="/media/demos/homework.mp4" type="video/mp4"></video>
-        <figcaption><b>Homework</b><span>Hand in a file or a link · 24s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/homework.jpg?v=20261013c"><source src="/media/demos/homework.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>Homework</b><span>Hand in a file or a link · 35s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/profile.jpg"><source src="/media/demos/profile.mp4" type="video/mp4"></video>
-        <figcaption><b>Profile</b><span>Your details and commitment log · 31s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/profile.jpg?v=20261013c"><source src="/media/demos/profile.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>Profile</b><span>Your details and commitment log · 34s</span></figcaption>
       </figure>
       <figure class="clip">
-        <video controls playsinline muted preload="none" poster="/media/demos/assistant.jpg"><source src="/media/demos/assistant.mp4" type="video/mp4"></video>
-        <figcaption><b>Assistant</b><span>Ask about your club · 28s</span></figcaption>
+        <video controls playsinline muted preload="none" poster="/media/demos/assistant.jpg?v=20261013c"><source src="/media/demos/assistant.mp4?v=20261013c" type="video/mp4"></video>
+        <figcaption><b>Assistant</b><span>Ask about your club · 29s</span></figcaption>
       </figure>
     </div>
   </section>
@@ -260,7 +261,7 @@ footer a{color:var(--slate)}
     <p>Sign in with the Google account your chapter knows you by, or with a username and password if an officer made you one. What you can see depends entirely on the role your officers gave you — not on anything you can set yourself.</p>
     <ol class="steps">
       <li><strong>Sign in.</strong> Google is the normal door. Your name, email and profile picture are all the page receives; it never sees your password.</li>
-      <li><strong>Join your chapter.</strong> The first time, you pick your chapter from a list and enter its <strong>join code</strong>. Officers hand that out the way you would a door code. The chapter's name being public does not let anyone in.</li>
+      <li><strong>Join your chapter.</strong> The first time, you pick your chapter from a list and enter its <strong>join code</strong>. Officers hand that out the way you would a door code. Then the <strong>sign-up form</strong> opens, and the rest of the site unlocks once you have sent it.</li>
       <li><strong>Fill in the sign-up form.</strong> This is the part people skip, and it is the part that matters. The draft cannot place you sensibly without it.</li>
     </ol>
     <div class="callout">

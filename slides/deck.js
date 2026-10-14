@@ -42,7 +42,7 @@ const deck = [
     eyebrow: 'Phi Beta Lambda · Chapter orientation',
     title: 'Your Org',
     sub: 'You have been sorted into a team for the year. Here is what that means, and how you earn points for it.',
-    foot: 'org-draft.vercel.app' },
+    foot: 'org.deanzapbl.com' },
 
   { kind: 'three',
     eyebrow: 'The short version',
@@ -165,8 +165,8 @@ const deck = [
 
   { kind: 'close',
     eyebrow: 'Start here',
-    title: 'org-draft.vercel.app',
-    sub: 'Sign in, join with the code, fill in the form. Then find your Org under Teams and see where it stands.',
+    title: 'org.deanzapbl.com',
+    sub: 'Sign in, join with the code, send the sign-up form. Then find your Org under Teams and see where it stands.',
     foot: 'The full written orientation is at /orientation · Questions go to your chapter officers.' },
 ];
 
