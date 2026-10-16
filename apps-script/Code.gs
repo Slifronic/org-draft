@@ -1854,7 +1854,8 @@ function dispatch(action, payload, email, role, id) {
         pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
         xls:  ['application/vnd.ms-excel'],
         xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-        csv:  ['text/csv', 'application/csv', 'text/plain'],
+        /* Windows with Excel installed labels every .csv as an Excel sheet. */
+        csv:  ['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel'],
         txt:  ['text/plain'],
         md:   ['text/markdown', 'text/plain'],
         png:  ['image/png'],
@@ -1868,7 +1869,12 @@ function dispatch(action, payload, email, role, id) {
       var ext = (bits.length > 1 ? bits.pop() : '').toLowerCase().replace(/[^a-z0-9]/g, '');
       if (!ALLOW[ext])
         return {ok: false, error: 'That kind of file is not accepted. Use a PDF, a document, a spreadsheet, or an image.'};
-      if (swMime && ALLOW[ext].indexOf(swMime.split(';')[0].trim().toLowerCase()) < 0)
+      /* A browser that does not know a type (.md, .heic on many machines)
+         reports none, and the page then sends octet-stream. That is no claim
+         at all, so it is not held against the file: the byte check below
+         still decides. */
+      var swClaim = swMime.split(';')[0].trim().toLowerCase();
+      if (swClaim && swClaim !== 'application/octet-stream' && ALLOW[ext].indexOf(swClaim) < 0)
         return {ok: false, error: 'That file says it is a ' + swMime + ' but is named .' + ext + '.'};
       /* The name and the declared type are both the sender's say-so. The
          bytes are checked too, so a web page or a program renamed to .pdf is
