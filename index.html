@@ -538,6 +538,10 @@ body[data-role="member"] .orgname.canrename:hover{border-bottom-color:var(--rule
   font-weight:600;padding:9px 14px}
 .segbtns .seg+.seg{border-left:1px solid var(--rule)}
 .segbtns .seg.on{background:var(--fill);color:var(--onfill)}
+.focusrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--hair)}
+.focusrow .fname{flex:1;min-width:150px}
+.focusrow .fmeta{font-size:12px;color:var(--slate)}
+.focusrow .seg{padding:7px 11px}
 /* The log grows without limit, and scrolling the whole page past a semester
    of entries to reach anything under it is the wrong trade. It scrolls in
    place instead, a page at a time. */
@@ -1006,6 +1010,9 @@ body.netbusy .netbar{opacity:1}
 .hwdue.late{color:var(--flag)}
 .hwkill{border:1px solid var(--rule);background:transparent;color:var(--flag);border-radius:0;
   padding:2px 8px;font-size:13px;line-height:1}
+.hwedit{border:1px solid var(--rule);background:transparent;color:var(--slate);border-radius:0;width:auto;
+  padding:3px 9px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;line-height:1.2}
+.hwcard.editing{border-color:var(--accent)}
 .hwup{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
 .hwup input[type=file]{display:none}
 .hwup .linkbtn{cursor:pointer}
@@ -2072,6 +2079,8 @@ Marcus Lee"></textarea>
     <div class="row">
       <div class="field" style="flex:1;min-width:150px"><label for="hw-for">Who it is for</label>
         <select id="hw-for"><option value="all">Everyone</option></select></div>
+      <div class="field" id="hw-focus-f" style="flex:1;min-width:150px"><label for="hw-focus">Homework track</label>
+        <select id="hw-focus"><option value="">Both tracks</option></select></div>
       <div class="field" style="flex:1;min-width:150px"><label for="hw-kind">Hand in as</label>
         <select id="hw-kind">
           <option value="any">A file or a link</option>
@@ -2087,6 +2096,11 @@ Marcus Lee"></textarea>
       <button class="ghost" id="hw-clear" type="button">Clear</button></div>
     <p class="hint">Give it a due date: an Org earns a cup when 80% of its members hand it in on time. Below each assignment you see who has handed in, who was late and who has not yet.</p>
     <div class="msg" id="hwmsg"></div>
+  </div>
+  <div class="panel" data-req="admin" data-section="hw-tracks" id="focuspanel" hidden>
+    <h2>Homework tracks</h2>
+    <p class="hint">Every member is tagged consulting or case comp, and only sees homework set for their track (or for both). Members drafted into either track start on it; Polaris and undecided members need a pick. Until they have one they see both kinds.</p>
+    <div id="focusbody"></div>
   </div>
   <div class="panel" data-req="admin" data-section="member-drives">
     <h2>Member Drive folders</h2>
@@ -3034,7 +3048,7 @@ function save(){
 function serialize(){
   return {
     v:1,
-    people:S.people.map(function(p){return {name:p.name,year:p.year,track:p.track,mbti:p.mbti,lead:false,note:p.note,org:p.org,avail:p.avail||''}}),
+    people:S.people.map(function(p){return {name:p.name,year:p.year,track:p.track,mbti:p.mbti,lead:false,note:p.note,org:p.org,avail:p.avail||'',focus:normFocus(p.focus)}}),
     orgNames:S.orgNames, actions:S.actions, log:S.log, seq:S.seq, rules:S.rules,
     club:S.club, preset:S.preset
   };
@@ -3043,7 +3057,7 @@ function restore(d){
   if(!d||!d.people||!d.people.length)return false;
   S.people=d.people.map(function(p){
     return {name:p.name,year:p.year,track:p.track,mbti:p.mbti||null,lead:false,
-            note:p.note||'',org:p.org|0,avail:p.avail||'',pts:0,evts:0,cross:0,hist:[]};
+            note:p.note||'',org:p.org|0,avail:p.avail||'',focus:normFocus(p.focus),pts:0,evts:0,cross:0,hist:[]};
   });
   var n=0; S.people.forEach(function(p){if(p.org+1>n)n=p.org+1});
   S.orgs=[]; for(var i=0;i<n;i++)S.orgs.push([]);
@@ -3273,7 +3287,7 @@ function findPersonByName(nm){
 }
 function teamRow(p){
   return {MemberName:p.name,Org:orgLabel(p.org),Track:p.track,Year:p.year,
-    MBTI:p.mbti||'',LeadInterest:'no',IsLead:'no',Notes:p.note||'',Availability:p.avail||''};
+    MBTI:p.mbti||'',LeadInterest:'no',IsLead:'no',Notes:p.note||'',Availability:p.avail||'',Focus:normFocus(p.focus)};
 }
 /* The roster as this page last read or saved it, by name. Moving somebody,
    renaming an Org or an undo sends only the rows that differ from it, each
@@ -3362,7 +3376,7 @@ function mergeBackendData(data){
       return r.MemberName&&String(r.MemberName).trim()&&String(r.MemberName)!=='MemberName';
     }).map(function(r){
       return {name:capName(r.MemberName),year:parseInt(r.Year,10)||1,track:r.Track||FLEX_ID,
-        mbti:fmtMbti(r.MBTI)||null,lead:false,avail:String(r.Availability||''),
+        mbti:fmtMbti(r.MBTI)||null,lead:false,avail:String(r.Availability||''),focus:normFocus(r.Focus),
         note:r.Notes||'',org:orgIdx[r.Org||(S.club.unit+' 01')]||0,pts:0,evts:0,cross:0,hist:[]};
     });
     if(people.length){
@@ -4299,6 +4313,9 @@ function run(){
   });
 }
 function finishDraft(r,n){
+  /* A homework track an officer picked is about the person, not the draw. */
+  var kept={}; S.people.forEach(function(p){if(normFocus(p.focus))kept[normName(p.name)]=p.focus});
+  r.people.forEach(function(p){if(!normFocus(p.focus)&&kept[normName(p.name)])p.focus=kept[normName(p.name)]});
   S.people=r.people;
   S.orgs=draft(r.people,n,$('mbtibal').checked);
   S.orgs.forEach(function(g,i){g.forEach(function(p){p.org=i})});
@@ -5222,26 +5239,87 @@ function hwList(){
     return String(a.due||'9999').localeCompare(String(b.due||'9999'));
   });
 }
-/* Who an assignment was set for, as names: everyone, one Org, or one team. */
+/* ---- homework tracks ----
+   Every member's homework is curated toward consulting ('c') or case
+   competition ('k'). An officer's pick is p.focus; until there is one, a
+   member drafted into either track is on it. Polaris and undecided members
+   have none until picked, and meanwhile see both kinds. The backend applies
+   the same rule to Drive folders and the cup counts (focusOf_ in Code.gs). */
+var FOCUS_IDS=['c','k'];
+function normFocus(v){v=String(v||'').toLowerCase();return FOCUS_IDS.indexOf(v)>-1?v:''}
+function focusTracks(){return tracksOf().filter(function(t){return FOCUS_IDS.indexOf(t.id)>-1})}
+function usesFocus(){return focusTracks().length===FOCUS_IDS.length}
+function focusOf(p){return p?(normFocus(p.focus)||normFocus(p.track)):''}
+function focusLabel(id){var t=focusTracks().filter(function(x){return x.id===id})[0];return t?t.label:''}
+function focusFits(w,p){
+  var f=normFocus(w.focus); if(!f||!usesFocus())return true;
+  var m=focusOf(p); return !m||m===f;
+}
+function noFocusPeople(){return usesFocus()?S.people.filter(function(p){return !focusOf(p)}):[]}
+/* Who an assignment was set for, as names: everyone, one Org, or one team --
+   then only those on its homework track. */
 function hwTargets(w){
-  if(w.team&&w.team!=='all'){var t=teamById(w.team);return t?(t.members||[]).slice():[]}
-  if(w.org!=null&&w.org!==''&&w.org!=='all'){
+  var names;
+  if(w.team&&w.team!=='all'){var t=teamById(w.team);names=t?(t.members||[]).slice():[]}
+  else if(w.org!=null&&w.org!==''&&w.org!=='all'){
     var oi=w.orgName?orgIndexByLabel(w.orgName):-1; if(oi<0)oi=+w.org;
-    return (S.orgs[oi]||[]).map(function(p){return p.name});
+    names=(S.orgs[oi]||[]).map(function(p){return p.name});
   }
-  return S.people.map(function(p){return p.name});
+  else names=S.people.map(function(p){return p.name});
+  return names.filter(function(n){return focusFits(w,findPersonByName(n))});
 }
 function hwForLabel(w){
-  if(w.team&&w.team!=='all')return (teamById(w.team)||{name:'A removed team'}).name+' only';
-  if(w.org!=null&&w.org!==''&&w.org!=='all')return (w.orgName||orgLabel(+w.org))+' only';
-  return '';
+  var who='', f=usesFocus()?focusLabel(normFocus(w.focus)):'';
+  if(w.team&&w.team!=='all')who=(teamById(w.team)||{name:'A removed team'}).name+' only';
+  else if(w.org!=null&&w.org!==''&&w.org!=='all')who=(w.orgName||orgLabel(+w.org))+' only';
+  if(!f)return who;
+  return who?who+' \u00b7 '+f:f+' only';
 }
 function hwMine(w,me){
+  if(!focusFits(w,me))return false;
   if(w.team&&w.team!=='all')return myTeams().some(function(t){return t.id===w.team});
   if(w.org==null||w.org===''||w.org==='all')return true;
   if(!me)return false;
   if(w.orgName)return orgLabel(me.org)===w.orgName;
   return String(me.org)===String(w.org);
+}
+/* Officers tag anyone without a homework track here; the untagged come first. */
+var FOCUS_ALL=false, FOCUS_DRIVE_T=null;
+function renderFocusPanel(){
+  var pan=$('focuspanel'), box=$('focusbody'); if(!pan||!box)return;
+  pan.hidden=!(canEdit()&&usesFocus()&&S.people.length);
+  if(pan.hidden)return;
+  var missing=noFocusPeople();
+  var byName=function(a,b){return a.name.localeCompare(b.name)};
+  var rows=missing.slice().sort(byName);
+  if(FOCUS_ALL)rows=rows.concat(S.people.filter(function(p){return focusOf(p)}).sort(byName));
+  var h='<p class="msg show '+(missing.length?'':'good')+'" style="margin-top:0">'+(missing.length
+    ?missing.length+' of '+S.people.length+' member'+(S.people.length===1?' has':'s have')+' no homework track yet.'
+    :'All '+S.people.length+' members have a homework track.')+'</p>';
+  h+=rows.map(function(p){
+    var f=focusOf(p), tl=trackLabel(p.track);
+    return '<div class="focusrow" data-n="'+esc(p.name)+'"><span class="fname">'+esc(p.name)+
+      ' <span class="fmeta">'+esc(orgLabel(p.org))+(tl?' \u00b7 drafted '+esc(tl):'')+'</span></span>'+
+      '<div class="segbtns" role="group" aria-label="Homework track for '+esc(p.name)+'">'+
+      focusTracks().map(function(t){
+        return '<button type="button" class="seg'+(f===t.id?' on':'')+'" data-f="'+esc(t.id)+'" aria-pressed="'+(f===t.id)+'">'+esc(t.label)+'</button>';
+      }).join('')+'</div></div>';
+  }).join('');
+  var tagged=S.people.length-missing.length;
+  if(tagged)h+='<div class="row"><button type="button" class="ghost tiny" id="focusall">'+
+    (FOCUS_ALL?'Show only the untagged':'Show everyone ('+tagged+' tagged)')+'</button></div>';
+  box.innerHTML=h;
+  var fa=$('focusall'); if(fa)fa.addEventListener('click',function(){FOCUS_ALL=!FOCUS_ALL;renderFocusPanel()});
+  Array.prototype.forEach.call(box.querySelectorAll('.focusrow .seg'),function(b){
+    b.addEventListener('click',function(){
+      var p=findPersonByName(b.parentNode.parentNode.dataset.n); if(!p)return;
+      p.focus=b.dataset.f;
+      save(); syncTeamsSoon();
+      renderWork(); renderAttention();
+      /* Their Drive folder gets the assignments for their track. */
+      if(!DEMO_ON){clearTimeout(FOCUS_DRIVE_T);FOCUS_DRIVE_T=setTimeout(function(){runDriveSync(true)},6000)}
+    });
+  });
 }
 /* A member's own record that they handed something in, kept in this browser
    so the card can say so. The officers' view comes from the sheet. */
@@ -5293,15 +5371,18 @@ function renderWork(){
   var me=null;
   for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
   fillHwFor();
+  renderFocusPanel();
   var items=hwList().filter(function(w){return canEdit()||hwMine(w,me)});
-  if(!items.length){box.innerHTML='<p class="empty">Nothing set for you yet.</p>';return}
-  box.innerHTML=items.map(function(w){
+  var lead=!canEdit()&&me&&usesFocus()&&!focusOf(me)
+    ?'<p class="hint" style="margin-top:0">EBOD has not set your homework track yet, so you are seeing both consulting and case comp homework.</p>':'';
+  if(!items.length){box.innerHTML=lead+'<p class="empty">Nothing set for you yet.</p>';return}
+  box.innerHTML=lead+items.map(function(w){
     var late=w.due&&isPast(w.due), kind=w.kind||'file', done=!canEdit()&&hwDoneAt(w.id);
     var forL=hwForLabel(w);
-    return '<div class="hwcard" data-id="'+esc(w.id)+'" data-kind="'+esc(kind)+'">'+
+    return '<div class="hwcard'+(HW_EDIT===w.id?' editing':'')+'" data-id="'+esc(w.id)+'" data-kind="'+esc(kind)+'">'+
       '<div class="hwhead"><span class="hwtitle">'+esc(w.title)+'</span>'+
         (w.due?'<span class="hwdue mono'+(late?' late':'')+'">'+(late?'Was due ':'Due ')+esc(calDate(w.due))+'</span>':'')+
-        (canEdit()?'<button class="hwkill" type="button" title="Remove">×</button>':'')+'</div>'+
+        (canEdit()?'<button class="hwedit" type="button">Edit</button><button class="hwkill" type="button" title="Remove">×</button>':'')+'</div>'+
       (forL?'<span class="hwfor mono">'+esc(forL)+'</span>':'<span class="hwfor mono">Everyone</span>')+
       (done?'<span class="hwfor mono" style="color:var(--accent)">Handed in \u2713 '+esc(calDate(String(done).slice(0,10)))+'</span>':'')+
       (w.brief?'<p class="hwbrief">'+esc(w.brief)+'</p>':'')+
@@ -5324,11 +5405,14 @@ function renderWork(){
     var id=cardEl.dataset.id;
     var f=cardEl.querySelector('.hwfile'), btn=cardEl.querySelector('.hwsend'),
         nm=cardEl.querySelector('.hwname'), msg=cardEl.querySelector('.hwmsg2');
+    var ed=cardEl.querySelector('.hwedit');
+    if(ed)ed.addEventListener('click',function(){hwStartEdit(id)});
     var k=cardEl.querySelector('.hwkill');
     if(k)k.addEventListener('click',function(){
       uiConfirm('Remove this assignment?','Work already handed in stays in the club Drive.','Remove',true).then(function(ok){
         if(!ok)return;
         S.club.work=(S.club.work||[]).filter(function(w){return w.id!==id});
+        if(HW_EDIT===id)hwEndEdit();
         save(); syncClub(); renderWork();
       });
     });
@@ -5419,6 +5503,8 @@ function renderAttention(){
   if(waiting)items.push(['v-squads',waiting+' team request'+(waiting===1?'':'s')+' waiting for a decision']);
   var toCheck=SUBS.loaded?(SUBS.rows||[]).filter(function(x){return x.status!=='checked'}).length:0;
   if(toCheck)items.push(['v-work',toCheck+' hand-in'+(toCheck===1?'':'s')+' to check']);
+  var noFocus=noFocusPeople().length;
+  if(noFocus)items.push(['v-work',noFocus+' member'+(noFocus===1?' has':'s have')+' no homework track']);
   var noTeam=S.people.filter(function(p){return !teamOf(p.name)}).length;
   if(teamsList().length&&noTeam)items.push(['v-squads',noTeam+' member'+(noTeam===1?' is':'s are')+' not on a team']);
   var noContact=S.orgs.filter(function(_,i){return !orgContact(i)}).length;
@@ -5530,13 +5616,18 @@ function paintSubs(){
     rows.forEach(function(x){got[normName(x.name)]=x});
     var end=null;
     if(w.due){var dp=String(w.due).split('-');end=new Date(+dp[0],+dp[1]-1,+dp[2],23,59,59).getTime()}
-    var onTime=rows.filter(function(x){var t=new Date(x.first||x.at).getTime();return !end||(t&&t<=end)}).length;
+    /* An assignment edited to a narrower audience keeps what others already
+       handed in: still listed below to review, but not counted against it. */
+    var aud={}; targets.forEach(function(n){aud[normName(n)]=1});
+    var inAud=rows.filter(function(x){return aud[normName(x.name)]}), outside=rows.length-inAud.length;
+    var onTime=inAud.filter(function(x){var t=new Date(x.first||x.at).getTime();return !end||(t&&t<=end)}).length;
     var missing=targets.filter(function(n){return !got[normName(n)]});
     var unchecked=rows.filter(function(x){return x.status!=='checked'});
     var onTimeOpen=unchecked.filter(function(x){var t=new Date(x.first||x.at).getTime();return !end||(t&&t<=end)});
-    var sum='<div class="subsum"><span><b>'+rows.length+'</b> of '+targets.length+' handed in</span>'+
-      (w.due?'<span><b>'+onTime+'</b> on time</span><span><b>'+(rows.length-onTime)+'</b> late</span>':'')+
-      '<span><b>'+missing.length+'</b> still to come</span></div>'+
+    var sum='<div class="subsum"><span><b>'+inAud.length+'</b> of '+targets.length+' handed in</span>'+
+      (w.due?'<span><b>'+onTime+'</b> on time</span><span><b>'+(inAud.length-onTime)+'</b> late</span>':'')+
+      '<span><b>'+missing.length+'</b> still to come</span>'+
+      (outside?'<span><b>'+outside+'</b> from outside who it is for now</span>':'')+'</div>'+
       (missing.length?'<div class="missing"><b>Not in yet:</b> '+esc(missing.slice(0,24).join(', '))+(missing.length>24?', and '+(missing.length-24)+' more':'')+
         ' <button type="button" class="tiny ghost subcopy" data-names="'+esc(missing.join(', '))+'">Copy all '+missing.length+' names</button></div>':'');
     if(!rows.length){body.innerHTML=sum+'<p class="empty">Nobody has handed this in yet.</p>';wireSubCopy(body);return}
@@ -5607,6 +5698,7 @@ function initWork(){
   });
   var clr=$('hw-clear');
   if(clr)clr.addEventListener('click',function(){
+    if(HW_EDIT){hwEndEdit();renderWork();return}
     ['hw-title','hw-note','hw-brief','hw-due'].forEach(function(id){var e=$(id); if(e)e.value=''});
     if(tpl)tpl.value='';
   });
@@ -5617,15 +5709,20 @@ function initWork(){
     if(!t){m.textContent='It needs a name.';m.className='msg show';return}
     var forV=($('hw-for')||{}).value||'all';
     var forOrg=forV.indexOf('org:')===0?forV.slice(4):'', forTeam=forOrg!==''?'all':forV;
-    S.club.work=S.club.work||[];
-    S.club.work.push({id:'w'+Date.now().toString(36),title:cleanText(t,80),
+    var fields={title:cleanText(t,80),
       due:$('hw-due').value||'',note:cleanText($('hw-note').value,160),
       brief:cleanText($('hw-brief').value,900),
       team:forTeam, org:forOrg, orgName:forOrg===''?'':orgLabel(+forOrg),
-      kind:($('hw-kind')||{}).value||'file'});
-    ['hw-title','hw-note','hw-brief'].forEach(function(id){var e=$(id); if(e)e.value=''});
-    if(tpl)tpl.value='';
-    m.textContent='Set. It is being added to the Drive folder of everyone it is for.'; m.className='msg show good';
+      focus:usesFocus()?normFocus(($('hw-focus')||{}).value):'',
+      kind:($('hw-kind')||{}).value||'file'};
+    S.club.work=S.club.work||[];
+    /* Editing keeps the id, so what was already handed in stays with it --
+       including after the due date, when the hand-ins are being reviewed. */
+    var was=HW_EDIT&&S.club.work.filter(function(w){return w.id===HW_EDIT})[0];
+    if(was){for(var f in fields)was[f]=fields[f]}
+    else S.club.work.push(Object.assign({id:'w'+Date.now().toString(36)},fields));
+    hwEndEdit();
+    m.textContent=was?'Saved. Drive folders pick up the change in a few seconds.':'Set. It is being added to the Drive folder of everyone it is for.'; m.className='msg show good';
     save(); syncClub(); renderWork();
     /* After the club record has reached the sheet, so the backend sees it. */
     if(!DEMO_ON)setTimeout(function(){runDriveSync(true)},5000);
@@ -5633,6 +5730,51 @@ function initWork(){
   var mds=$('md-sync');
   if(mds)mds.addEventListener('click',function(){runDriveSync(false)});
   renderWork();
+}
+
+/* ---- editing a posted assignment ----
+   The same form as setting one, filled in, with the button saying what it
+   does. Works before and after the due date. */
+var HW_EDIT=null;
+/* The heading also holds the panel's Hide button, so only its text changes. */
+function hwHeading(pan,t){
+  var h=pan&&pan.querySelector('h2'); if(!h)return;
+  for(var n=h.firstChild;n;n=n.nextSibling)if(n.nodeType===3&&n.nodeValue.trim()){n.nodeValue=t;return}
+}
+function hwSetSel(id,v){
+  var e=$(id); if(!e)return;
+  e.value=v; if(e.value!==v&&e.options.length)e.selectedIndex=0;
+  e.dispatchEvent(new Event('change',{bubbles:true}));
+}
+function hwStartEdit(id){
+  var w=((S.club&&S.club.work)||[]).filter(function(x){return x.id===id})[0]; if(!w)return;
+  HW_EDIT=id;
+  var pan=document.querySelector('#v-work .panel[data-section="set-work"]');
+  if(pan&&pan.classList.contains('folded')){var fb=pan.querySelector('.foldbtn'); if(fb)fb.click()}
+  fillHwFor();
+  $('hw-title').value=w.title||''; $('hw-due').value=w.due||'';
+  $('hw-note').value=w.note||''; $('hw-brief').value=w.brief||'';
+  var forV='all';
+  if(w.team&&w.team!=='all')forV=w.team;
+  else if(w.org!=null&&w.org!==''&&w.org!=='all'){var oi=w.orgName?orgIndexByLabel(w.orgName):-1; forV='org:'+(oi>-1?oi:+w.org)}
+  hwSetSel('hw-for',forV); hwSetSel('hw-focus',normFocus(w.focus)); hwSetSel('hw-kind',w.kind||'file');
+  if($('hw-tpl'))$('hw-tpl').value='';
+  hwHeading(pan,'Edit an assignment');
+  $('hw-add').textContent='Save changes'; $('hw-clear').textContent='Cancel';
+  var m=$('hwmsg'); m.textContent='Editing “'+(w.title||'')+'”. Hand-ins already in stay with it.'; m.className='msg show info';
+  renderWork();
+  if(pan)pan.scrollIntoView({behavior:'smooth',block:'start'});
+  $('hw-title').focus({preventScroll:true});
+}
+function hwEndEdit(){
+  HW_EDIT=null;
+  ['hw-title','hw-note','hw-brief','hw-due'].forEach(function(id){var e=$(id); if(e)e.value=''});
+  if($('hw-tpl'))$('hw-tpl').value='';
+  var pan=document.querySelector('#v-work .panel[data-section="set-work"]');
+  hwHeading(pan,'Set an assignment');
+  if($('hw-add'))$('hw-add').textContent='Set it';
+  if($('hw-clear'))$('hw-clear').textContent='Clear';
+  var m=$('hwmsg'); if(m){m.textContent='';m.className='msg'}
 }
 
 /* ================= BULLETIN BOARD =================
@@ -8588,6 +8730,12 @@ function fillHwFor(){
       return '<option value="'+esc(t.id)+'">'+esc(t.name)+' only</option>'}).join('')+'</optgroup>':'');
   if(cur)who.value=cur;
   if(who.value!==cur&&cur)who.value='all';
+  var fs=$('hw-focus'), ff=$('hw-focus-f'); if(!fs)return;
+  if(ff)ff.hidden=!usesFocus();
+  var fc=fs.value;
+  fs.innerHTML='<option value="">Both tracks</option>'+focusTracks().map(function(t){
+    return '<option value="'+esc(t.id)+'">'+esc(t.label)+' only</option>'}).join('');
+  fs.value=normFocus(fc);
 }
 
 /* ================= ORG CUPS =================
@@ -10842,9 +10990,10 @@ function demoOrgBoard(){
       return w.org==null||w.org===''||w.org==='all'||(w.orgName?w.orgName===orgLabel(i):+w.org===i);
     }).map(function(w){
       var dp=String(w.due).split('-'),end=new Date(+dp[0],+dp[1]-1,+dp[2],23,59,59).getTime();
-      var got=g.filter(function(p){return DEMO.subs.some(function(x){
+      var set=g.filter(function(p){return focusFits(w,p)});
+      var got=set.filter(function(p){return DEMO.subs.some(function(x){
         return x.workId===w.id&&normName(x.name)===normName(p.name)&&new Date(x.first||x.at).getTime()<=end})}).length;
-      return {id:w.id,got:got,of:g.length};
+      return {id:w.id,got:got,of:set.length};
     })};
   });
 }
@@ -10958,7 +11107,7 @@ function buildDemoState(fresh){
          brief:'What you took from bootcamp 1, one thing you want to get better at before FLC or finals, and one question for your Org.'},
         {id:'dw2',title:'Client discovery notes',due:'2026-10-29',team:first?first.id:'all',kind:'link',note:'A shared Google Doc link.',
          brief:'Your initiative’s notes from the first client call: what they asked for, what they did not say, and the three questions we still need answered.'},
-        {id:'dw3',title:'Case brief — mock case stations',due:'2026-10-27',team:'all',kind:'file',note:'One PDF, two pages maximum.',
+        {id:'dw3',title:'Case brief — mock case stations',due:'2026-10-27',team:'all',focus:'k',kind:'file',note:'One PDF, two pages maximum.',
          brief:'Summarise the case, name the decision, and recommend one course of action with the numbers behind it.'}];
       /* Most of the club handed the first one in, a few late. */
       DEMO.subs=[];

@@ -248,7 +248,7 @@ var TAB = {
      it: ensureHeader widens a sheet in place only when the old header is a
      prefix of the new one, so inserting would archive the live Teams tab. */
   teams:      {name: 'Teams',      cols: ['MemberName', 'Org', 'Track', 'Year', 'MBTI', 'LeadInterest', 'IsLead', 'Notes', 'Affiliation',
-                                          'Availability']},
+                                          'Availability', 'Focus']},
   pointsLog:  {name: 'PointsLog',  cols: ['Timestamp', 'MemberName', 'ActionId', 'ActionLabel', 'Points', 'Track', 'Org', 'Affiliation']},
   attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation']},
   roster:     {name: 'Form Responses 1', cols: null, readOnly: true},
@@ -977,6 +977,31 @@ var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
                  listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
                  clubRoster: 1, formSchema: 1, formItems: 1};
 
+/* ---- homework tracks (Fall 2026) ----
+   Every member's homework is curated toward consulting ('c') or case
+   competition ('k'). An officer's pick is the Focus column; until there is
+   one, a member drafted into either track is taken to be on it. Polaris and
+   undecided members have none until an officer picks, and in the meantime
+   see both kinds, so nothing set for them is missed. */
+var FOCUS_IDS_ = {c: 1, k: 1};
+function focusOf_(r) {
+  var f = String(r && r.Focus || '').toLowerCase();
+  if (FOCUS_IDS_[f]) return f;
+  var t = String(r && r.Track || '').toLowerCase();
+  return FOCUS_IDS_[t] ? t : '';
+}
+/* Whether an assignment is for a member with this homework track. */
+function focusFits_(w, memberFocus) {
+  var f = String(w && w.focus || '');
+  return !FOCUS_IDS_[f] || !memberFocus || f === memberFocus;
+}
+/* Homework track by flattened name, for the cup counts. */
+function focusIndex_(aff, flat) {
+  var idx = {};
+  readScoped('teams', aff).forEach(function (r) { if (r.MemberName) idx[flat(r.MemberName)] = focusOf_(r); });
+  return idx;
+}
+
 /* ---- the Team Cup ----
    Computed here because only the server can see everybody's hand-in times,
    and members get the totals, never who handed in what. Each assignment with
@@ -987,15 +1012,17 @@ function teamBoard_(aff, cfg) {
   var teams = cfg.teams || [], work = (cfg.work || []).filter(function (w) { return w && w.id && w.due; });
   if (!teams.length) return [];
   var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
-  var first = {};
+  var first = {}, foc = focusIndex_(aff, flat);
   readTab('submissions').forEach(function (r) {
     if (normAff(r.Affiliation) !== aff) return;
     var at = r.FirstAt || r.SubmittedAt;
     if (at) first[String(r.WorkId) + '|' + flat(r.MemberName)] = new Date(at).getTime();
   });
   return teams.map(function (t) {
-    var members = t.members || [], pts = 0, got = 0, of = 0, works = 0;
+    var pts = 0, got = 0, of = 0, works = 0;
     work.forEach(function (w) {
+      /* Consulting homework is not counted against a team's case-comp members. */
+      var members = (t.members || []).filter(function (m) { return focusFits_(w, foc[flat(m)]); });
       /* An assignment set for one Org is that Org's business, not every
          team's: Fall 2026 posts carry team:'all' plus an org. */
       var target = (w.team && w.team !== 'all') ? w.team
@@ -1034,7 +1061,7 @@ function orgBoard_(aff, cfg) {
     orgs[o].push(flat(r.MemberName));
   });
   if (!order.length) return [];
-  var first = {};
+  var first = {}, foc = focusIndex_(aff, flat);
   readTab('submissions').forEach(function (r) {
     if (normAff(r.Affiliation) !== aff) return;
     var at = r.FirstAt || r.SubmittedAt;
@@ -1046,9 +1073,9 @@ function orgBoard_(aff, cfg) {
     }).map(function (w) {
       var p = String(w.due).split('-');
       var end = new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59).getTime();
-      var got = 0;
-      orgs[o].forEach(function (m) { var at = first[w.id + '|' + m]; if (at && at <= end) got++; });
-      return {id: w.id, got: got, of: orgs[o].length};
+      var got = 0, set = orgs[o].filter(function (m) { return focusFits_(w, foc[m]); });
+      set.forEach(function (m) { var at = first[w.id + '|' + m]; if (at && at <= end) got++; });
+      return {id: w.id, got: got, of: set.length};
     })};
   });
 }
@@ -1964,7 +1991,7 @@ function dispatch(action, payload, email, role, id) {
           while (scs.hasNext()) { var sc = scs.next(); if (sc.getTargetId() === prevFile) sc.setTrashed(true); }
         } catch (e) {}
       }
-      try { if (wCfg.ownerEmail) root.addEditor(wCfg.ownerEmail); } catch (e) {}
+      try { if (wCfg.ownerEmail) shareOnce_(root, wCfg.ownerEmail); } catch (e) {}
 
       var now = new Date(), rev = prevRev ? prevRev + 1 : 1;
       var row = [];
@@ -3231,6 +3258,17 @@ function folderUnder(parent, name) {
   return p.createFolder(name);
 }
 
+/* addEditor emails a "Folder shared with you" notice every time it is called,
+   even to someone who already has access, so a folder touched on every hand-in
+   flooded the owner's inbox. Share only when they cannot already edit it. */
+function shareOnce_(item, email) {
+  var who = String(email).toLowerCase();
+  try { if (item.getOwner().getEmail().toLowerCase() === who) return; } catch (e) {}
+  var eds = item.getEditors();
+  for (var i = 0; i < eds.length; i++) if (eds[i].getEmail().toLowerCase() === who) return;
+  item.addEditor(email);
+}
+
 /* ================= MEMBER DRIVE FOLDERS =================
    Every member gets one folder in the club's Drive with a subfolder for each
    assignment set for them, and their hand-ins are filed there. The folders
@@ -3290,11 +3328,13 @@ function fmtMbti_(v) {
 }
 function folderUrl_(id) { return 'https://drive.google.com/drive/folders/' + id; }
 function safeFolderName_(x) { return String(x || '').replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').trim().slice(0, 90) || 'Untitled'; }
-/* The assignments a member should see: everyone's, their Org's, their teams'. */
-function workForMember_(cfg, rosterName, orgLabel) {
+/* The assignments a member should see: everyone's, their Org's, their teams',
+   narrowed to their homework track. */
+function workForMember_(cfg, rosterName, orgLabel, focus) {
   var n = flatName_(rosterName);
   return (cfg.work || []).filter(function (w) {
     if (!w || !w.id) return false;
+    if (!focusFits_(w, focus)) return false;
     if (w.team && w.team !== 'all') {
       var t = (cfg.teams || []).filter(function (x) { return x.id === w.team; })[0];
       return !!t && (t.members || []).some(function (m) { return flatName_(m) === n; });
@@ -3309,11 +3349,11 @@ function workStamp_(list) {
   return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
     list.map(function (w) { return w.id + ':' + w.title + ':' + (w.due || ''); }).sort().join('|'))).slice(0, 12);
 }
-/* The club roster rows (name and Org), for working out whose assignments are whose. */
+/* The club roster rows (name, Org and homework track), for working out whose assignments are whose. */
 function rosterIndex_(aff) {
   var idx = {};
   readScoped('teams', aff).forEach(function (r) {
-    if (r.MemberName) idx[flatName_(r.MemberName)] = {name: String(r.MemberName), org: String(r.Org || '')};
+    if (r.MemberName) idx[flatName_(r.MemberName)] = {name: String(r.MemberName), org: String(r.Org || ''), focus: focusOf_(r)};
   });
   return idx;
 }
@@ -3348,7 +3388,7 @@ function ensureMemberDrive_(aff, cfg, d, acct, roster) {
   if (!folder) { folder = root.createFolder(safeFolderName_(rosterName)); e.f = folder.getId(); e.w = ''; }
   else if (realName && folder.getName() !== safeFolderName_(rosterName)) { try { folder.setName(safeFolderName_(rosterName)); } catch (x) {} }
 
-  var list = workForMember_(cfg, rosterName, rr ? rr.org : '');
+  var list = workForMember_(cfg, rosterName, rr ? rr.org : '', rr ? rr.focus : '');
   var stamp = workStamp_(list);
   if (e.w !== stamp) {
     var have = {};
