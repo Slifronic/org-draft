@@ -2109,6 +2109,16 @@ Marcus Lee"></textarea>
       <a class="tiny ghost" id="md-open" href="#" target="_blank" rel="noopener" hidden>Open the member folders in Drive</a></div>
     <div class="msg" id="mdmsg"></div>
   </div>
+  <div class="panel" data-req="admin" data-section="homework-alerts">
+    <h2>Homework alerts</h2>
+    <p class="hint">An email listing what members handed in, at most one every 10 minutes, with who, which assignment, on time or late, and a link to the file. Members never see these addresses.</p>
+    <label class="check"><input type="checkbox" id="cf-handinmail"> Email officers when homework is handed in</label>
+    <div class="row" style="margin-top:10px">
+      <div class="field" style="flex:1;min-width:260px"><label for="cf-handinto">Send them to</label>
+        <input type="text" class="mono" id="cf-handinto" placeholder="Blank: the club Google account. Separate several with commas." autocapitalize="none" spellcheck="false"></div>
+    </div>
+  </div>
+
   <div class="panel" data-section="your-work">
     <h2>Assignments</h2>
     <div id="hwbody"></div>
@@ -2282,6 +2292,8 @@ var DEFAULT_CLUB={
    keep complete, so the angle brackets are removed here instead, at the two
    points the words enter the model. There is no legitimate label containing
    markup, so nothing is lost. */
+/* An address list for hand-in alerts: only what email addresses and the commas between them use. */
+function cleanEmails(v){return String(v==null?'':v).replace(/[^A-Za-z0-9@._+\-, ;]/g,'').slice(0,400)}
 function cleanLabel(v){
   return String(v==null?'':v).replace(/[<>]/g,'').replace(/[\u0000-\u001F\u007F]/g,'').slice(0,60);
 }
@@ -2336,7 +2348,9 @@ function cloneClub(c){
     /* FLC hotel rooms: who sleeps where, and how many a room takes. */
     rooms:(c.rooms||[]).map(cloneRoom), roomCap:clampRoomCap(c.roomCap),
     selfTeams:c.selfTeams!==false,
-    formEmbed:c.formEmbed!==false};
+    formEmbed:c.formEmbed!==false,
+    /* Hand-in alert emails to officers: on unless turned off. */
+    handinMail:c.handinMail!==false, handinTo:cleanEmails(c.handinTo)};
 }
 function clampRoomCap(n){n=parseInt(n,10);return n>=1&&n<=8?n:4}
 function cloneRoom(r){
@@ -3005,6 +3019,7 @@ function mergeClub(base,over){
     else if(k==='teams')out[k]=(over[k]||[]).map(cloneTeam);
     else if(k==='rooms')out[k]=(over[k]||[]).map(cloneRoom);
     else if(k==='roomCap')out[k]=clampRoomCap(over[k]);
+    else if(k==='handinTo')out[k]=cleanEmails(over[k]);
     else if(k==='ebod')out[k]=(over[k]||[]).map(function(e){return {name:cleanLabel(e&&e.name),pos:cleanLabel(e&&e.pos)}});
     else if(k==='orgEbod'||k==='clients'||k==='flcEvents')out[k]=(over[k]||[]).map(function(x){return cleanLabel(x)});
     else if(CLUB_LABELS[k])out[k]=cleanLabel(over[k]);
@@ -9365,6 +9380,8 @@ function renderClubSetup(){
   var mr=$('cf-mbtireq');  if(mr){mr.checked=!!S.club.mbtiRequired; mr.disabled=!S.club.useMbti}
   var mu=$('cf-mbtiurl');  if(mu&&document.activeElement!==mu)mu.value=S.club.mbtiTestUrl||'';
   var ow=$('cf-owner');    if(ow&&document.activeElement!==ow)ow.value=S.club.ownerEmail||'';
+  var hm=$('cf-handinmail'); if(hm)hm.checked=S.club.handinMail!==false;
+  var ht=$('cf-handinto');   if(ht){if(document.activeElement!==ht)ht.value=S.club.handinTo||''; ht.disabled=S.club.handinMail===false}
   var th=$('cf-theme');    if(th)th.value=pblHost()?'pbl':(S.club.theme||'');
   /* On the chapter's own address the colours are settled, so the setting is
      not left on screen looking like a decision somebody still has to make. */
@@ -9393,6 +9410,14 @@ function wireClubSetup(){
   var th=$('cf-theme');
   if(th)th.addEventListener('change',function(e){
     S.club.theme=e.target.value; applyTheme(readTheme()); clubChanged();
+  });
+  var htx=$('cf-handinto');
+  if(htx)htx.addEventListener('input',function(e){S.club.handinTo=cleanEmails(e.target.value); clubChanged()});
+  var hm=$('cf-handinmail');
+  if(hm)hm.addEventListener('change',function(e){
+    S.club.handinMail=e.target.checked;
+    var ht=$('cf-handinto'); if(ht)ht.disabled=!e.target.checked;
+    clubChanged();
   });
   $('cf-usetracks').addEventListener('change',function(e){
     S.club.useTracks=e.target.checked;

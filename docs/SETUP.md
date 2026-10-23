@@ -198,6 +198,17 @@ club roster — need the updated **`apps-script/Code.gs`**:
 **Drive folders update (Oct 2026).** After deploying, run `checkDriveIntegrations` from the
 editor to test every Drive path, and `setUpMemberFolders` to give every existing member a folder.
 
+**Homework alerts (Oct 22, 2026) — redeploy, then approve mail once.** Officers get an email
+listing new hand-ins (who, Org, assignment, on time or late, replaced versions, a link to the
+file), at most one every 10 minutes, sent by the `keepWarm` trigger as deanzacapbl. The first
+run only notes the time, so nothing already handed in is sent. Set it on the **Homework** tab →
+*Homework alerts*: on by default, and with no addresses it goes to the club Google account.
+After pasting the new `Code.gs` and deploying, run **`authorizeScopes`** as deanzacapbl and
+approve the new *Send email as you* permission (it should print `Mail: OK`). Until then the
+trigger logs a permission error and sends nothing; the warm-up still runs. To see an alert,
+run **`handinAlertTest`**: it emails each club's latest three hand-ins, marked [Test].
+A personal Gmail account can email 100 recipients a day, which batching keeps well clear of.
+
 **October 2026 update — redeploy the script.** This version shares the connected calendar
 with members (stored under its own `gcal:<club>` row in Config, refreshed every half hour
 from `getAll`), adds officers' hide choices (`calHide` on the club record), sends members the

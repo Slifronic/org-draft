@@ -1129,7 +1129,7 @@ function withLock_(fn) {
    the events kept for officers, the links to the club's own files (the
    response sheet holds every member's answers), and every hotel room but
    their own -- who rooms with whom, and in which group, is not club news. */
-var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide'];
+var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide', 'handinTo'];
 function memberCfg_(cfg, meName) {
   if (!cfg) return cfg;
   var c = {};
@@ -1321,8 +1321,134 @@ function warmClubs_() {
    schedules on small repositories -- it ran once in an afternoon -- so the
    club snapshot (kept SHARED_TTL_ seconds) lapsed between visits and a
    member's first page load rebuilt it from a dozen tabs. Google runs its own
-   triggers on time, and no extra permission is needed for this one. */
-function keepWarm() { warmClubs_(); }
+   triggers on time. It also sends the hand-in alerts below, which need the
+   send-mail permission: run authorizeScopes once after pasting this file. */
+function keepWarm() {
+  try { warmClubs_(); } catch (e) { Logger.log('warmClubs_: ' + (e && e.message || e)); }
+  try { handinAlerts_(false); } catch (e) { Logger.log('handinAlerts_: ' + (e && e.message || e)); }
+}
+
+/* ---------------- hand-in alerts ----------------
+   Each keepWarm run emails a club's officers one message listing what was
+   handed in since the last one. Batched on purpose: a deadline night brings
+   eighty hand-ins, and an email apiece would bury the inbox and run into
+   Gmail's daily limit (100 recipients a day on a personal account). Only the
+   trigger sends; a web request never does, so a member's hand-in is never
+   slowed by mail. The first run for a club only notes the time, so switching
+   this on does not send the season's history. Homework alerts turns it off and
+   (Homework tab) names the addresses; with none named it goes to the club Google account. */
+var SITE_URL_ = 'https://org.deanzapbl.com';
+var HANDIN_ROWS_MAX_ = 60;
+
+function handinRecipients_(cfg) {
+  var ok = function (x) { return /^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$/.test(x); };
+  var list = String(cfg.handinTo || '').split(/[\s,;]+/).filter(ok);
+  if (!list.length && ok(String(cfg.ownerEmail || '').trim())) list = [String(cfg.ownerEmail).trim()];
+  if (!list.length) { try { var me = Session.getEffectiveUser().getEmail(); if (ok(me)) list = [me]; } catch (e) {} }
+  var seen = {};
+  return list.filter(function (x) { var k = x.toLowerCase(); if (seen[k]) return false; return (seen[k] = true); }).slice(0, 10);
+}
+
+/* Pass true (handinAlertTest) to send the latest few hand-ins whatever the
+   clock says, without moving it. */
+function handinAlerts_(test) {
+  var props = PropertiesService.getScriptProperties(), cfgs = {};
+  readTab('config').forEach(function (r) {
+    var k = String(r.Key);
+    if (k.indexOf('club:') === 0) { try { cfgs[normAff(k.slice(5))] = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  var subs = readTab('submissions'), report = [];
+  allAffiliations().forEach(function (a) {
+    var cfg = cfgs[a.code];
+    if (!cfg) return;
+    var key = 'HANDIN_AT_' + a.code, since = Number(props.getProperty(key)) || 0;
+    var time = function (r) { var t = r.SubmittedAt ? new Date(r.SubmittedAt).getTime() : 0; return isNaN(t) ? 0 : t; };
+    var mine = subs.filter(function (r) { return normAff(r.Affiliation || DEFAULT_AFF) === a.code && time(r); });
+    mine.sort(function (x, y) { return time(x) - time(y); });
+    var latest = mine.length ? time(mine[mine.length - 1]) : 0;
+    /* Switched off, the clock still moves, so turning alerts back on does not
+       send everything handed in meanwhile. */
+    if (!test && (!since || cfg.handinMail === false)) {
+      props.setProperty(key, String(Math.max(latest, since) || new Date().getTime()));
+      return;
+    }
+    if (test && cfg.handinMail === false) return;
+    var fresh = test ? mine.slice(-3) : mine.filter(function (r) { return time(r) > since; });
+    if (!fresh.length) return;
+    var to = handinRecipients_(cfg);
+    if (!to.length) { report.push(a.name + ': no address to send to'); return; }
+    if (MailApp.getRemainingDailyQuota() < to.length) {
+      report.push(a.name + ': daily mail limit reached, will retry');
+      return;
+    }
+    var msg = handinMessage_(a, cfg, fresh);
+    MailApp.sendEmail({to: to.join(','), subject: (test ? '[Test] ' : '') + msg.subject,
+                       body: msg.text, htmlBody: msg.html, name: a.name + ' Org System'});
+    if (!test) props.setProperty(key, String(time(fresh[fresh.length - 1])));
+    report.push(a.name + ': ' + fresh.length + ' hand-in(s) sent to ' + to.join(', '));
+  });
+  if (report.length) Logger.log(report.join('\n'));
+  return report.join('\n');
+}
+
+function handinMessage_(aff, cfg, rows) {
+  var tz = Session.getScriptTimeZone();
+  var h = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); };
+  var works = {};
+  (cfg.work || []).forEach(function (w) { if (w && w.id) works[w.id] = w; });
+  /* Late means after 11:59 pm on the due date, as the Org Cup counts it. */
+  var dueEnd = function (w) {
+    if (!w || !/^\d{4}-\d{2}-\d{2}$/.test(String(w.due || ''))) return 0;
+    var p = String(w.due).split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59).getTime();
+  };
+  var shown = rows.slice(-HANDIN_ROWS_MAX_), more = rows.length - shown.length;
+  var items = shown.map(function (r) {
+    var w = works[String(r.WorkId)], end = dueEnd(w), at = new Date(r.SubmittedAt);
+    var rev = Number(r.Revision) || 1;
+    var when = end ? (at.getTime() <= end ? 'On time' : 'Late') : 'No due date';
+    if (rev > 1) when += ' · replaced (version ' + rev + ')';
+    return {name: String(r.MemberName || ''), org: String(r.Org || ''),
+            work: String(r.WorkTitle || (w && w.title) || 'Assignment'),
+            at: Utilities.formatDate(at, tz, 'EEE MMM d, h:mm a'), when: when,
+            late: end && at.getTime() > end, url: String(r.FileUrl || '')};
+  });
+  var titles = {};
+  items.forEach(function (it) { titles[it.work] = 1; });
+  var subject = rows.length === 1
+    ? items[0].name + ' handed in ' + items[0].work
+    : rows.length + ' new hand-ins: ' + Object.keys(titles).slice(0, 3).join(', ') +
+      (Object.keys(titles).length > 3 ? ', …' : '');
+  var footer = 'Review them on the Homework tab: ' + SITE_URL_ + '\n' +
+    'Sent by the Org System every 10 minutes when something new is handed in. ' +
+    'Change who gets these, or turn them off, in Homework → Homework alerts.';
+  var text = items.map(function (it) {
+    return '• ' + it.name + (it.org ? ' (' + it.org + ')' : '') + ' — ' + it.work + '\n  ' +
+           it.at + ' · ' + it.when + (it.url ? '\n  ' + it.url : '');
+  }).join('\n') + (more > 0 ? '\n…and ' + more + ' more.' : '') + '\n\n' + footer;
+  var td = 'style="padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top"';
+  var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#111827">' +
+    '<p style="margin:0 0 12px">' + h(aff.name) + ': ' + rows.length + ' new hand-in' + (rows.length === 1 ? '' : 's') + '.</p>' +
+    '<table style="border-collapse:collapse;width:100%;max-width:720px">' +
+    '<tr style="text-align:left;color:#6b7280;font-size:12px"><th ' + td + '>Member</th><th ' + td + '>Assignment</th>' +
+    '<th ' + td + '>Handed in</th><th ' + td + '></th></tr>' +
+    items.map(function (it) {
+      return '<tr><td ' + td + '><b>' + h(it.name) + '</b>' + (it.org ? '<br><span style="color:#6b7280">' + h(it.org) + '</span>' : '') + '</td>' +
+             '<td ' + td + '>' + h(it.work) + '</td>' +
+             '<td ' + td + '>' + h(it.at) + '<br><span style="color:' + (it.late ? '#b91c1c' : '#6b7280') + '">' + h(it.when) + '</span></td>' +
+             '<td ' + td + '>' + (/^https:\/\//.test(it.url) ? '<a href="' + h(it.url) + '">Open</a>' : '') + '</td></tr>';
+    }).join('') + '</table>' +
+    (more > 0 ? '<p>…and ' + more + ' more.</p>' : '') +
+    '<p style="margin-top:16px"><a href="' + SITE_URL_ + '">Review them on the Homework tab</a></p>' +
+    '<p style="color:#6b7280;font-size:12px">Sent by the Org System every 10 minutes when something new is handed in. ' +
+    'Change who gets these, or turn them off, in Homework → Homework alerts.</p></div>';
+  return {subject: subject, text: text, html: html};
+}
+
+/* Run from the editor: emails each club's latest three hand-ins to its alert
+   addresses, marked [Test], so you can see what officers will get. */
+function handinAlertTest() { return handinAlerts_(true) || 'No club has hand-ins or alerts turned on.'; }
 
 /* The names members registered under, for picking teammates and roommates.
    Names only: no addresses, no roles, nothing a member could not already
@@ -3721,6 +3847,14 @@ function authorizeScopes() {
     out.push('Sheet: OK (' + book().getName() + ')');
   } catch (e) {
     out.push('Sheet: FAILED — ' + e.message);
+  }
+
+  /* Hand-in alerts send from this account. Reading the quota is enough for
+     Google to ask for the send-mail permission; nothing is sent. */
+  try {
+    out.push('Mail: OK (' + MailApp.getRemainingDailyQuota() + ' emails left today)');
+  } catch (e) {
+    out.push('Mail: FAILED — ' + e.message);
   }
 
   var msg = out.join('\n');
