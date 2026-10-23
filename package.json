@@ -6,5 +6,8 @@
   },
   "devDependencies": {
     "esbuild": "0.23.1"
+  },
+  "dependencies": {
+    "web-push": "3.6.7"
   }
 }

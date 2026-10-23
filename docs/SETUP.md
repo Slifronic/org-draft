@@ -63,6 +63,11 @@ Nothing in the demo is saved or sent anywhere. Use "Reset demo" in the demo bar 
    *Teams* shows your consulting team (PMs, your initiative) and FLC team.
 6. **Homework:** open *Homework*, upload a file or paste a shared link before the due date.
    Re-handing in replaces your earlier version; the first on-time hand-in still counts.
+   **Phone notifications:** open the Org System from its home-screen icon, then *Homework →
+   Phone notifications → Turn on notifications* and allow them. You hear about new homework set
+   for you, get a reminder at 6 pm the day before something is due if you have not handed it in,
+   and get a receipt when your hand-in arrives. On iPhone this only works from the home-screen
+   icon (iOS 16.4 or newer); on Android it also works in Chrome.
 7. **Calendar:** shows everything on the chapter's Google Calendar that EBOD has not hidden,
    kept up to date on its own. Every event has *+ Calendar* to add it to your own Google
    Calendar, and *Add the org calendar* (once EBOD has shared it) subscribes you to it.
@@ -197,6 +202,41 @@ club roster — need the updated **`apps-script/Code.gs`**:
 
 **Drive folders update (Oct 2026).** After deploying, run `checkDriveIntegrations` from the
 editor to test every Drive path, and `setUpMemberFolders` to give every existing member a folder.
+
+**Phone notifications for members (Oct 22, 2026) — five steps, in this order.** Members get
+a push notification when homework is posted for them (everyone, their Org, their team, their
+track), at 6 pm the day before it is due if they have not handed it in, and when their own
+hand-in arrives. New posts and reminders go out from the 10-minute `keepWarm` trigger; the
+receipt goes out as the hand-in is saved. The first run only takes note of what is already
+posted, so nothing old is announced. Apps Script cannot encrypt push messages, so the site's
+own `api/push` function (Vercel) sends them; the backend calls it with a shared secret.
+
+1. **Keys.** In this folder run `npx web-push generate-vapid-keys` (a public and a private key)
+   and `openssl rand -base64 32` (the shared secret). Keep the private key and secret out of
+   git and out of chat.
+2. **Vercel** → the org-draft project → Settings → Environment Variables (Production):
+   `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` = `mailto:deanzacapbl@gmail.com`,
+   `PUSH_SECRET`. Then deploy. `https://org.deanzapbl.com/api/push` should answer with
+   `"publicKey"`; before the variables are set it answers "Push is not set up".
+3. **Google Cloud** → APIs & Services → Credentials → the OAuth client in `GOOGLE_CLIENT_ID`
+   → *Authorized redirect URIs*: add `https://org.deanzapbl.com/api/signin` and
+   `https://org-draft.vercel.app/api/signin`. The home-screen icon now opens the site as its own
+   app (the manifests say `standalone`), where Google's sign-in popup cannot answer back, so
+   there sign-in goes through Google's full-page redirect to that address. Without this step,
+   signing in from the icon shows Google's redirect_uri_mismatch error.
+4. **Apps Script** (as deanzacapbl): paste `Code.gs`, deploy a new version, then Project
+   Settings → Script properties → add `PUSH_SECRET` with the same value as in Vercel. No new
+   permission is asked for. Until it is set, nothing is sent and hand-ins are not slowed.
+5. **Members who already added the icon** must delete it and add it again: an iPhone keeps
+   opening an existing icon in Safari, and only the app window can get notifications. Then
+   *Homework → Phone notifications → Turn on*; a test notification arrives at once, and
+   *Send a test* repeats it.
+
+The home-screen app signs a member in once and keeps a 30-day session (a `g1.` token signed
+with the same secret as password sessions), renewed every time the app opens, so members are
+not sent back to Google every hour. Devices live on the new **Push** tab of the data sheet,
+one row per device; a device the push service reports gone is removed on the next send, and
+signing out turns notifications off on that device.
 
 **Homework alerts (Oct 22, 2026) — redeploy, then approve mail once.** Officers get an email
 listing new hand-ins (who, Org, assignment, on time or late, replaced versions, a link to the

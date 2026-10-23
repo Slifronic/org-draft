@@ -13,7 +13,7 @@ const out = path.join(root, 'dist');
 // What the site is made of. Everything else in the repo (apps-script, docs,
 // tools, slides) was never served and still is not.
 const PAGES = ['index.html', 'orientation.html', 'privacy.html', 'terms.html'];
-const COPY = ['logo.svg', 'icons', 'media'];
+const COPY = ['logo.svg', 'icons', 'media', 'sw.js'];
 
 async function minifyHtml(html, name) {
   const parts = [];

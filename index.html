@@ -2119,6 +2119,13 @@ Marcus Lee"></textarea>
     </div>
   </div>
 
+  <div class="panel" id="pushpanel" data-section="phone-notifications" hidden>
+    <h2>Phone notifications</h2>
+    <p class="hint">A notification on your phone when homework is posted for you, the evening before it is due if you have not handed it in, and when your hand-in arrives.</p>
+    <div id="pushbody"></div>
+    <div class="msg" id="pushmsg"></div>
+  </div>
+
   <div class="panel" data-section="your-work">
     <h2>Assignments</h2>
     <div id="hwbody"></div>
@@ -2699,6 +2706,7 @@ function onCredential(resp){
   });
 }
 function signOut(){
+  pushOffHere();
   try{if(window.google&&google.accounts&&google.accounts.id)google.accounts.id.disableAutoSelect()}catch(e){}
   A.token=null;A.session=null;A.role='none';A.email='';A.name='';A.pic='';A.offline=false;A.via='';
   PROVISIONAL=false; storeWho(null); storeGoogleToken(null);
@@ -2794,7 +2802,8 @@ function pwLogin(user,pass){
    current role rather than trusting anything kept locally. */
 function resumeSession(){
   var tok=loadSession(), gtok=null;
-  if(tok){ A.session=tok; A.via='password'; }
+  /* g1. is the home-screen app's Google session (keepHomeSession). */
+  if(tok){ A.session=tok; A.via=String(tok).indexOf('g1.')===0?'google':'password'; }
   else {
     gtok=loadGoogleToken();
     if(!gtok)return Promise.resolve(false);
@@ -2929,6 +2938,9 @@ function doJoinSubmit(){
 function initGate(){
   wireGateForms();
   gateMode('signin');
+  var back=takeRedirectSignIn();
+  if(back.cred){ initGsi(); bootDone(); initGateTimeout(); onCredential({credential:back.cred}); return; }
+  if(back.err){REDIRECT_ERR='Google sign-in did not finish ('+back.err+'). Try again.';gateMsg(REDIRECT_ERR,true)}
   resumeSession().then(function(resumed){ if(!resumed){initGsi();bootDone()} });
   initGateTimeout();
 }
@@ -2977,9 +2989,16 @@ function initGsi(){
     gateMsg('Waiting for Google…');
     return setTimeout(initGsi,300);
   }
-  gateMsg('');
+  /* Cleared once Google is ready, unless a redirect sign-in just failed. */
+  gateMsg(REDIRECT_ERR,!!REDIRECT_ERR);
   try{
-    google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:onCredential,auto_select:true});
+    /* In the home-screen app Google's popup cannot answer back (the app's
+       storage is not Safari's), so there Google redirects to api/signin,
+       which returns the credential to this page; see takeRedirectSignIn. */
+    var homeApp=launchedFromHome();
+    google.accounts.id.initialize(homeApp
+      ?{client_id:GOOGLE_CLIENT_ID,ux_mode:'redirect',login_uri:location.origin+'/api/signin'}
+      :{client_id:GOOGLE_CLIENT_ID,callback:onCredential,auto_select:true});
     /* As wide as the card, like the Sign in button below it: Google is the
        way most members sign in, so it should not look like the side door.
        Google draws it at most 400px wide. */
@@ -2995,7 +3014,7 @@ function initGsi(){
       $('sugsibtn').innerHTML='';
       google.accounts.id.renderButton($('sugsibtn'),{theme:'outline',size:'large',text:'signup_with',shape:'pill',width:gw});
     }
-    google.accounts.id.prompt();
+    if(!homeApp)google.accounts.id.prompt();
   }catch(e){ gateMsg('Google sign-in failed to start: '+e.message,true) }
 }
 
@@ -3177,7 +3196,7 @@ var ANY_SIGNED_IN={whoami:1,getAll:1,changePassword:1,listRoles:1,listUsers:1,
                    myProfile:1,joinAffiliation:1,getProfile:1,saveProfile:1,
                    setMyPassword:1,memberCard:1,formSchema:1,submitForm:1,setOrgName:1,myFormAnswers:1,
                    submitWork:1,calendarSync:1,submitTeamRequest:1,withdrawTeamRequest:1,listTeamRequests:1,
-                   ensureMyDrive:1};
+                   ensureMyDrive:1,savePush:1,dropPush:1,testPush:1,googleSession:1};
 /* Every keystroke in Club setup changes the config, and firing a write per
    keystroke both floods the script and races: two in-flight writes can land
    out of order, leaving the sheet holding an older snapshot than the one the
@@ -5382,6 +5401,7 @@ function runDriveSync(quiet){
 }
 
 function renderWork(){
+  renderPush();
   var box=$('hwbody'); if(!box)return;
   var me=null;
   for(var q=0;q<S.people.length;q++)if(isMe(S.people[q])){me=S.people[q];break}
@@ -9748,6 +9768,132 @@ function homeGateNudge(){
   m.className='msg show info';
   window.scrollTo(0,0);
 }
+/* ---- phone notifications ----
+   A member turns them on here, per device; the backend sends them (new
+   homework, due tomorrow, hand-in received) through api/push, and sw.js
+   shows them. An iPhone only allows this from the home-screen app, which is
+   why that app signs in by redirect and keeps a month-long session. */
+function pushSupported(){
+  return !!(window.isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window);
+}
+function pushReg(){
+  if(!pushSupported())return Promise.resolve(null);
+  return navigator.serviceWorker.register('/sw.js').then(function(){return navigator.serviceWorker.ready}).catch(function(){return null});
+}
+function pushSub(){
+  return pushReg().then(function(reg){return reg?reg.pushManager.getSubscription():null}).catch(function(){return null});
+}
+function b64urlBytes(s){
+  var b=atob(String(s).replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)), u=new Uint8Array(b.length);
+  for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+  return u;
+}
+var PUSH_DEMO_ON=false;
+function renderPush(){
+  var pan=$('pushpanel'), box=$('pushbody'); if(!pan||!box)return;
+  pan.hidden=!(A.role==='member'&&!A.offline);
+  if(pan.hidden)return;
+  var btn=function(id,label,cls){return '<button type="button" id="'+id+'"'+(cls?' class="'+cls+'"':'')+'>'+label+'</button>'};
+  var paint=function(text,buttons){
+    box.innerHTML='<p style="margin:0 0 10px">'+text+'</p>'+(buttons?'<div class="row" style="margin-top:0">'+buttons+'</div>':'');
+    [['push-on',pushOn],['push-off',pushOff],['push-test',pushTest],['push-home',function(){setView('v-home')}]].forEach(function(b){var e=$(b[0]); if(e)e.addEventListener('click',b[1])});
+  };
+  if(DEMO_ON)return paint(PUSH_DEMO_ON?'<b>On for this device.</b> (In the demo nothing is sent.)':'Off on this device.',
+    PUSH_DEMO_ON?btn('push-off','Turn off','ghost'):btn('push-on','Turn on'));
+  if(!pushSupported()){
+    if(phoneKind()==='ios'&&!launchedFromHome())
+      return paint('On iPhone, notifications only work in the home-screen app. Open the Org System from its icon on your home screen and turn them on there.',
+        btn('push-home','How to add it','ghost'));
+    return paint('This browser cannot show notifications. On your phone, use Safari (iPhone, from the home-screen icon) or Chrome (Android).');
+  }
+  if(Notification.permission==='denied')
+    return paint('Notifications are blocked for the Org System on this device. Allow them in your phone’s Settings → Notifications, then come back here.');
+  pushSub().then(function(sub){
+    if(sub)paint('<b>On for this device.</b>',btn('push-test','Send a test','ghost')+btn('push-off','Turn off','ghost'));
+    else paint('Off on this device.',btn('push-on','Turn on notifications'));
+  });
+}
+function pushSay(t,kind){var m=$('pushmsg'); if(m){m.textContent=t||''; m.className='msg'+(t?' show '+(kind||''):'')}}
+function pushOn(){
+  if(DEMO_ON){PUSH_DEMO_ON=true;renderPush();pushSay('On. In the demo nothing is sent.','good');return}
+  /* Asked first and straight from the tap: an iPhone ignores a permission
+     request that does not come directly from one. */
+  var asked=Notification.requestPermission();
+  pushSay('Turning on…','info');
+  Promise.resolve(asked).then(function(perm){
+    if(perm!=='granted')throw new Error(perm==='denied'?'Notifications were not allowed. You can allow them in your phone’s Settings.':'Notifications were not allowed.');
+    return Promise.all([pushReg(),fetch('/api/push',{cache:'no-store'}).then(function(r){return r.json()})]);
+  }).then(function(v){
+    var reg=v[0], key=v[1]&&v[1].publicKey;
+    if(!reg)throw new Error('This browser would not start notifications.');
+    if(!key)throw new Error('Notifications are not set up on the site yet. Tell an officer.');
+    return reg.pushManager.getSubscription().then(function(old){
+      return old||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64urlBytes(key)});
+    });
+  }).then(function(sub){
+    return backendPost('savePush',{sub:sub.toJSON()}).then(function(r){
+      if(!r||!r.ok){sub.unsubscribe().catch(function(){});throw new Error((r&&r.error)||'The club sheet did not answer. Try again.')}
+      try{localStorage.setItem('orgsys-pushsync',String(Date.now()))}catch(e){}
+      return backendPost('testPush',null);
+    });
+  }).then(function(){
+    pushSay('On. A test notification is on its way.','good'); renderPush();
+  }).catch(function(e){pushSay(e&&e.message?e.message:'Could not turn notifications on.','bad'); renderPush()});
+}
+function pushOff(){
+  if(DEMO_ON){PUSH_DEMO_ON=false;renderPush();pushSay('');return}
+  pushSub().then(function(sub){
+    if(!sub)return;
+    var end=sub.endpoint;
+    return sub.unsubscribe().then(function(){return backendPost('dropPush',{endpoint:end})});
+  }).then(function(){pushSay('Off on this device.','good');renderPush()})
+    .catch(function(){pushSay('Could not turn them off. Try again.','bad')});
+}
+function pushTest(){
+  pushSay('Sending…','info');
+  backendPost('testPush',null).then(function(r){
+    pushSay(r&&r.ok?'Sent. It should arrive in a few seconds.':((r&&r.error)||'The club sheet did not answer.'),r&&r.ok?'good':'bad');
+  });
+}
+/* Once a day, tell the backend this device is still this member's: phones
+   replace subscriptions now and then, and another member may have signed in. */
+function pushResync(){
+  if(DEMO_ON||A.role!=='member'||A.offline||!pushSupported()||Notification.permission!=='granted')return;
+  try{if(Date.now()-Number(localStorage.getItem('orgsys-pushsync')||0)<864e5)return}catch(e){}
+  pushSub().then(function(sub){
+    if(!sub)return;
+    backendPost('savePush',{sub:sub.toJSON()}).then(function(r){
+      if(r&&r.ok)try{localStorage.setItem('orgsys-pushsync',String(Date.now()))}catch(e){}
+    });
+  });
+}
+/* Signing out stops this device getting the member's notifications: the
+   push service then reports it gone and the backend forgets it. */
+function pushOffHere(){
+  if(DEMO_ON||!pushSupported())return;
+  try{localStorage.removeItem('orgsys-pushsync')}catch(e){}
+  pushSub().then(function(sub){if(sub)sub.unsubscribe().catch(function(){})});
+}
+/* Google's redirect sign-in (home-screen app) lands back on this page with
+   the credential in the fragment. It is taken out of the address at once. */
+var REDIRECT_ERR='';
+function takeRedirectSignIn(){
+  var h=String(location.hash||''), m=/^#gcred=([\w.%-]+)$/.exec(h), e=/^#gerr=(\w+)$/.exec(h);
+  if(!m&&!e)return {};
+  try{history.replaceState(null,'',location.pathname+location.search)}catch(x){}
+  return m?{cred:decodeURIComponent(m[1])}:{err:e[1]};
+}
+/* In the home-screen app the hour-long Google token is swapped for a
+   month-long session, renewed each time the app opens (googleSession in
+   Code.gs). Without it the app would send members back through Google's
+   redirect every hour. */
+function keepHomeSession(){
+  if(DEMO_ON||A.via!=='google')return;
+  if(!(launchedFromHome()||String(A.session||'').indexOf('g1.')===0))return;
+  backendPost('googleSession',null).then(function(r){
+    if(r&&r.ok&&r.session&&A.via==='google'){A.session=r.session;A.token=null;storeSession(r.session);storeGoogleToken(null)}
+  });
+}
 function phoneKind(){
   var ua=navigator.userAgent||'';
   if(/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))return 'ios';
@@ -10803,6 +10949,7 @@ $('wipe').addEventListener('click',function(){
 function afterSignIn(pre){
   unlockNav();
   if(A.needsAff){ busyClear(); showGate(true); gateMode('join'); return; }
+  keepHomeSession(); pushResync();
   if($('v-intake').classList.contains('on')&&!canEdit())setView(homeView());
   (pre?Promise.resolve(pre):backendGet()).then(function(data){
     busyClear();
