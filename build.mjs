@@ -12,8 +12,8 @@ const out = path.join(root, 'dist');
 
 // What the site is made of. Everything else in the repo (apps-script, docs,
 // tools, slides) was never served and still is not.
-const PAGES = ['index.html', 'orientation.html', 'privacy.html', 'terms.html'];
-const COPY = ['logo.svg', 'icons', 'media', 'sw.js'];
+const PAGES = ['index.html', 'orientation.html', 'privacy.html', 'terms.html', 'dash.html'];
+const COPY = ['logo.svg', 'icons', 'media', 'sw.js', 'dash-app'];
 
 async function minifyHtml(html, name) {
   const parts = [];
@@ -49,4 +49,13 @@ for (const p of PAGES) {
 for (const c of COPY) {
   const from = path.join(root, c);
   if (fs.existsSync(from)) fs.cpSync(from, path.join(out, c), { recursive: true, filter: f => !f.endsWith('.DS_Store') });
+}
+// The dashboard keeps its script and styles in dash-app/, so they are minified where they land.
+for (const f of fs.readdirSync(path.join(out, 'dash-app'))) {
+  const file = path.join(out, 'dash-app', f), ext = path.extname(f);
+  if (ext !== '.js' && ext !== '.css') continue;
+  const src = fs.readFileSync(file, 'utf8');
+  const r = await transform(src, ext === '.css' ? { loader: 'css', minify: true }
+    : { loader: 'js', minify: true, target: 'es2019', charset: 'utf8', legalComments: 'none' });
+  fs.writeFileSync(file, r.code);
 }

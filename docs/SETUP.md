@@ -179,6 +179,163 @@ consider a separate members' calendar for sharing.
 
 ---
 
+## The dashboard (`/dash`), Oct 28, 2026
+
+A second front end beside the classic page, for working on a dashboard-style UI without
+touching `index.html`. Same sign-in (it reads the session the classic page keeps in this
+browser), same backend, same club record. Files: `dash.html` and `dash-app/`
+(`core.js` data and tags, `views.js` screens, `app.js` clicks, `demo.js` the demo club,
+`app.css`). Desktop gets a sidebar; under 860px it switches to a bottom tab bar and
+bottom sheets.
+
+| Link | What you see |
+| --- | --- |
+| `/dash` | the live club (sign in on `/` first) |
+| `/dash?demo` | an officer's view of a made-up club two weeks before SFBLC |
+| `/dash?demo&as=member` | the same club as a member (Alex, on Finance 1) |
+
+Locally the Canopy preview serves `dist/`, so run `node build.mjs` and open `/dash.html?demo`.
+
+**What is in it**
+- **Overview**: days to SFBLC, counts, and *Close these before SFBLC*: every gap it can
+  see (event list vs SFBLC 2026, the Oct 30 registration deadline, members going with no
+  team, over-full teams, events with no coaching, no hotel rooms, people without phone
+  notifications, missing sign-up answers, the club record nearing the 50,000-character cell
+  limit). Each has a button that fixes it or opens the place to.
+- **Members**: tags worked out from the sheet: year, track, Org, consulting client,
+  SFBLC event, rooming group, availability, type, wants to lead, plus officer-made tags
+  (`memberTags`, never sent to members) and *Needs attention* tags (no sign-up answers,
+  missing or late homework, missed 2+ meetings, no phone notifications, going with no team,
+  no hotel room). Filter by any mix, select people, tag them, message them, export CSV.
+- **SFBLC**: schedule (`sfSchedule`), coaching sessions (`sfCoaching`), checklist
+  (`sfChecklist`, members tick items off; officers see who has not and can remind them),
+  and About (venue, dates, fees, events, team sizes in `sfInfo.caps`). *Load SFBLC 2026
+  starter* adds the three known days without times, the Oct 30 registration item and a
+  short checklist. Times stay empty until CAPBL's programs packet is out.
+- **Teams**: the SFBLC teams on the club record (the same `teams` the classic Teams tab
+  edits), by event, with move / add / remove, *Place by first choice* and team size limits.
+- **Messages**: compose to any tags or names, preview who it reaches and who has
+  notifications on, send now or schedule, optionally email too. *Automations* turn on the
+  day-before and hour-before reminders, checklist-deadline nudges and team placement
+  notices. Members get an **Inbox**.
+
+**Every classic tab, on the dashboard (Oct 29).** Orgs (cards, EBOD contact, on-time
+rate), Homework (members hand in a file or link; officers set assignments, see in / on time /
+late / missing and remind the missing), Calendar (month and agenda: chapter Google Calendar,
+events added here, season dates, SFBLC schedule, coaching, homework due dates), Org Cup
+(standings and *Award a cup*), Attendance (take it, see who was absent, message them),
+Profile (name, phone notifications, commitment log, look) and Officer tools (deep links to
+the classic Intake, Roster, Draft, Sign-up form, Access, Assistant, rooms and team requests).
+On phones the bottom bar is Home, SFBLC, Homework, Inbox and *More*.
+
+**Look.** The dashboard wears deanzapbl.com by default (*Φ PBL*: `#0a0a0a`, `#f5f3ef`,
+`#c8102e`, IBM Plex Mono labels, Playfair's Φ). *PBL
+light* is the same on cream; *Org dark* and *Org light* are the classic page's. The choice
+is kept per browser under `orgsystem.dash.theme`, apart from the classic page's.
+
+**Home screens.** Officers: a greeting with New message / Set homework / Take attendance,
+four figures (days to SFBLC, placed on a team, gaps to close, homework on time for the last
+assignment), then *Needs attention*, *This week* (the next seven days from every calendar
+source, in time order), Homework progress, Org Cup and the SFBLC checklist. Members: days to
+SFBLC with their team, homework (overdue flagged), checklist and inbox, then *Your week*,
+their SFBLC team and room, open homework, checklist, their Org (cups, place, EBOD contact)
+and messages. Progress bars are neutral, green at the mark (80% earns a cup), amber when an
+assignment fell short; red is kept for things to fix.
+
+**Uniform cards.** Cards that sit side by side share one width (the grid) and one height,
+set in `dash-app/app.css` (`--h` 380px for home and schedule cards, `--h-sm` 300px for
+homework and the unplaced list, `--h-lg` 520px for team columns and the calendar; a little
+shorter on phones). Longer content scrolls inside the card with its title pinned and a fade
+at the edge; on phones a card that reaches its end hands the swipe back to the page. One
+figure style (DM Sans bold) is used for every number, avatars are neutral, and actions inside
+cards are quiet text buttons (`.qbtn`).
+
+**Readability (Oct 29).** Every text colour passes WCAG AA on every surface it sits on, in all
+four looks (muted text 5.1:1 or more, small red text 6.1:1 or more; the fill red `#c8102e` is
+only used behind white text, as a border, or for large figures). Black and white are softened
+(`#0e0e0f` / `#ebe8e2`) to cut glare. All-caps mono is limited to short labels at 12px or more;
+buttons, tags and navigation are sentence case. *Profile → Look and comfort* adds **Text
+size** (Standard / Large / Larger) and **Motion** (Full / Calm; Calm is the default when the
+device asks for reduced motion and stops the scrolling band and fades). **Search** (top bar,
+⌘K / Ctrl+K or `/`) finds people, teams, tags, schedule items, homework, screens and actions.
+
+**Linked sheets and Discord (Officer tools → Linked sheets & Discord).** The dashboard reads
+the chapter's other sheets through the new `linkedRead` action (officers only, only the
+columns it names, as the club account) and turns them into tags under *From Drive &
+Discord*. Turned on by default, each with a switch (`tagSources` on the club record,
+hidden from members):
+
+| Sheet | Tags / use |
+| --- | --- |
+| SFBLC 2026 – Master Sheet · Teams | `Master sheet · Finance`…, *SFBLC team not confirmed*; **Import teams** |
+| SFBLC 2026 – Master Sheet · Rooming Assignments | `Room 412`; **Import rooms** (to the classic rooms) |
+| SFBLC 2026 – Master Sheet · Itinerary | **Import itinerary** onto the SFBLC schedule |
+| PBL Verify Records · Verified members (the Discord bot) | *Discord verified*, `Major · …` |
+| Fall 26' Attendance (every meeting tab; the bot's tickets land here) | *Unexcused absence ×n*, *Unexcused late*, *Excused*, *Not in business casual* |
+| De Anza PBL sign-up (responses) | *Org Lead interest* |
+| PBL Fall 26 Track Interest Form | `Prefers …`, `1st client pick · …` |
+| Fall 26' IM Re-enrollment | *Returning IM* |
+| Winter IM master sheet (off by default) | *Dues paid / not paid (Winter)*, the newest sheet with dues |
+
+Names are matched to the roster by email where the sheet has one, else by name ("Last,
+First" and middle names are handled); the panel says how many names did not match. The
+master sheet's Coaching Schedules tab is still last spring's template and its Competitive
+Schedule tab is empty, so coaching stays on the dashboard until those are filled in. Not
+linked: the Financial Roster (a PDF) and the FBLA Connect dues folders.
+
+**Built around how PBL runs (Oct 29).** The navigation follows the chapter: *Chapter*
+(Overview, Calendar, Messages, EBOD), *Org Program* (Orgs, Homework, Org Cup),
+*Competitions* (SFBLC with a *Season* tab for SFBLC → SBLC → NLC and last season's results,
+Competition teams), *Consulting* (Client teams) and *Members* (Internal Members, and for
+officers Standing and Attendance).
+
+- **EBOD**: the Executive Board and Directors (from `ebod` on the club record, else the
+  Fall 2026 board), each with the Orgs they are the contact for, a member's own contact
+  highlighted, and *Who to ask* straight from the member contract.
+- **Client teams**: each consulting team with the site's three steps (Intake & scoping,
+  Research & analysis, Delivery & impact), its PMs, initiatives and who is on each. Officers
+  set the step (`consultStage`, kept beside the teams so the classic team editor never drops
+  it); PMs and initiatives are still edited on the classic Teams tab.
+- **Standing** (officers): every Internal Member under the 2025–26 contract. More than 2
+  unexcused meetings in a row is *Removal review*; late or missing assignments without an
+  approved extension go warning → meeting with the President or VP → resignation; a second
+  conduct offense is removal review. Officers log warnings, meetings and conduct
+  (`standingLog`, never sent to members; a member only sees that something was logged and
+  when). Excused absences on the Discord tickets are not subtracted, so the screen says to
+  check them first.
+- **Extensions**: members ask from Homework, which only allows it 3 or more days before the
+  due date, as the contract says; officers approve or decline on Standing. An approved
+  extension takes that assignment out of the member's late count. New actions
+  `extRequest` (member), `extList`, `extDecide` (admin); stored under `ext:<club>`.
+- Members get a *Your standing* card on Home and Profile: what was logged, their own late
+  work, their extension requests, the contract rules and a link to open an attendance ticket
+  on the PBL Discord.
+
+**The SFBLC event list.** The club's `flcEvents` still read Finance, Marketing, Management,
+Accounting, Business Ethics. SFBLC 2026 offers Finance, Marketing Sales & Communication,
+Management, Entrepreneurship Pitch, Impromptu Speaking and STRIIVE. The dashboard flags
+this and *Use the SFBLC 2026 events* fixes it (the classic page uses the same list).
+
+**Backend update needed for messages, the inbox, checklist ticks and automations.**
+Schedules, coaching, checklist items, tags and teams save through `setConfig` and work now.
+The rest needs the new `apps-script/Code.gs`:
+
+1. Open the project **as deanzacapbl**, paste `apps-script/Code.gs`, save, Deploy → Manage
+   deployments → the club account deployment → New version.
+2. Nothing new to authorize: it uses the push sender and `MailApp` that homework alerts use.
+3. The `keepWarm` trigger now also runs `dashAuto_`: scheduled messages, reminders (only for
+   items with a start time, and only once *Automatic messages* is on), checklist nudges at
+   6 pm the evening before, and team placement notices. The first run only notes the
+   current teams, so nothing old is announced.
+
+New Config rows: `msgs:<club>` (message log, last 150, never sent to members except their
+own) and `sfdone:<club>` (checklist ticks). New actions: `msgList`, `msgSend`, `msgCancel`,
+`linkedRead` (admin), `myInbox`, `sfCheck` (member). `linkedRead` opens other sheets with
+`SpreadsheetApp.openById`, which the script already has permission for. Because the script
+runs as the master account, which can open every club's files, `linkedRead` only opens the
+sheets listed for the caller's club in `LINKED_SHEETS_` near the end of `Code.gs` (the same
+ids as `dash-app/sources.js`). To link another sheet, add its id there and redeploy.
+
 ## Who the backend runs as
 
 Since Oct 13, 2026 the web app runs as the club's own account, **deanzacapbl@gmail.com**

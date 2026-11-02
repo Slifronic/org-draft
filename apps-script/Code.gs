@@ -40,7 +40,9 @@ var NEEDS = {
   submitTeamRequest: 'member', withdrawTeamRequest: 'member', listTeamRequests: 'member',
   reviewTeamRequest: 'admin', editTeamRequest: 'admin', reviewSubmissions: 'admin', deleteTeamRequest: 'admin',
   syncMemberDrives: 'admin', ensureMyDrive: 'member',
-  savePush: 'member', dropPush: 'member', testPush: 'member', googleSession: 'member'
+  savePush: 'member', dropPush: 'member', testPush: 'member', googleSession: 'member',
+  msgList: 'admin', msgSend: 'admin', msgCancel: 'admin', myInbox: 'member', sfCheck: 'member',
+  linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -1021,7 +1023,7 @@ function failRef_(where, err) {
 
 var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
                  listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
-                 clubRoster: 1, formSchema: 1, formItems: 1};
+                 clubRoster: 1, formSchema: 1, formItems: 1, msgList: 1, myInbox: 1, linkedRead: 1, extList: 1};
 
 /* ---- homework tracks (Fall 2026) ----
    Every member's homework is curated toward consulting ('c') or case
@@ -1175,7 +1177,11 @@ function withLock_(fn) {
    the events kept for officers, the links to the club's own files (the
    response sheet holds every member's answers), and every hotel room but
    their own -- who rooms with whom, and in which group, is not club news. */
-var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide', 'handinTo'];
+var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide', 'handinTo',
+                          /* The dashboard's officer-made tags on members ("Needs a ride"). */
+                          'memberTags', 'tagSources',
+                          /* Warnings and meetings officers logged under the member contract. */
+                          'standingLog'];
 function memberCfg_(cfg, meName) {
   if (!cfg) return cfg;
   var c = {};
@@ -1373,6 +1379,7 @@ function keepWarm() {
   try { warmClubs_(); } catch (e) { Logger.log('warmClubs_: ' + (e && e.message || e)); }
   try { handinAlerts_(false); } catch (e) { Logger.log('handinAlerts_: ' + (e && e.message || e)); }
   try { pushHomework_(); } catch (e) { Logger.log('pushHomework_: ' + (e && e.message || e)); }
+  try { dashAuto_(); } catch (e) { Logger.log('dashAuto_: ' + (e && e.message || e)); }
 }
 
 /* ---------------- hand-in alerts ----------------
@@ -3357,6 +3364,77 @@ function dispatch(action, payload, email, role, id) {
       });
     }
 
+    /* ---- the dashboard (/dash); see dashAuto_ ---- */
+    case 'msgList': {
+      var mlDone = dashRow_('sfdone:' + aff, {});
+      return {ok: true, msgs: readMsgs_(aff).slice().reverse(), reach: dashReach_(aff), done: mlDone,
+              pushOn: !!pushConfig_().secret, mailLeft: (function () { try { return MailApp.getRemainingDailyQuota(); } catch (e) { return null; } })()};
+    }
+    case 'msgSend': return dashMsgSend_(aff, payload, email);
+    case 'msgCancel': {
+      var mcId = String((payload || {}).id || ''), mcL = readMsgs_(aff), mcHit = false;
+      mcL.forEach(function (m) { if (m.id === mcId && m.status === 'scheduled') { m.status = 'cancelled'; mcHit = true; } });
+      if (!mcHit) return {ok: false, error: 'Only a scheduled message that has not gone out can be cancelled.'};
+      writeMsgs_(aff, mcL);
+      return {ok: true};
+    }
+    case 'myInbox': {
+      var ibMe = flatName_(id.name || email), ibDone = dashRow_('sfdone:' + aff, {}), ibMine = {};
+      Object.keys(ibDone).forEach(function (k) { if ((ibDone[k] || []).indexOf(ibMe) > -1) ibMine[k] = 1; });
+      var ibExt = dashRow_('ext:' + aff, []).filter(function (x) { return x.who === ibMe; });
+      /* What officers logged about this member under the contract: the kind and when, never the note. */
+      var ibLog = (((clubCfg_(aff) || {}).standingLog || {})[ibMe] || []).map(function (l) { return {type: l.type, at: l.at}; });
+      return {ok: true, done: ibMine, ext: ibExt, standing: ibLog, msgs: readMsgs_(aff).filter(function (m) {
+        return m.status === 'sent' && (m.to || []).indexOf(ibMe) > -1;
+      }).reverse().slice(0, 60).map(function (m) {
+        return {id: m.id, title: m.title, body: m.body, url: m.url, at: m.sentAt || m.created, auto: !!m.auto};
+      })};
+    }
+    case 'sfCheck': {
+      var scId = dashClean_((payload || {}).id, 40), scMe = flatName_(id.name || email);
+      if (!scId || !scMe) return {ok: false, error: 'Nothing to tick.'};
+      var scAll = dashRow_('sfdone:' + aff, {}), scL = scAll[scId] || [];
+      scL = scL.filter(function (n) { return n !== scMe; });
+      if ((payload || {}).done) scL.push(scMe);
+      scAll[scId] = scL;
+      dashWrite_('sfdone:' + aff, scAll);
+      return {ok: true};
+    }
+
+    /* An officer's linked sheet (the SFBLC master sheet, the Discord bot's
+       records, an attendance sheet), read as the club account. Only the
+       columns the page names come back -- never phone numbers or IDs it did
+       not ask for -- and only to officers. */
+    case 'linkedRead': return linkedRead_(payload, aff);
+
+    /* Deadline extensions, as the member contract has them: asked for at
+       least three days before the due date, decided by an officer. An
+       approved one means a late hand-in is not counted against the member. */
+    case 'extRequest': {
+      var erP = payload || {}, erW = dashClean_(erP.workId, 40), erMe = flatName_(id.name || email);
+      var erWork = ((clubCfg_(aff) || {}).work || []).filter(function (w) { return w && w.id === erW; })[0];
+      if (!erWork) return {ok: false, error: 'That assignment was not found.'};
+      if (erWork.due) {
+        var erDue = Utilities.parseDate(erWork.due + ' 23:59', Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm').getTime();
+        if (erDue - new Date().getTime() < 3 * 24 * 3600000)
+          return {ok: false, error: 'Extensions have to be asked for at least three days before the due date. Talk to the President or Vice President.'};
+      }
+      var erList = dashRow_('ext:' + aff, []).filter(function (x) { return !(x.who === erMe && x.workId === erW && x.status === 'waiting'); });
+      var erItem = {id: 'x' + new Date().getTime().toString(36), workId: erW, work: String(erWork.title || ''), who: erMe, name: id.name || email,
+                    reason: dashClean_(erP.reason, 300), until: dashClean_(erP.until, 10), status: 'waiting', at: new Date().toISOString()};
+      erList.push(erItem);
+      dashWrite_('ext:' + aff, erList.slice(-300));
+      return {ok: true, ext: erItem};
+    }
+    case 'extList': return {ok: true, ext: dashRow_('ext:' + aff, [])};
+    case 'extDecide': {
+      var edP = payload || {}, edL = dashRow_('ext:' + aff, []), edHit = null;
+      edL.forEach(function (x) { if (x.id === String(edP.id || '')) { x.status = edP.ok ? 'approved' : 'declined'; x.by = id.name || email; x.decidedAt = new Date().toISOString(); x.note = dashClean_(edP.note, 200); edHit = x; } });
+      if (!edHit) return {ok: false, error: 'That request was not found.'};
+      dashWrite_('ext:' + aff, edL);
+      return {ok: true, ext: edHit};
+    }
+
     case 'getAll': {
       /* Everything the club looks like, shared by every caller and read
          through the short-lived cache above. */
@@ -3964,7 +4042,9 @@ function acctFor_(aff, email, id) {
 var OWN_BITS_ = {saveProfile: 1, submitForm: 1, myFormAnswers: 1};
 function clubWide_(action, payload) {
   if (action === 'ensureMyDrive' || action === 'submitForm' || action === 'myFormAnswers' ||
-      action === 'changePassword' || action === 'setMyPassword' || PUSH_ACTIONS_[action]) return false;
+      action === 'changePassword' || action === 'setMyPassword' || PUSH_ACTIONS_[action] ||
+      action === 'msgSend' || action === 'msgCancel' || action === 'sfCheck' ||
+      action === 'extRequest' || action === 'extDecide') return false;
   if (action === 'saveProfile') return !!(payload && (payload.firstName || payload.lastName));
   return true;
 }
@@ -4184,4 +4264,351 @@ function listChapterCalendars() {
   var msg = rows.length ? rows.join('\n') : 'No chapter calendars found.';
   Logger.log(msg);
   return msg;
+}
+
+/* ---------------- the dashboard (/dash): messages, SFBLC reminders, team notices ----------------
+   The dashboard keeps the SFBLC schedule, coaching sessions and checklist on
+   the club record (sfSchedule, sfCoaching, sfChecklist, sfInfo, sfAuto), where
+   officers already save, item by item. What cannot live there does live here:
+   the message log names who each message went to, and members must only ever
+   read their own, so it sits under its own Config row (msgs:<club>), like team
+   requests. Checklist ticks are per member and saved by members, so they get
+   their own row too (sfdone:<club>) -- a member cannot write the club record.
+   Who a message or a schedule item is for is a list of tags (all, yr:2,
+   ev:Finance, team:<id>, org:<name>, tr:<track>, client:<name>, sfblc,
+   tag:<officer tag>) plus names. Tags are resolved here, when it is sent, so a
+   reminder set a week ahead still reaches whoever is on that team by then. */
+var DASH_MSG_KEEP_ = 150, DASH_CELL_MAX_ = 45000;
+
+function dashRow_(key, fallback) {
+  var r = cfgRow_(key);
+  try { return JSON.parse(r.val || '') || fallback; } catch (e) { return fallback; }
+}
+function dashWrite_(key, value) {
+  var r = cfgRow_(key), j = JSON.stringify(value);
+  if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow([key, j]);
+}
+function readMsgs_(aff) { return dashRow_('msgs:' + aff, []); }
+function writeMsgs_(aff, list) {
+  list = list.slice(-DASH_MSG_KEEP_);
+  while (list.length > 20 && JSON.stringify(list).length > DASH_CELL_MAX_) list.shift();
+  dashWrite_('msgs:' + aff, list);
+}
+
+function dashYear_(v) { return /2/.test(String(v || '')) ? 2 : (String(v || '') ? 1 : 0); }
+function dashTrack_(cfg, v) {
+  var s = String(v || ''), t = ((cfg && cfg.tracks) || []).filter(function (x) { return x && (x.id === s || x.label === s); })[0];
+  return t ? t.label : s;
+}
+
+/* Everyone on the club roster, with what tags are matched against. */
+function dashPeople_(aff, cfg) {
+  var f = flatName_, ppl = {};
+  accountsFor(aff).forEach(function (u) {
+    var nm = String(((u.first || '') + ' ' + (u.last || '')).trim());
+    var k = f(nm);
+    if (!k || ppl[k]) return;
+    var pr = {};
+    try { pr = JSON.parse(u.prefs || '{}') || {}; } catch (e) {}
+    ppl[k] = {name: nm, email: String(u.email || '').toLowerCase(), year: dashYear_(u.year),
+              track: dashTrack_(cfg, u.track), org: '', prefs: pr, teams: {}, events: [], clients: []};
+  });
+  readScoped('teams', aff).forEach(function (r) {
+    var k = f(r.MemberName);
+    if (!k) return;
+    var p = ppl[k] || (ppl[k] = {name: String(r.MemberName), email: '', year: 0, track: '', org: '',
+                                  prefs: {}, teams: {}, events: [], clients: []});
+    p.org = String(r.Org || '');
+    if (!p.year) p.year = dashYear_(r.Year);
+    if (!p.track) p.track = dashTrack_(cfg, r.Track);
+  });
+  ((cfg && cfg.teams) || []).forEach(function (t) {
+    (t && t.members || []).forEach(function (m) {
+      var p = ppl[f(m)];
+      if (!p) return;
+      p.teams[t.id] = 1;
+      if (t.kind === 'flc' && t.event) p.events.push(String(t.event));
+      if (t.client) p.clients.push(String(t.client));
+    });
+  });
+  Object.keys(ppl).forEach(function (k) {
+    var p = ppl[k];
+    p.going = p.events.length > 0 || (p.prefs && p.prefs.attend === true);
+  });
+  return ppl;
+}
+
+function dashMatch_(p, tag, cfg) {
+  var f = flatName_, s = String(tag || ''), i = s.indexOf(':');
+  var kind = i > 0 ? s.slice(0, i) : s, val = i > 0 ? s.slice(i + 1) : '';
+  switch (kind) {
+    case 'all':    return true;
+    case 'sfblc':  return !!p.going;
+    case 'name':   return f(p.name) === f(val);
+    case 'yr':     return p.year === Number(val);
+    case 'tr':     return f(p.track) === f(val);
+    case 'org':    return !!p.org && f(p.org) === f(val);
+    case 'team':   return !!p.teams[val];
+    case 'ev':     return p.events.some(function (e) { return f(e) === f(val); });
+    case 'client': return p.clients.some(function (c) { return f(c) === f(val); });
+    case 'tag':    return (((cfg && cfg.memberTags) || {})[f(p.name)] || []).some(function (t) { return f(t) === f(val); });
+  }
+  return false;
+}
+
+/* target: {tags: [...], names: [...], all: true|false (match every tag rather than any)} */
+function dashResolve_(ppl, cfg, target) {
+  var t = target || {}, tags = (t.tags || []).slice(0, 20), names = {};
+  (t.names || []).slice(0, 300).forEach(function (n) { names[flatName_(n)] = 1; });
+  if (!tags.length && !Object.keys(names).length) tags = ['all'];
+  return Object.keys(ppl).map(function (k) { return ppl[k]; }).filter(function (p) {
+    if (names[flatName_(p.name)]) return true;
+    if (!tags.length) return false;
+    return t.every ? tags.every(function (g) { return dashMatch_(p, g, cfg); })
+                   : tags.some(function (g) { return dashMatch_(p, g, cfg); });
+  });
+}
+
+/* Push to every device of the people named, and email them if asked. */
+function dashDeliver_(aff, msg, people) {
+  var f = flatName_, want = {}, wantMail = {};
+  people.forEach(function (p) { want[f(p.name)] = 1; if (p.email) wantMail[p.email] = 1; });
+  var res = {to: people.map(function (p) { return f(p.name); }), pushed: 0, mailed: 0, notes: []};
+  if (pushConfig_().secret) {
+    var devs = pushRows_(aff).filter(function (r) { return want[f(r.name)] || wantMail[r.email]; });
+    var sent = pushSend_(devs.map(function (r) {
+      return {sub: r.sub, title: msg.title, body: msg.body, url: msg.url || '/dash#inbox', tag: 'm:' + msg.id};
+    }));
+    if (sent.ok) res.pushed = sent.sent; else res.notes.push(sent.error);
+    var reached = {};
+    devs.forEach(function (r) { reached[f(r.name)] = 1; });
+    res.reach = Object.keys(reached).length;
+  } else res.notes.push('Phone notifications are not set up on the backend.');
+  if (msg.email) {
+    var list = Object.keys(wantMail).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); });
+    if (list.length && MailApp.getRemainingDailyQuota() >= list.length) {
+      var me = '';
+      try { me = Session.getEffectiveUser().getEmail(); } catch (e) {}
+      for (var i = 0; i < list.length; i += 45) {
+        MailApp.sendEmail({to: me || list[i], bcc: list.slice(i, i + 45).join(','), subject: msg.title,
+                           body: msg.body + '\n\nOpen the dashboard: ' + SITE_URL_ + (msg.url || '/dash#inbox'),
+                           name: (findAff(aff) || {}).name || 'Org System'});
+      }
+      res.mailed = list.length;
+    } else if (list.length) res.notes.push('Not emailed: ' + list.length + ' addresses but only ' +
+                                          MailApp.getRemainingDailyQuota() + ' emails left today.');
+  }
+  return res;
+}
+
+/* Logs a message as sent and delivers it. Used by msgSend and the automations. */
+function dashSendNow_(aff, cfg, msg, ppl) {
+  var people = dashResolve_(ppl || dashPeople_(aff, cfg), cfg, msg.target);
+  var res = dashDeliver_(aff, msg, people);
+  msg.status = 'sent'; msg.sentAt = new Date().toISOString();
+  msg.to = res.to; msg.pushed = res.pushed; msg.mailed = res.mailed; msg.reach = res.reach || 0;
+  msg.notes = res.notes;
+  return msg;
+}
+
+function dashClean_(v, n) { return String(v == null ? '' : v).replace(/[<>]/g, '').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '').slice(0, n); }
+function dashTarget_(t) {
+  t = t || {};
+  return {tags: (t.tags || []).slice(0, 20).map(function (x) { return dashClean_(x, 80); }),
+          names: (t.names || []).slice(0, 300).map(function (x) { return dashClean_(x, 60); }),
+          every: !!t.every};
+}
+
+function dashMsgSend_(aff, payload, email) {
+  var p = payload || {}, cfg = clubCfg_(aff) || {};
+  var msg = {id: 'm' + new Date().getTime().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+             title: dashClean_(p.title, 80), body: dashClean_(p.body, 600),
+             url: /^\/[A-Za-z0-9\/#?=&._-]*$/.test(String(p.url || '')) ? String(p.url) : '/dash#inbox',
+             target: dashTarget_(p.target), email: !!p.email, by: email, created: new Date().toISOString()};
+  if (!msg.title) return {ok: false, error: 'A message needs a title.'};
+  var at = p.at ? new Date(p.at) : null;
+  if (at && !isNaN(at.getTime()) && at.getTime() > new Date().getTime() + 60000) {
+    msg.at = at.toISOString(); msg.status = 'scheduled';
+    var list = readMsgs_(aff); list.push(msg); writeMsgs_(aff, list);
+    return {ok: true, msg: msg};
+  }
+  /* Sent once the lock is let go: pushing and mailing take seconds. */
+  msg.status = 'sending';
+  var list0 = readMsgs_(aff); list0.push(msg); writeMsgs_(aff, list0);
+  afterLock_(function () {
+    var done = dashSendNow_(aff, cfg, msg);
+    withLock_(function () {
+      var l = readMsgs_(aff);
+      l.forEach(function (m, i) { if (m.id === done.id) l[i] = done; });
+      writeMsgs_(aff, l);
+      return {ok: true};
+    });
+  });
+  return {ok: true, msg: msg};
+}
+
+function dashReach_(aff) {
+  var out = {};
+  try { pushRows_(aff).forEach(function (r) { out[flatName_(r.name)] = 1; }); } catch (e) {}
+  return out;
+}
+
+/* Run by keepWarm. Everything here is switched on per club in sfAuto. Each
+   reminder and notice is sent once: what went out is remembered by key in the
+   script properties. Team notices compare the SFBLC teams with the last run's;
+   the first run only takes note, so turning this on announces nothing old. */
+function dashAuto_() {
+  var props = PropertiesService.getScriptProperties(), tz = Session.getScriptTimeZone(), now = new Date();
+  var f = flatName_, report = [];
+  var cfgs = {};
+  readTab('config').forEach(function (r) {
+    var k = String(r.Key);
+    if (k.indexOf('club:') === 0) { try { cfgs[normAff(k.slice(5))] = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  allAffiliations().forEach(function (a) {
+    var cfg = cfgs[a.code];
+    if (!cfg) return;
+    var auto = cfg.sfAuto || {}, out = [], ppl = null;
+    var people = function () { return ppl || (ppl = dashPeople_(a.code, cfg)); };
+    var sentKey = 'DASH_SENT_' + a.code, sent = [];
+    try { sent = JSON.parse(props.getProperty(sentKey) || '[]') || []; } catch (e) {}
+    var once = function (k) { if (sent.indexOf(k) > -1) return false; sent.push(k); return true; };
+
+    /* Scheduled messages whose time has come. */
+    var mine = {}, changed = false;
+    readMsgs_(a.code).forEach(function (m) {
+      if (m.status === 'scheduled' && m.at && new Date(m.at).getTime() <= now.getTime()) {
+        mine[m.id] = dashSendNow_(a.code, cfg, m, people()); changed = true;
+      }
+    });
+
+    var when = function (it) {
+      if (!it || !it.date) return null;
+      try { return Utilities.parseDate(it.date + ' ' + (it.start || '09:00'), tz, 'yyyy-MM-dd HH:mm'); } catch (e) { return null; }
+    };
+    var fmt = function (d) { return Utilities.formatDate(d, tz, 'EEE h:mm a'); };
+    if (auto.on) {
+      var items = (cfg.sfSchedule || []).map(function (x) { return {it: x, kind: 'Schedule'}; })
+        .concat((cfg.sfCoaching || []).map(function (x) { return {it: x, kind: 'Coaching'}; }));
+      items.forEach(function (o) {
+        var it = o.it, d = when(it);
+        /* An item with no start time yet (a tentative day) is not reminded about. */
+        if (!d || !it.start || it.remind === false || !it.id) return;
+        var left = d.getTime() - now.getTime(), where = it.where ? ' · ' + it.where : '';
+        var title = o.kind === 'Coaching' ? 'Coaching: ' + (it.topic || it.title || 'session') : (it.title || 'SFBLC');
+        if (auto.dayBefore !== false && left > 75 * 60000 && left <= 24 * 3600000 && once('d:' + it.id + ':' + it.date + it.start))
+          out.push({title: 'Tomorrow · ' + title, body: fmt(d) + where + (it.coach ? ' · with ' + it.coach : ''), target: it['for']});
+        if (auto.hourBefore !== false && left > 0 && left <= 75 * 60000 && once('h:' + it.id + ':' + it.date + it.start))
+          out.push({title: 'Starting soon · ' + title, body: fmt(d) + where, target: it['for']});
+      });
+      /* Checklist items, the evening before they are due, to whoever has not ticked them. */
+      var evening = Number(Utilities.formatDate(now, tz, 'H')) >= 18;
+      var tomorrow = Utilities.formatDate(new Date(now.getTime() + 24 * 3600000), tz, 'yyyy-MM-dd');
+      var done = dashRow_('sfdone:' + a.code, {});
+      (cfg.sfChecklist || []).forEach(function (c) {
+        if (!c || !c.id || c.due !== tomorrow || !evening || auto.checklist === false) return;
+        if (!once('c:' + c.id + ':' + c.due)) return;
+        var ticked = {};
+        (done[c.id] || []).forEach(function (n) { ticked[n] = 1; });
+        var names = dashResolve_(people(), cfg, c['for']).filter(function (p) { return !ticked[f(p.name)]; })
+          .map(function (p) { return p.name; });
+        if (names.length) out.push({title: 'Due tomorrow · ' + c.label, body: (c.detail || 'Tick it off on the dashboard once it is done.'),
+                                    target: {names: names}});
+      });
+    }
+
+    /* SFBLC team notices. */
+    var teamKey = 'DASH_TEAMS_' + a.code, before = props.getProperty(teamKey), snap = {};
+    (cfg.teams || []).forEach(function (t) {
+      if (t && t.kind === 'flc' && t.id) snap[t.id] = (t.members || []).map(f).filter(Boolean);
+    });
+    if (before !== null && auto.on && auto.teams !== false) {
+      var prev = {};
+      try { prev = JSON.parse(before) || {}; } catch (e) {}
+      (cfg.teams || []).forEach(function (t) {
+        if (!t || t.kind !== 'flc' || !t.id) return;
+        var was = {};
+        (prev[t.id] || []).forEach(function (n) { was[n] = 1; });
+        var added = (t.members || []).filter(function (m) { return m && !was[f(m)]; });
+        if (!added.length) return;
+        var mates = (t.members || []).filter(Boolean);
+        out.push({title: 'Your SFBLC team: ' + (t.event || '') + (t.name ? ' · ' + t.name : ''),
+                  body: 'Team: ' + mates.join(', ') + '. Your schedule and coaching sessions are on the dashboard.',
+                  target: {names: added}, url: '/dash#teams'});
+      });
+    }
+    props.setProperty(teamKey, JSON.stringify(snap));
+
+    out.forEach(function (o) {
+      var sm = (dashSendNow_(a.code, cfg, {id: 'a' + now.getTime().toString(36) + Math.floor(Math.random() * 1e5).toString(36),
+        title: dashClean_(o.title, 80), body: dashClean_(o.body, 600), url: o.url || '/dash#sfblc',
+        target: dashTarget_(o.target), auto: true, by: 'automation', created: now.toISOString()}, people()));
+      mine[sm.id] = sm; changed = true;
+    });
+    /* Read again under the lock, so whatever an officer sent meanwhile is kept. */
+    if (changed) withLock_(function () {
+      var cur = readMsgs_(a.code), seen = {};
+      cur.forEach(function (m, i) { if (mine[m.id]) { cur[i] = mine[m.id]; seen[m.id] = 1; } });
+      Object.keys(mine).forEach(function (k) { if (!seen[k]) cur.push(mine[k]); });
+      writeMsgs_(a.code, cur);
+      return {ok: true};
+    });
+    props.setProperty(sentKey, JSON.stringify(sent.slice(-400)));
+    if (out.length) report.push(a.name + ': ' + out.length + ' automated message(s)');
+  });
+  if (report.length) Logger.log(report.join('\n'));
+  return report.join('\n');
+}
+
+/* The sheets each club's officers may read through linkedRead. The script runs
+   as the master account, which can open every club's files (every response
+   sheet holds all of a club's answers), so an officer can only name a sheet
+   listed here for their own club. Add a sheet here and redeploy to link it;
+   the ids match dash-app/sources.js. */
+var LINKED_SHEETS_ = {
+  'deanza-pbl': [
+    '1oKlEes6653hEO8pJj2sExZzAI1daXZLVRCMaDWQtVJY',  // SFBLC 2026 Master Sheet
+    '19xazg1JCkQl-JJADMmgZqKfx0l35u1uNPct33MPcq8E',  // PBL Verify Records (Discord bot)
+    '11epr7XrJQbhJwWWnVH9pUsHlMZAx3XoUzjmYjVr5p3A',  // Fall 26' Attendance
+    '1NTWldqi2UpApSSo7jbZ8wNMBlQ45oU_zPNiEYsnyMgY',  // De Anza PBL sign-up (responses)
+    '1pOsiOmbX9yYzhFoMyLbLZD1p05cMoL3jqvvtWu4fNiA',  // Fall 26 Track Interest Form
+    '1aejSol5F1hHqUY0WlfK9UrNcaIh_Vp0TSaMwC5KYsB8',  // Fall 26' IM Re-enrollment
+    '1GAULwXMwynTCfAaFv1G5tJo5zdoEqDPTfzRRMg5UTSQ'   // Winter IM master sheet
+  ]
+};
+
+/* payload: {sheetId, tabs: ['Teams'] | ['*'] (every tab) | ['#first'], cols: ['Person', 'Major', '#1' (a column by position)]}
+   The header row is the first of the top six rows that names any wanted column. */
+function linkedRead_(payload, aff) {
+  var p = payload || {}, id = String(p.sheetId || '');
+  if (!/^[A-Za-z0-9_-]{20,80}$/.test(id)) return {ok: false, error: 'That is not a Google Sheets id.'};
+  if ((LINKED_SHEETS_[aff] || []).indexOf(id) < 0)
+    return {ok: false, error: 'That sheet is not linked to this club. Add it to LINKED_SHEETS_ in Code.gs.'};
+  var want = (p.cols || []).slice(0, 20).map(function (c) { return String(c).toLowerCase().trim(); }).filter(String);
+  if (!want.length) return {ok: false, error: 'Name the columns to read.'};
+  var ss;
+  try { ss = SpreadsheetApp.openById(id); } catch (e) { return {ok: false, error: 'The club account cannot open that sheet. Share it with the club account.'}; }
+  var all = ss.getSheets(), tabs = p.tabs || ['#first'];
+  var pick = tabs[0] === '*' ? all : tabs[0] === '#first' ? all.slice(0, 1)
+    : all.filter(function (sh) { return tabs.indexOf(sh.getName()) > -1; });
+  var out = pick.slice(0, 30).map(function (sh) {
+    var nr = Math.min(sh.getLastRow(), 700), nc = Math.min(sh.getLastColumn(), 30);
+    if (nr < 1 || nc < 1) return {name: sh.getName(), headers: [], rows: []};
+    var v = sh.getRange(1, 1, nr, nc).getDisplayValues(), hr = -1, cols = [];
+    for (var r = 0; r < Math.min(6, v.length) && hr < 0; r++) {
+      var hit = [];
+      v[r].forEach(function (h, c) {
+        var hl = String(h).toLowerCase().trim();
+        want.forEach(function (w) {
+          if ((w.charAt(0) === '#' && +w.slice(1) === c) || (w.charAt(0) !== '#' && hl && hl.indexOf(w) > -1)) if (hit.indexOf(c) < 0) hit.push(c);
+        });
+      });
+      if (hit.some(function (c) { return String(v[r][c]).trim(); })) { hr = r; cols = hit.sort(function (a, b) { return a - b; }); }
+    }
+    if (hr < 0) return {name: sh.getName(), headers: [], rows: []};
+    return {name: sh.getName(), idx: cols, headers: cols.map(function (c) { return String(v[hr][c]).trim() || ('#' + c); }),
+            rows: v.slice(hr + 1).map(function (row) { return cols.map(function (c) { return String(row[c]).slice(0, 120); }); })
+              .filter(function (row) { return row.some(function (x) { return String(x).trim(); }); })};
+  });
+  return {ok: true, title: ss.getName(), tabs: out};
 }
