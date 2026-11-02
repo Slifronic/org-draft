@@ -39,7 +39,11 @@ var NEEDS = {
   forkClub: 'admin',
   submitTeamRequest: 'member', withdrawTeamRequest: 'member', listTeamRequests: 'member',
   reviewTeamRequest: 'admin', editTeamRequest: 'admin', reviewSubmissions: 'admin', deleteTeamRequest: 'admin',
-  syncMemberDrives: 'admin', ensureMyDrive: 'member'
+  syncMemberDrives: 'admin', ensureMyDrive: 'member',
+  savePush: 'member', dropPush: 'member', testPush: 'member', googleSession: 'member',
+  msgList: 'admin', msgSend: 'admin', msgCancel: 'admin', myInbox: 'member', sfCheck: 'member',
+  linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin',
+  syncStatus: 'admin', syncNow: 'admin', ticketList: 'admin', ticketDecide: 'admin', discordList: 'admin', discordLink: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -250,7 +254,9 @@ var TAB = {
   teams:      {name: 'Teams',      cols: ['MemberName', 'Org', 'Track', 'Year', 'MBTI', 'LeadInterest', 'IsLead', 'Notes', 'Affiliation',
                                           'Availability', 'Focus']},
   pointsLog:  {name: 'PointsLog',  cols: ['Timestamp', 'MemberName', 'ActionId', 'ActionLabel', 'Points', 'Track', 'Org', 'Affiliation']},
-  attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation']},
+  /* Status and Note (Nov 2026) come from the chapter's attendance sheet through Sync.gs:
+     "Present", "Excused Late"... and absences, which getAll never counts as a check-in. */
+  attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation', 'Status', 'Note']},
   roster:     {name: 'Form Responses 1', cols: null, readOnly: true},
   config:     {name: 'Config',     cols: ['Key', 'Value']},
   /* New fields are appended, never inserted, so an existing Users sheet is
@@ -267,7 +273,20 @@ var TAB = {
                                            'FirstAt']},
   profiles:   {name: 'Profiles',   cols: ['Email', 'Affiliation', 'FirstName', 'LastName', 'Photo',
                                           'Year', 'Track', 'MBTI', 'LeadInterest', 'FormNotes', 'FormAt',
-                                          'Birthday', 'Availability', 'Prefs']}
+                                          'Birthday', 'Availability', 'Prefs']},
+  /* One row per phone (or browser) a member turned notifications on from.
+     Sub is the browser's subscription as JSON: its endpoint and keys are
+     only good for sending that device a message, through api/push. */
+  push:       {name: 'Push',       cols: ['Affiliation', 'Email', 'Name', 'Endpoint', 'Sub', 'CreatedAt']},
+  /* Two-way sync with the chapter's sheets (Sync.gs): what both sides last
+     agreed on, every copy it made, the bot's attendance tickets, and the
+     bot's verified Discord profiles linked to members. */
+  syncBase:   {name: 'SyncBase',   cols: ['Affiliation', 'Domain', 'Key', 'Value', 'Ref']},
+  syncLog:    {name: 'SyncLog',    cols: ['At', 'Affiliation', 'Domain', 'Key', 'Direction', 'From', 'To', 'Why']},
+  tickets:    {name: 'Tickets',    cols: ['Affiliation', 'TicketId', 'Meeting', 'Name', 'DiscordId', 'Username', 'Type', 'Label',
+                                          'Reason', 'Status', 'OpenedAt', 'DecidedBy', 'DecidedAt', 'Thread']},
+  discord:    {name: 'Discord',    cols: ['Affiliation', 'DiscordId', 'Username', 'Name', 'Major', 'CWID', 'VerifiedAt',
+                                          'MemberName', 'MatchedBy', 'UpdatedAt']}
 };
 var DEFAULT_AFF = 'default';
 /* The form every club starts from. Copied per club rather than shared, so one
@@ -496,6 +515,33 @@ function readSession(tok) {
   return user.toLowerCase();
 }
 
+/* A Google sign-in kept for the home-screen app. There, Google's sign-in can
+   only come back by a full-page redirect, so the hour-long Google token cannot
+   be quietly renewed the way the browser tab does; the app swaps it for one
+   of these instead. Signed like a password session but over a "g|" prefix,
+   so neither kind can be passed off as the other. It proves an address and
+   nothing more: the club and role are looked up again on every request. The
+   app asks for a fresh one each time it opens, so only a month of not
+   opening it signs a member out. */
+var GSESSION_MS = 30 * 24 * 60 * 60 * 1000;
+function signGoogleSession_(email, expiresAt) {
+  var body = b64url(String(email).toLowerCase() + '|' + expiresAt);
+  return 'g1.' + body + '.' + b64url(Utilities.computeHmacSha256Signature('g|' + body, sessionSecret()));
+}
+function readGoogleSession_(tok) {
+  var parts = String(tok || '').split('.');
+  if (parts.length !== 3 || parts[0] !== 'g1') return null;
+  if (parts[2] !== b64url(Utilities.computeHmacSha256Signature('g|' + parts[1], sessionSecret()))) return null;
+  var raw;
+  try { raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[1])).getDataAsString(); }
+  catch (e) { return null; }
+  var i = raw.lastIndexOf('|');
+  if (i < 0) return null;
+  var email = raw.slice(0, i), exp = Number(raw.slice(i + 1));
+  if (!exp || exp < Date.now() || email.indexOf('@') < 1) return null;
+  return email.toLowerCase();
+}
+
 /* One cheap hash: the expensive stretching already happened in the browser. */
 function hashDk(dk, serverSalt) {
   return Utilities.base64Encode(Utilities.computeDigest(
@@ -664,6 +710,16 @@ function doSignup(payload) {
    a password login. Everything downstream sees the same {who, role} shape and
    does not care which door was used. */
 function identify(body) {
+  /* The home-screen app's Google session (see googleSession). It stands in
+     for the Google token, and everything after it is the same Google path:
+     the club and role are looked up again on every request. */
+  if (body.session && String(body.session).indexOf('g1.') === 0) {
+    var gEmail = readGoogleSession_(body.session);
+    if (!gEmail) return {ok: false, error: 'Your session expired. Sign in again.'};
+    var gid = identifyEmail_(body, gEmail, '');
+    if (gid.ok) gid.bySession = true;
+    return gid;
+  }
   if (body.session) {
     var u = readSession(body.session);
     if (!u) return {ok: false, error: 'Your session expired. Sign in again.'};
@@ -681,6 +737,9 @@ function identify(body) {
       ? 'Sign-in could not be verified. Sign out and back in.'
       : 'The backend has no CLIENT_ID set, so no sign-in can be verified yet.'};
   }
+  return identifyEmail_(body, email, gName);
+}
+function identifyEmail_(body, email, gName) {
   /* The global master belongs everywhere and may look at any club by asking
      for one; everyone else is pinned to the affiliation they joined. A Google
      address with no affiliation yet is signed in but unplaced, and the page
@@ -958,6 +1017,7 @@ function doPost(e) {
     if (rebuild && res && res.ok !== false) {
       try { ROWS_ = {}; MEMO_ROWS_ = true; clubSnapshot_(normAff(id.aff || DEFAULT_AFF)); } catch (err3) {}
     }
+    runAfter_();
     return out(res);
   } catch (fatal) {
     return out(failRef_('doPost', fatal));
@@ -975,7 +1035,8 @@ function failRef_(where, err) {
 
 var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
                  listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
-                 clubRoster: 1, formSchema: 1, formItems: 1};
+                 clubRoster: 1, formSchema: 1, formItems: 1, msgList: 1, myInbox: 1, linkedRead: 1, extList: 1,
+                 syncStatus: 1, ticketList: 1, discordList: 1};
 
 /* ---- homework tracks (Fall 2026) ----
    Every member's homework is curated toward consulting ('c') or case
@@ -1129,7 +1190,11 @@ function withLock_(fn) {
    the events kept for officers, the links to the club's own files (the
    response sheet holds every member's answers), and every hotel room but
    their own -- who rooms with whom, and in which group, is not club news. */
-var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide'];
+var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'ownerEmail', 'calHide', 'handinTo',
+                          /* The dashboard's officer-made tags on members ("Needs a ride"). */
+                          'memberTags', 'tagSources',
+                          /* Warnings and meetings officers logged under the member contract. */
+                          'standingLog'];
 function memberCfg_(cfg, meName) {
   if (!cfg) return cfg;
   var c = {};
@@ -1290,7 +1355,8 @@ function clubSnapshot_(aff) {
             memberNames: memberNames_(aff), affName: (findAff(aff) || {}).name || aff,
             teamBoard: teamBoard_(aff, cfg), orgBoard: orgBoard_(aff, cfg),
             teams: readScoped('teams', aff), pointsLog: readScoped('pointsLog', aff),
-            attendance: readScoped('attendance', aff)};
+            /* Absences synced from the attendance sheet are kept for the sync, never counted as check-ins. */
+            attendance: readScoped('attendance', aff).filter(function (r) { return !attAbsent_(r.Status); })};
   });
 }
 
@@ -1321,8 +1387,346 @@ function warmClubs_() {
    schedules on small repositories -- it ran once in an afternoon -- so the
    club snapshot (kept SHARED_TTL_ seconds) lapsed between visits and a
    member's first page load rebuilt it from a dozen tabs. Google runs its own
-   triggers on time, and no extra permission is needed for this one. */
-function keepWarm() { warmClubs_(); }
+   triggers on time. It also sends the hand-in alerts below, which need the
+   send-mail permission: run authorizeScopes once after pasting this file. */
+function keepWarm() {
+  try { warmClubs_(); } catch (e) { Logger.log('warmClubs_: ' + (e && e.message || e)); }
+  try { handinAlerts_(false); } catch (e) { Logger.log('handinAlerts_: ' + (e && e.message || e)); }
+  try { pushHomework_(); } catch (e) { Logger.log('pushHomework_: ' + (e && e.message || e)); }
+  try { dashAuto_(); } catch (e) { Logger.log('dashAuto_: ' + (e && e.message || e)); }
+  try { syncKeepWarm_(); } catch (e) { Logger.log('syncKeepWarm_: ' + (e && e.message || e)); }
+}
+
+/* ---------------- hand-in alerts ----------------
+   Each keepWarm run emails a club's officers one message listing what was
+   handed in since the last one. Batched on purpose: a deadline night brings
+   eighty hand-ins, and an email apiece would bury the inbox and run into
+   Gmail's daily limit (100 recipients a day on a personal account). Only the
+   trigger sends; a web request never does, so a member's hand-in is never
+   slowed by mail. The first run for a club only notes the time, so switching
+   this on does not send the season's history. Homework alerts turns it off and
+   (Homework tab) names the addresses; with none named it goes to the club Google account. */
+var SITE_URL_ = 'https://org.deanzapbl.com';
+var HANDIN_ROWS_MAX_ = 60;
+
+function handinRecipients_(cfg) {
+  var ok = function (x) { return /^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$/.test(x); };
+  var list = String(cfg.handinTo || '').split(/[\s,;]+/).filter(ok);
+  if (!list.length && ok(String(cfg.ownerEmail || '').trim())) list = [String(cfg.ownerEmail).trim()];
+  if (!list.length) { try { var me = Session.getEffectiveUser().getEmail(); if (ok(me)) list = [me]; } catch (e) {} }
+  var seen = {};
+  return list.filter(function (x) { var k = x.toLowerCase(); if (seen[k]) return false; return (seen[k] = true); }).slice(0, 10);
+}
+
+/* Pass true (handinAlertTest) to send the latest few hand-ins whatever the
+   clock says, without moving it. */
+function handinAlerts_(test) {
+  var props = PropertiesService.getScriptProperties(), cfgs = {};
+  readTab('config').forEach(function (r) {
+    var k = String(r.Key);
+    if (k.indexOf('club:') === 0) { try { cfgs[normAff(k.slice(5))] = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  var subs = readTab('submissions'), report = [];
+  allAffiliations().forEach(function (a) {
+    var cfg = cfgs[a.code];
+    if (!cfg) return;
+    var key = 'HANDIN_AT_' + a.code, since = Number(props.getProperty(key)) || 0;
+    var time = function (r) { var t = r.SubmittedAt ? new Date(r.SubmittedAt).getTime() : 0; return isNaN(t) ? 0 : t; };
+    var mine = subs.filter(function (r) { return normAff(r.Affiliation || DEFAULT_AFF) === a.code && time(r); });
+    mine.sort(function (x, y) { return time(x) - time(y); });
+    var latest = mine.length ? time(mine[mine.length - 1]) : 0;
+    /* Switched off, the clock still moves, so turning alerts back on does not
+       send everything handed in meanwhile. */
+    if (!test && (!since || cfg.handinMail === false)) {
+      props.setProperty(key, String(Math.max(latest, since) || new Date().getTime()));
+      return;
+    }
+    if (test && cfg.handinMail === false) return;
+    var fresh = test ? mine.slice(-3) : mine.filter(function (r) { return time(r) > since; });
+    if (!fresh.length) return;
+    var to = handinRecipients_(cfg);
+    if (!to.length) { report.push(a.name + ': no address to send to'); return; }
+    if (MailApp.getRemainingDailyQuota() < to.length) {
+      report.push(a.name + ': daily mail limit reached, will retry');
+      return;
+    }
+    var msg = handinMessage_(a, cfg, fresh);
+    MailApp.sendEmail({to: to.join(','), subject: (test ? '[Test] ' : '') + msg.subject,
+                       body: msg.text, htmlBody: msg.html, name: a.name + ' Org System'});
+    if (!test) props.setProperty(key, String(time(fresh[fresh.length - 1])));
+    report.push(a.name + ': ' + fresh.length + ' hand-in(s) sent to ' + to.join(', '));
+  });
+  if (report.length) Logger.log(report.join('\n'));
+  return report.join('\n');
+}
+
+function handinMessage_(aff, cfg, rows) {
+  var tz = Session.getScriptTimeZone();
+  var h = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); };
+  var works = {};
+  (cfg.work || []).forEach(function (w) { if (w && w.id) works[w.id] = w; });
+  var shown = rows.slice(-HANDIN_ROWS_MAX_), more = rows.length - shown.length;
+  var items = shown.map(function (r) {
+    var w = works[String(r.WorkId)], end = dueEnd_(w), at = new Date(r.SubmittedAt);
+    var rev = Number(r.Revision) || 1;
+    var when = end ? (at.getTime() <= end ? 'On time' : 'Late') : 'No due date';
+    if (rev > 1) when += ' · replaced (version ' + rev + ')';
+    return {name: String(r.MemberName || ''), org: String(r.Org || ''),
+            work: String(r.WorkTitle || (w && w.title) || 'Assignment'),
+            at: Utilities.formatDate(at, tz, 'EEE MMM d, h:mm a'), when: when,
+            late: end && at.getTime() > end, url: String(r.FileUrl || '')};
+  });
+  var titles = {};
+  items.forEach(function (it) { titles[it.work] = 1; });
+  var subject = rows.length === 1
+    ? items[0].name + ' handed in ' + items[0].work
+    : rows.length + ' new hand-ins: ' + Object.keys(titles).slice(0, 3).join(', ') +
+      (Object.keys(titles).length > 3 ? ', …' : '');
+  var footer = 'Review them on the Homework tab: ' + SITE_URL_ + '\n' +
+    'Sent by the Org System every 10 minutes when something new is handed in. ' +
+    'Change who gets these, or turn them off, in Homework → Homework alerts.';
+  var text = items.map(function (it) {
+    return '• ' + it.name + (it.org ? ' (' + it.org + ')' : '') + ' — ' + it.work + '\n  ' +
+           it.at + ' · ' + it.when + (it.url ? '\n  ' + it.url : '');
+  }).join('\n') + (more > 0 ? '\n…and ' + more + ' more.' : '') + '\n\n' + footer;
+  var td = 'style="padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top"';
+  var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#111827">' +
+    '<p style="margin:0 0 12px">' + h(aff.name) + ': ' + rows.length + ' new hand-in' + (rows.length === 1 ? '' : 's') + '.</p>' +
+    '<table style="border-collapse:collapse;width:100%;max-width:720px">' +
+    '<tr style="text-align:left;color:#6b7280;font-size:12px"><th ' + td + '>Member</th><th ' + td + '>Assignment</th>' +
+    '<th ' + td + '>Handed in</th><th ' + td + '></th></tr>' +
+    items.map(function (it) {
+      return '<tr><td ' + td + '><b>' + h(it.name) + '</b>' + (it.org ? '<br><span style="color:#6b7280">' + h(it.org) + '</span>' : '') + '</td>' +
+             '<td ' + td + '>' + h(it.work) + '</td>' +
+             '<td ' + td + '>' + h(it.at) + '<br><span style="color:' + (it.late ? '#b91c1c' : '#6b7280') + '">' + h(it.when) + '</span></td>' +
+             '<td ' + td + '>' + (/^https:\/\//.test(it.url) ? '<a href="' + h(it.url) + '">Open</a>' : '') + '</td></tr>';
+    }).join('') + '</table>' +
+    (more > 0 ? '<p>…and ' + more + ' more.</p>' : '') +
+    '<p style="margin-top:16px"><a href="' + SITE_URL_ + '">Review them on the Homework tab</a></p>' +
+    '<p style="color:#6b7280;font-size:12px">Sent by the Org System every 10 minutes when something new is handed in. ' +
+    'Change who gets these, or turn them off, in Homework → Homework alerts.</p></div>';
+  return {subject: subject, text: text, html: html};
+}
+
+/* Run from the editor: emails each club's latest three hand-ins to its alert
+   addresses, marked [Test], so you can see what officers will get. */
+function handinAlertTest() { return handinAlerts_(true) || 'No club has hand-ins or alerts turned on.'; }
+
+/* Late means after 11:59 pm on the due date, as the Org Cup counts it.
+   0 for an assignment with no due date. */
+function dueEnd_(w) {
+  if (!w || !/^\d{4}-\d{2}-\d{2}$/.test(String(w.due || ''))) return 0;
+  var p = String(w.due).split('-');
+  return new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59).getTime();
+}
+
+/* ---------------- phone notifications ----------------
+   Members turn these on from the Homework tab, on the phone where the Org
+   System is on their home screen (an iPhone allows nothing else). Three
+   things notify them: an assignment set for them is posted, the evening
+   before it is due if they have not handed it in, and their own hand-in
+   arriving. Apps Script cannot encrypt a Web Push message, so the site's
+   api/push function sends them; PUSH_SECRET, set in this project's Script
+   properties and in Vercel, is how it knows the request came from here.
+   With no PUSH_SECRET nothing is sent and nothing is slowed down. */
+var PUSH_ACTIONS_ = {savePush: 1, dropPush: 1, testPush: 1, googleSession: 1};
+/* The push services browsers use; the same list api/push holds. */
+var PUSH_HOSTS_ = [/^fcm\.googleapis\.com$/, /(^|\.)push\.apple\.com$/,
+                   /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)notify\.windows\.com$/];
+var PUSH_REMIND_HOUR_ = 18;   // the evening before: 6 pm, script time zone
+
+function pushSubOk_(s) {
+  if (!s || typeof s.endpoint !== 'string' || s.endpoint.length > 1000 || !s.keys) return false;
+  var k1 = String(s.keys.p256dh || ''), k2 = String(s.keys.auth || '');
+  if (!/^[A-Za-z0-9_=-]{40,200}$/.test(k1) || !/^[A-Za-z0-9_=-]{8,64}$/.test(k2)) return false;
+  var m = /^https:\/\/([^\/:?#]+)(:\d+)?(\/|$)/.exec(s.endpoint);
+  return !!m && PUSH_HOSTS_.some(function (re) { return re.test(m[1].toLowerCase()); });
+}
+
+function pushConfig_() {
+  var p = PropertiesService.getScriptProperties();
+  return {secret: p.getProperty('PUSH_SECRET') || '', url: p.getProperty('PUSH_URL') || SITE_URL_ + '/api/push'};
+}
+
+/* Work that should not hold the write lock -- a call out to api/push takes a
+   second -- runs once doPost has let the lock go, just before it answers. */
+var AFTER_ = [];
+function afterLock_(fn) { AFTER_.push(fn); }
+function runAfter_() {
+  var list = AFTER_; AFTER_ = [];
+  list.forEach(function (fn) { try { fn(); } catch (e) { Logger.log('after: ' + (e && e.message || e)); } });
+}
+
+/* A club's devices, each with the name its member goes by on the roster. */
+function pushRows_(aff) {
+  var out = [];
+  readTab('push').forEach(function (r) {
+    if (normAff(r.Affiliation || DEFAULT_AFF) !== aff || !r.Sub) return;
+    var sub; try { sub = JSON.parse(r.Sub); } catch (e) { return; }
+    var email = String(r.Email || '').toLowerCase();
+    out.push({email: email, endpoint: String(r.Endpoint), sub: sub,
+              name: profileName_(aff, email) || String(r.Name || '')});
+  });
+  return out;
+}
+
+function dropPushRows_(match) {
+  var lock = LockService.getScriptLock(), had = lock.hasLock();
+  if (!had) lock.waitLock(10000);
+  try {
+    var sh = tab('push'), v = sh.getDataRange().getValues(), n = 0;
+    var head = v[0];
+    for (var r = v.length - 1; r >= 1; r--) {
+      var o = {}; for (var c = 0; c < head.length; c++) o[head[c]] = v[r][c];
+      if (match(o)) { sh.deleteRow(r + 1); n++; }
+    }
+    return n;
+  } finally { if (!had) lock.releaseLock(); }
+}
+
+/* Hands messages to api/push and forgets devices the push service says are
+   gone for good (the app was deleted, or notifications were turned off). */
+function pushSend_(msgs) {
+  var conf = pushConfig_();
+  if (!conf.secret) return {ok: false, off: true, error: 'Phone notifications are not set up on the backend yet.'};
+  if (!msgs.length) return {ok: true, sent: 0, gone: 0};
+  var sent = 0, gone = {};
+  for (var i = 0; i < msgs.length; i += 500) {
+    var part = msgs.slice(i, i + 500);
+    var res = UrlFetchApp.fetch(conf.url, {method: 'post', contentType: 'application/json',
+      headers: {'x-push-secret': conf.secret}, muteHttpExceptions: true,
+      payload: JSON.stringify({messages: part})});
+    var body = null;
+    try { body = JSON.parse(res.getContentText()); } catch (e) {}
+    if (res.getResponseCode() !== 200 || !body || !body.ok)
+      return {ok: false, sent: sent, error: 'The notification sender answered ' + res.getResponseCode() +
+              ((body && body.error) ? ': ' + body.error : '') + '.'};
+    (body.results || []).forEach(function (r, j) {
+      if (r && r.ok) sent++;
+      else if (r && r.gone && part[j]) gone[part[j].sub.endpoint] = 1;
+    });
+  }
+  var nGone = Object.keys(gone).length;
+  if (nGone) dropPushRows_(function (o) { return !!gone[String(o.Endpoint)]; });
+  return {ok: true, sent: sent, gone: nGone};
+}
+
+/* Who an assignment is for, out of the devices that have notifications on:
+   everyone, one Org or one team, then only those on its homework track --
+   the page's hwMine, and the rule the Org Cup counts by. */
+function pushTargets_(aff, cfg, w, rows) {
+  var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var info = {};
+  readScoped('teams', aff).forEach(function (r) {
+    if (r.MemberName) info[flat(r.MemberName)] = {org: String(r.Org || ''), focus: focusOf_(r)};
+  });
+  var team = null;
+  if (w.team && w.team !== 'all') {
+    team = {};
+    ((cfg.teams || []).filter(function (t) { return t && t.id === w.team; })[0] || {members: []})
+      .members.forEach(function (m) { team[flat(m)] = 1; });
+  }
+  var byOrg = !team && w.org !== undefined && w.org !== null && w.org !== '' && w.org !== 'all';
+  return rows.filter(function (r) {
+    var me = info[flat(r.name)] || {};
+    if (!focusFits_(w, me.focus)) return false;
+    if (team) return !!team[flat(r.name)];
+    if (byOrg) return !!w.orgName && me.org === String(w.orgName);
+    return true;
+  });
+}
+
+function dueWords_(w, tz) {
+  var end = dueEnd_(w);
+  return end ? Utilities.formatDate(new Date(end), tz, 'EEE, MMM d') : '';
+}
+
+/* Run by keepWarm. New assignments are found by comparing the club's list
+   with the one seen last run; the first run only takes note, so turning this
+   on does not announce the whole season. Reminders go out on the first run
+   after 6 pm the day before the due date, once per assignment. A failed send
+   changes nothing, so the next run tries again. */
+function pushHomework_() {
+  if (!pushConfig_().secret) return '';
+  var props = PropertiesService.getScriptProperties(), tz = Session.getScriptTimeZone(), now = new Date();
+  var today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  var tomorrow = Utilities.formatDate(new Date(now.getTime() + 24 * 3600 * 1000), tz, 'yyyy-MM-dd');
+  var evening = Number(Utilities.formatDate(now, tz, 'H')) >= PUSH_REMIND_HOUR_;
+  var flat = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var cfgs = {}, report = [];
+  readTab('config').forEach(function (r) {
+    var k = String(r.Key);
+    if (k.indexOf('club:') === 0) { try { cfgs[normAff(k.slice(5))] = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  var list = function (k) { try { return JSON.parse(props.getProperty(k) || '[]') || []; } catch (e) { return []; } };
+  allAffiliations().forEach(function (a) {
+    var cfg = cfgs[a.code];
+    if (!cfg) return;
+    var work = (cfg.work || []).filter(function (w) { return w && w.id && w.title; });
+    var ids = work.map(function (w) { return w.id; });
+    var seenKey = 'PUSH_SEEN_' + a.code, dueKey = 'PUSH_DUE_' + a.code;
+    if (props.getProperty(seenKey) === null) { props.setProperty(seenKey, JSON.stringify(ids)); return; }
+    var seen = list(seenKey), reminded = list(dueKey), msgs = [], rows = null;
+    var devices = function () { return rows || (rows = pushRows_(a.code)); };
+
+    work.forEach(function (w) {
+      if (seen.indexOf(w.id) > -1 || (w.due && w.due < today)) return;
+      var when = w.due === tomorrow ? 'Due tomorrow, ' + dueWords_(w, tz) + '.'
+        : w.due ? 'Due ' + dueWords_(w, tz) + '.' : 'No due date.';
+      pushTargets_(a.code, cfg, w, devices()).forEach(function (r) {
+        msgs.push({sub: r.sub, title: 'New homework: ' + w.title,
+                   body: (when + (w.note ? ' ' + w.note : '')).slice(0, 240), url: '/homework', tag: 'w:' + w.id});
+      });
+      /* Posted the evening before it is due: this note is the reminder. */
+      if (w.due === tomorrow && evening) reminded.push(w.id);
+    });
+
+    var due = evening ? work.filter(function (w) {
+      return w.due === tomorrow && reminded.indexOf(w.id) < 0;
+    }) : [];
+    if (due.length) {
+      var handed = {};
+      readTab('submissions').forEach(function (r) {
+        if (normAff(r.Affiliation || DEFAULT_AFF) === a.code) handed[String(r.WorkId) + '|' + flat(r.MemberName)] = 1;
+      });
+      due.forEach(function (w) {
+        pushTargets_(a.code, cfg, w, devices()).forEach(function (r) {
+          if (handed[w.id + '|' + flat(r.name)]) return;
+          msgs.push({sub: r.sub, title: 'Due tomorrow: ' + w.title,
+                     body: 'You have not handed this in yet. It is due by 11:59 pm ' + dueWords_(w, tz) + '.',
+                     url: '/homework', tag: 'w:' + w.id});
+        });
+        reminded.push(w.id);
+      });
+    }
+
+    var res = pushSend_(msgs);
+    if (!res.ok) { report.push(a.name + ': ' + res.error); return; }
+    props.setProperty(seenKey, JSON.stringify(ids));
+    props.setProperty(dueKey, JSON.stringify(reminded.filter(function (id, i) {
+      return ids.indexOf(id) > -1 && reminded.indexOf(id) === i;
+    })));
+    if (msgs.length) report.push(a.name + ': ' + res.sent + ' of ' + msgs.length + ' notifications sent');
+  });
+  if (report.length) Logger.log(report.join('\n'));
+  return report.join('\n');
+}
+
+/* The member's own receipt, on every device they turned notifications on. */
+function pushReceipt_(aff, email, cfg, workId, title, at, rev) {
+  if (!pushConfig_().secret) return;
+  var mine = pushRows_(aff).filter(function (r) { return r.email === String(email).toLowerCase(); });
+  if (!mine.length) return;
+  var w = ((cfg && cfg.work) || []).filter(function (x) { return x && x.id === workId; })[0];
+  var end = dueEnd_(w), tz = Session.getScriptTimeZone();
+  var body = 'Received ' + Utilities.formatDate(at, tz, 'EEE h:mm a') + '.' +
+    (end ? (at.getTime() <= end ? ' On time.' : ' After the due date.') : '') +
+    (rev > 1 ? ' Version ' + rev + ' replaces your earlier one.' : '');
+  pushSend_(mine.map(function (r) {
+    return {sub: r.sub, title: 'Handed in: ' + title, body: body, url: '/homework', tag: 'r:' + workId};
+  }));
+}
 
 /* The names members registered under, for picking teammates and roommates.
    Names only: no addresses, no roles, nothing a member could not already
@@ -1503,6 +1907,7 @@ function submitLink_(aff, id, email, swId, link) {
   if (ix.FirstAt !== undefined) row[ix.FirstAt] = prevFirst || now;
   if (mine > 0) sh.getRange(mine, 1, 1, row.length).setValues([row]);
   else sh.appendRow(row);
+  afterLock_(function () { pushReceipt_(aff, email, wCfg, swId, task, now, rev); });
   return {ok: true, filed: task + ' / ' + myOrg + ' / ' + myName, revision: rev, replaced: rev > 1};
 }
 
@@ -2008,9 +2413,64 @@ function dispatch(action, payload, email, role, id) {
       row[iS.ReviewedBy] = '';        row[iS.ReviewedAt] = ''; row[iS.Comment] = '';
       if (mine > 0) shS.getRange(mine, 1, 1, row.length).setValues([row]);
       else shS.appendRow(row);
+      afterLock_(function () { pushReceipt_(aff, email, wCfg, swId, task, now, rev); });
 
       return {ok: true, filed: inMine ? 'the club Drive, under ' + myName + ' / ' + task : task + ' / ' + myOrg + ' / ' + myName,
               fileId: file.getId(), revision: rev, replaced: rev > 1};
+    }
+
+    /* ---- phone notifications ----
+       The page sends the browser's push subscription once the member allows
+       notifications; it is kept per device, so a phone and a laptop both
+       get them. Re-sending the same device just updates whose it is. */
+    case 'savePush': {
+      var ps = (payload || {}).sub;
+      if (typeof ps === 'string') { try { ps = JSON.parse(ps); } catch (e) { ps = null; } }
+      if (!pushSubOk_(ps)) return {ok: false, error: 'That is not a notification subscription this site can use.'};
+      var clean = {endpoint: String(ps.endpoint), keys: {p256dh: String(ps.keys.p256dh), auth: String(ps.keys.auth)}};
+      var shP = tab('push'), vP2 = shP.getDataRange().getValues();
+      var iP = {}; for (var cP = 0; cP < vP2[0].length; cP++) iP[String(vP2[0][cP])] = cP;
+      var rowP2 = vP2[0].map(function () { return ''; });
+      rowP2[iP.Affiliation] = aff;           rowP2[iP.Email] = String(email).toLowerCase();
+      rowP2[iP.Name] = String(id.name || ''); rowP2[iP.Endpoint] = clean.endpoint;
+      rowP2[iP.Sub] = JSON.stringify(clean);  rowP2[iP.CreatedAt] = new Date();
+      var mineP = 0, at = -1;
+      for (var rP = 1; rP < vP2.length; rP++) {
+        if (String(vP2[rP][iP.Endpoint]) === clean.endpoint) at = rP + 1;
+        else if (String(vP2[rP][iP.Email]).toLowerCase() === rowP2[iP.Email]) mineP++;
+      }
+      if (at < 0 && mineP >= 10) return {ok: false, error: 'Notifications are already on for ten of your devices. Turn one off first.'};
+      if (at > 0) shP.getRange(at, 1, 1, rowP2.length).setValues([rowP2]);
+      else shP.appendRow(rowP2);
+      return {ok: true};
+    }
+
+    case 'dropPush': {
+      var dEnd = String((payload || {}).endpoint || '');
+      var gone = dEnd ? dropPushRows_(function (r) {
+        return String(r.Endpoint) === dEnd && String(r.Email).toLowerCase() === String(email).toLowerCase();
+      }) : 0;
+      return {ok: true, removed: gone};
+    }
+
+    /* "Send a test" on the page: proves the whole path, phone included. */
+    case 'testPush': {
+      var mine2 = pushRows_(aff).filter(function (r) { return r.email === String(email).toLowerCase(); });
+      if (!mine2.length) return {ok: false, error: 'No device has notifications on for you yet.'};
+      var sent2 = pushSend_(mine2.map(function (r) {
+        return {sub: r.sub, title: 'Notifications are on',
+                body: 'You will hear about new homework, the evening before it is due, and when a hand-in arrives.',
+                url: '/homework', tag: 'test'};
+      }));
+      if (!sent2.ok) return {ok: false, error: sent2.error};
+      return {ok: true, sent: sent2.sent, devices: mine2.length};
+    }
+
+    /* The home-screen app trades a Google sign-in, or the session it got last
+       time, for a fresh month-long session. See signGoogleSession_. */
+    case 'googleSession': {
+      if (id.via !== 'google') return {ok: false, error: 'Only for Google sign-ins.'};
+      return {ok: true, session: signGoogleSession_(email, new Date().getTime() + GSESSION_MS)};
     }
 
     /* What has been handed in, for the officers who have to read it. */
@@ -2919,6 +3379,81 @@ function dispatch(action, payload, email, role, id) {
       });
     }
 
+    /* ---- the dashboard (/dash); see dashAuto_ ---- */
+    case 'msgList': {
+      var mlDone = dashRow_('sfdone:' + aff, {});
+      return {ok: true, msgs: readMsgs_(aff).slice().reverse(), reach: dashReach_(aff), done: mlDone,
+              pushOn: !!pushConfig_().secret, mailLeft: (function () { try { return MailApp.getRemainingDailyQuota(); } catch (e) { return null; } })()};
+    }
+    case 'msgSend': return dashMsgSend_(aff, payload, email);
+    case 'msgCancel': {
+      var mcId = String((payload || {}).id || ''), mcL = readMsgs_(aff), mcHit = false;
+      mcL.forEach(function (m) { if (m.id === mcId && m.status === 'scheduled') { m.status = 'cancelled'; mcHit = true; } });
+      if (!mcHit) return {ok: false, error: 'Only a scheduled message that has not gone out can be cancelled.'};
+      writeMsgs_(aff, mcL);
+      return {ok: true};
+    }
+    case 'myInbox': {
+      var ibMe = flatName_(id.name || email), ibDone = dashRow_('sfdone:' + aff, {}), ibMine = {};
+      Object.keys(ibDone).forEach(function (k) { if ((ibDone[k] || []).indexOf(ibMe) > -1) ibMine[k] = 1; });
+      var ibExt = dashRow_('ext:' + aff, []).filter(function (x) { return x.who === ibMe; });
+      /* What officers logged about this member under the contract: the kind and when, never the note. */
+      var ibLog = (((clubCfg_(aff) || {}).standingLog || {})[ibMe] || []).map(function (l) { return {type: l.type, at: l.at}; });
+      return {ok: true, done: ibMine, ext: ibExt, standing: ibLog, msgs: readMsgs_(aff).filter(function (m) {
+        return m.status === 'sent' && (m.to || []).indexOf(ibMe) > -1;
+      }).reverse().slice(0, 60).map(function (m) {
+        return {id: m.id, title: m.title, body: m.body, url: m.url, at: m.sentAt || m.created, auto: !!m.auto};
+      })};
+    }
+    case 'sfCheck': {
+      var scId = dashClean_((payload || {}).id, 40), scMe = flatName_(id.name || email);
+      if (!scId || !scMe) return {ok: false, error: 'Nothing to tick.'};
+      var scAll = dashRow_('sfdone:' + aff, {}), scL = scAll[scId] || [];
+      scL = scL.filter(function (n) { return n !== scMe; });
+      if ((payload || {}).done) scL.push(scMe);
+      scAll[scId] = scL;
+      dashWrite_('sfdone:' + aff, scAll);
+      return {ok: true};
+    }
+
+    /* An officer's linked sheet (the SFBLC master sheet, the Discord bot's
+       records, an attendance sheet), read as the club account. Only the
+       columns the page names come back -- never phone numbers or IDs it did
+       not ask for -- and only to officers. */
+    case 'linkedRead': return linkedRead_(payload, aff);
+
+    /* Two-way sync with the chapter's sheets and the PBL Verify bot (Sync.gs). */
+    case 'syncStatus': case 'syncNow': case 'ticketList': case 'ticketDecide': case 'discordList': case 'discordLink':
+      return syncAction_(action, payload, aff, id, email);
+
+    /* Deadline extensions, as the member contract has them: asked for at
+       least three days before the due date, decided by an officer. An
+       approved one means a late hand-in is not counted against the member. */
+    case 'extRequest': {
+      var erP = payload || {}, erW = dashClean_(erP.workId, 40), erMe = flatName_(id.name || email);
+      var erWork = ((clubCfg_(aff) || {}).work || []).filter(function (w) { return w && w.id === erW; })[0];
+      if (!erWork) return {ok: false, error: 'That assignment was not found.'};
+      if (erWork.due) {
+        var erDue = Utilities.parseDate(erWork.due + ' 23:59', Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm').getTime();
+        if (erDue - new Date().getTime() < 3 * 24 * 3600000)
+          return {ok: false, error: 'Extensions have to be asked for at least three days before the due date. Talk to the President or Vice President.'};
+      }
+      var erList = dashRow_('ext:' + aff, []).filter(function (x) { return !(x.who === erMe && x.workId === erW && x.status === 'waiting'); });
+      var erItem = {id: 'x' + new Date().getTime().toString(36), workId: erW, work: String(erWork.title || ''), who: erMe, name: id.name || email,
+                    reason: dashClean_(erP.reason, 300), until: dashClean_(erP.until, 10), status: 'waiting', at: new Date().toISOString()};
+      erList.push(erItem);
+      dashWrite_('ext:' + aff, erList.slice(-300));
+      return {ok: true, ext: erItem};
+    }
+    case 'extList': return {ok: true, ext: dashRow_('ext:' + aff, [])};
+    case 'extDecide': {
+      var edP = payload || {}, edL = dashRow_('ext:' + aff, []), edHit = null;
+      edL.forEach(function (x) { if (x.id === String(edP.id || '')) { x.status = edP.ok ? 'approved' : 'declined'; x.by = id.name || email; x.decidedAt = new Date().toISOString(); x.note = dashClean_(edP.note, 200); edHit = x; } });
+      if (!edHit) return {ok: false, error: 'That request was not found.'};
+      dashWrite_('ext:' + aff, edL);
+      return {ok: true, ext: edHit};
+    }
+
     case 'getAll': {
       /* Everything the club looks like, shared by every caller and read
          through the short-lived cache above. */
@@ -2963,6 +3498,19 @@ function dispatch(action, payload, email, role, id) {
 
     case 'setConfig': {
       var ckey = 'club:' + aff;
+      /* SFBLC teams, rooms and the itinerary are on the master sheet too: an
+         edit to them here is copied there before the page hears back. */
+      var cPay = payload || {}, cTouched = function (k) {
+        return cPay.__patch ? !!((cPay.set || {}).hasOwnProperty(k) || (cPay.items || {})[k] || (cPay.del || []).indexOf(k) > -1)
+                            : cPay[k] !== undefined;
+      };
+      var cSync = ['teams', 'rooms', 'sfSchedule'].filter(cTouched)
+        .map(function (k) { return k === 'sfSchedule' ? 'itinerary' : k; });
+      var cDone = function (cfg) {
+        if (!cSync.length || !SYNC_[aff]) return {ok: true, saved: true, cfg: cfg};
+        var sr = syncAfterOrg_(aff, cSync);
+        return {ok: true, saved: true, cfg: clubCfg_(aff), synced: !!(sr && sr.ok)};
+      };
       var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), next = payload || {};
       /* Two officers saving at once used to cost one of them their change:
          each save replaced the whole club. A page now sends only what it
@@ -2990,12 +3538,12 @@ function dispatch(action, payload, email, role, id) {
           sh0.getRange(q + 1, 2).setValue(JSON.stringify(next));
           /* The merged result goes back, so this page shows what the others
              saved too, straight away. */
-          return {ok: true, saved: true, cfg: next};
+          return cDone(next);
         }
       }
       var json = JSON.stringify(next);
       sh0.appendRow([ckey, json]);
-      return {ok: true, saved: true, cfg: next};
+      return cDone(next);
     }
 
     /* An Org Lead runs their own Org, and naming it is the one piece of that
@@ -3090,7 +3638,10 @@ function dispatch(action, payload, email, role, id) {
     case 'addAttendanceBulk': {
       var t = new Date();
       (payload || []).forEach(function (r) { if (!r.Timestamp) r.Timestamp = t; r.Affiliation = aff; });
-      return {ok: true, wrote: appendRows('attendance', payload || [])};
+      var wrote = appendRows('attendance', payload || []);
+      /* A check-in at "Meeting 10/29" goes onto that meeting's tab of the attendance sheet. */
+      if ((payload || []).some(function (r) { return meetTab_(r.EventLabel); })) syncAfterOrg_(aff, ['attendance']);
+      return {ok: true, wrote: wrote};
     }
 
     case 'listRoles': {
@@ -3526,7 +4077,9 @@ function acctFor_(aff, email, id) {
 var OWN_BITS_ = {saveProfile: 1, submitForm: 1, myFormAnswers: 1};
 function clubWide_(action, payload) {
   if (action === 'ensureMyDrive' || action === 'submitForm' || action === 'myFormAnswers' ||
-      action === 'changePassword' || action === 'setMyPassword') return false;
+      action === 'changePassword' || action === 'setMyPassword' || PUSH_ACTIONS_[action] ||
+      action === 'msgSend' || action === 'msgCancel' || action === 'sfCheck' ||
+      action === 'extRequest' || action === 'extDecide') return false;
   if (action === 'saveProfile') return !!(payload && (payload.firstName || payload.lastName));
   return true;
 }
@@ -3723,6 +4276,14 @@ function authorizeScopes() {
     out.push('Sheet: FAILED — ' + e.message);
   }
 
+  /* Hand-in alerts send from this account. Reading the quota is enough for
+     Google to ask for the send-mail permission; nothing is sent. */
+  try {
+    out.push('Mail: OK (' + MailApp.getRemainingDailyQuota() + ' emails left today)');
+  } catch (e) {
+    out.push('Mail: FAILED — ' + e.message);
+  }
+
   var msg = out.join('\n');
   Logger.log(msg);
   return msg;
@@ -3738,4 +4299,351 @@ function listChapterCalendars() {
   var msg = rows.length ? rows.join('\n') : 'No chapter calendars found.';
   Logger.log(msg);
   return msg;
+}
+
+/* ---------------- the dashboard (/dash): messages, SFBLC reminders, team notices ----------------
+   The dashboard keeps the SFBLC schedule, coaching sessions and checklist on
+   the club record (sfSchedule, sfCoaching, sfChecklist, sfInfo, sfAuto), where
+   officers already save, item by item. What cannot live there does live here:
+   the message log names who each message went to, and members must only ever
+   read their own, so it sits under its own Config row (msgs:<club>), like team
+   requests. Checklist ticks are per member and saved by members, so they get
+   their own row too (sfdone:<club>) -- a member cannot write the club record.
+   Who a message or a schedule item is for is a list of tags (all, yr:2,
+   ev:Finance, team:<id>, org:<name>, tr:<track>, client:<name>, sfblc,
+   tag:<officer tag>) plus names. Tags are resolved here, when it is sent, so a
+   reminder set a week ahead still reaches whoever is on that team by then. */
+var DASH_MSG_KEEP_ = 150, DASH_CELL_MAX_ = 45000;
+
+function dashRow_(key, fallback) {
+  var r = cfgRow_(key);
+  try { return JSON.parse(r.val || '') || fallback; } catch (e) { return fallback; }
+}
+function dashWrite_(key, value) {
+  var r = cfgRow_(key), j = JSON.stringify(value);
+  if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow([key, j]);
+}
+function readMsgs_(aff) { return dashRow_('msgs:' + aff, []); }
+function writeMsgs_(aff, list) {
+  list = list.slice(-DASH_MSG_KEEP_);
+  while (list.length > 20 && JSON.stringify(list).length > DASH_CELL_MAX_) list.shift();
+  dashWrite_('msgs:' + aff, list);
+}
+
+function dashYear_(v) { return /2/.test(String(v || '')) ? 2 : (String(v || '') ? 1 : 0); }
+function dashTrack_(cfg, v) {
+  var s = String(v || ''), t = ((cfg && cfg.tracks) || []).filter(function (x) { return x && (x.id === s || x.label === s); })[0];
+  return t ? t.label : s;
+}
+
+/* Everyone on the club roster, with what tags are matched against. */
+function dashPeople_(aff, cfg) {
+  var f = flatName_, ppl = {};
+  accountsFor(aff).forEach(function (u) {
+    var nm = String(((u.first || '') + ' ' + (u.last || '')).trim());
+    var k = f(nm);
+    if (!k || ppl[k]) return;
+    var pr = {};
+    try { pr = JSON.parse(u.prefs || '{}') || {}; } catch (e) {}
+    ppl[k] = {name: nm, email: String(u.email || '').toLowerCase(), year: dashYear_(u.year),
+              track: dashTrack_(cfg, u.track), org: '', prefs: pr, teams: {}, events: [], clients: []};
+  });
+  readScoped('teams', aff).forEach(function (r) {
+    var k = f(r.MemberName);
+    if (!k) return;
+    var p = ppl[k] || (ppl[k] = {name: String(r.MemberName), email: '', year: 0, track: '', org: '',
+                                  prefs: {}, teams: {}, events: [], clients: []});
+    p.org = String(r.Org || '');
+    if (!p.year) p.year = dashYear_(r.Year);
+    if (!p.track) p.track = dashTrack_(cfg, r.Track);
+  });
+  ((cfg && cfg.teams) || []).forEach(function (t) {
+    (t && t.members || []).forEach(function (m) {
+      var p = ppl[f(m)];
+      if (!p) return;
+      p.teams[t.id] = 1;
+      if (t.kind === 'flc' && t.event) p.events.push(String(t.event));
+      if (t.client) p.clients.push(String(t.client));
+    });
+  });
+  Object.keys(ppl).forEach(function (k) {
+    var p = ppl[k];
+    p.going = p.events.length > 0 || (p.prefs && p.prefs.attend === true);
+  });
+  return ppl;
+}
+
+function dashMatch_(p, tag, cfg) {
+  var f = flatName_, s = String(tag || ''), i = s.indexOf(':');
+  var kind = i > 0 ? s.slice(0, i) : s, val = i > 0 ? s.slice(i + 1) : '';
+  switch (kind) {
+    case 'all':    return true;
+    case 'sfblc':  return !!p.going;
+    case 'name':   return f(p.name) === f(val);
+    case 'yr':     return p.year === Number(val);
+    case 'tr':     return f(p.track) === f(val);
+    case 'org':    return !!p.org && f(p.org) === f(val);
+    case 'team':   return !!p.teams[val];
+    case 'ev':     return p.events.some(function (e) { return f(e) === f(val); });
+    case 'client': return p.clients.some(function (c) { return f(c) === f(val); });
+    case 'tag':    return (((cfg && cfg.memberTags) || {})[f(p.name)] || []).some(function (t) { return f(t) === f(val); });
+  }
+  return false;
+}
+
+/* target: {tags: [...], names: [...], all: true|false (match every tag rather than any)} */
+function dashResolve_(ppl, cfg, target) {
+  var t = target || {}, tags = (t.tags || []).slice(0, 20), names = {};
+  (t.names || []).slice(0, 300).forEach(function (n) { names[flatName_(n)] = 1; });
+  if (!tags.length && !Object.keys(names).length) tags = ['all'];
+  return Object.keys(ppl).map(function (k) { return ppl[k]; }).filter(function (p) {
+    if (names[flatName_(p.name)]) return true;
+    if (!tags.length) return false;
+    return t.every ? tags.every(function (g) { return dashMatch_(p, g, cfg); })
+                   : tags.some(function (g) { return dashMatch_(p, g, cfg); });
+  });
+}
+
+/* Push to every device of the people named, and email them if asked. */
+function dashDeliver_(aff, msg, people) {
+  var f = flatName_, want = {}, wantMail = {};
+  people.forEach(function (p) { want[f(p.name)] = 1; if (p.email) wantMail[p.email] = 1; });
+  var res = {to: people.map(function (p) { return f(p.name); }), pushed: 0, mailed: 0, notes: []};
+  if (pushConfig_().secret) {
+    var devs = pushRows_(aff).filter(function (r) { return want[f(r.name)] || wantMail[r.email]; });
+    var sent = pushSend_(devs.map(function (r) {
+      return {sub: r.sub, title: msg.title, body: msg.body, url: msg.url || '/dash#inbox', tag: 'm:' + msg.id};
+    }));
+    if (sent.ok) res.pushed = sent.sent; else res.notes.push(sent.error);
+    var reached = {};
+    devs.forEach(function (r) { reached[f(r.name)] = 1; });
+    res.reach = Object.keys(reached).length;
+  } else res.notes.push('Phone notifications are not set up on the backend.');
+  if (msg.email) {
+    var list = Object.keys(wantMail).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); });
+    if (list.length && MailApp.getRemainingDailyQuota() >= list.length) {
+      var me = '';
+      try { me = Session.getEffectiveUser().getEmail(); } catch (e) {}
+      for (var i = 0; i < list.length; i += 45) {
+        MailApp.sendEmail({to: me || list[i], bcc: list.slice(i, i + 45).join(','), subject: msg.title,
+                           body: msg.body + '\n\nOpen the dashboard: ' + SITE_URL_ + (msg.url || '/dash#inbox'),
+                           name: (findAff(aff) || {}).name || 'Org System'});
+      }
+      res.mailed = list.length;
+    } else if (list.length) res.notes.push('Not emailed: ' + list.length + ' addresses but only ' +
+                                          MailApp.getRemainingDailyQuota() + ' emails left today.');
+  }
+  return res;
+}
+
+/* Logs a message as sent and delivers it. Used by msgSend and the automations. */
+function dashSendNow_(aff, cfg, msg, ppl) {
+  var people = dashResolve_(ppl || dashPeople_(aff, cfg), cfg, msg.target);
+  var res = dashDeliver_(aff, msg, people);
+  msg.status = 'sent'; msg.sentAt = new Date().toISOString();
+  msg.to = res.to; msg.pushed = res.pushed; msg.mailed = res.mailed; msg.reach = res.reach || 0;
+  msg.notes = res.notes;
+  return msg;
+}
+
+function dashClean_(v, n) { return String(v == null ? '' : v).replace(/[<>]/g, '').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '').slice(0, n); }
+function dashTarget_(t) {
+  t = t || {};
+  return {tags: (t.tags || []).slice(0, 20).map(function (x) { return dashClean_(x, 80); }),
+          names: (t.names || []).slice(0, 300).map(function (x) { return dashClean_(x, 60); }),
+          every: !!t.every};
+}
+
+function dashMsgSend_(aff, payload, email) {
+  var p = payload || {}, cfg = clubCfg_(aff) || {};
+  var msg = {id: 'm' + new Date().getTime().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+             title: dashClean_(p.title, 80), body: dashClean_(p.body, 600),
+             url: /^\/[A-Za-z0-9\/#?=&._-]*$/.test(String(p.url || '')) ? String(p.url) : '/dash#inbox',
+             target: dashTarget_(p.target), email: !!p.email, by: email, created: new Date().toISOString()};
+  if (!msg.title) return {ok: false, error: 'A message needs a title.'};
+  var at = p.at ? new Date(p.at) : null;
+  if (at && !isNaN(at.getTime()) && at.getTime() > new Date().getTime() + 60000) {
+    msg.at = at.toISOString(); msg.status = 'scheduled';
+    var list = readMsgs_(aff); list.push(msg); writeMsgs_(aff, list);
+    return {ok: true, msg: msg};
+  }
+  /* Sent once the lock is let go: pushing and mailing take seconds. */
+  msg.status = 'sending';
+  var list0 = readMsgs_(aff); list0.push(msg); writeMsgs_(aff, list0);
+  afterLock_(function () {
+    var done = dashSendNow_(aff, cfg, msg);
+    withLock_(function () {
+      var l = readMsgs_(aff);
+      l.forEach(function (m, i) { if (m.id === done.id) l[i] = done; });
+      writeMsgs_(aff, l);
+      return {ok: true};
+    });
+  });
+  return {ok: true, msg: msg};
+}
+
+function dashReach_(aff) {
+  var out = {};
+  try { pushRows_(aff).forEach(function (r) { out[flatName_(r.name)] = 1; }); } catch (e) {}
+  return out;
+}
+
+/* Run by keepWarm. Everything here is switched on per club in sfAuto. Each
+   reminder and notice is sent once: what went out is remembered by key in the
+   script properties. Team notices compare the SFBLC teams with the last run's;
+   the first run only takes note, so turning this on announces nothing old. */
+function dashAuto_() {
+  var props = PropertiesService.getScriptProperties(), tz = Session.getScriptTimeZone(), now = new Date();
+  var f = flatName_, report = [];
+  var cfgs = {};
+  readTab('config').forEach(function (r) {
+    var k = String(r.Key);
+    if (k.indexOf('club:') === 0) { try { cfgs[normAff(k.slice(5))] = JSON.parse(r.Value) || {}; } catch (e) {} }
+  });
+  allAffiliations().forEach(function (a) {
+    var cfg = cfgs[a.code];
+    if (!cfg) return;
+    var auto = cfg.sfAuto || {}, out = [], ppl = null;
+    var people = function () { return ppl || (ppl = dashPeople_(a.code, cfg)); };
+    var sentKey = 'DASH_SENT_' + a.code, sent = [];
+    try { sent = JSON.parse(props.getProperty(sentKey) || '[]') || []; } catch (e) {}
+    var once = function (k) { if (sent.indexOf(k) > -1) return false; sent.push(k); return true; };
+
+    /* Scheduled messages whose time has come. */
+    var mine = {}, changed = false;
+    readMsgs_(a.code).forEach(function (m) {
+      if (m.status === 'scheduled' && m.at && new Date(m.at).getTime() <= now.getTime()) {
+        mine[m.id] = dashSendNow_(a.code, cfg, m, people()); changed = true;
+      }
+    });
+
+    var when = function (it) {
+      if (!it || !it.date) return null;
+      try { return Utilities.parseDate(it.date + ' ' + (it.start || '09:00'), tz, 'yyyy-MM-dd HH:mm'); } catch (e) { return null; }
+    };
+    var fmt = function (d) { return Utilities.formatDate(d, tz, 'EEE h:mm a'); };
+    if (auto.on) {
+      var items = (cfg.sfSchedule || []).map(function (x) { return {it: x, kind: 'Schedule'}; })
+        .concat((cfg.sfCoaching || []).map(function (x) { return {it: x, kind: 'Coaching'}; }));
+      items.forEach(function (o) {
+        var it = o.it, d = when(it);
+        /* An item with no start time yet (a tentative day) is not reminded about. */
+        if (!d || !it.start || it.remind === false || !it.id) return;
+        var left = d.getTime() - now.getTime(), where = it.where ? ' · ' + it.where : '';
+        var title = o.kind === 'Coaching' ? 'Coaching: ' + (it.topic || it.title || 'session') : (it.title || 'SFBLC');
+        if (auto.dayBefore !== false && left > 75 * 60000 && left <= 24 * 3600000 && once('d:' + it.id + ':' + it.date + it.start))
+          out.push({title: 'Tomorrow · ' + title, body: fmt(d) + where + (it.coach ? ' · with ' + it.coach : ''), target: it['for']});
+        if (auto.hourBefore !== false && left > 0 && left <= 75 * 60000 && once('h:' + it.id + ':' + it.date + it.start))
+          out.push({title: 'Starting soon · ' + title, body: fmt(d) + where, target: it['for']});
+      });
+      /* Checklist items, the evening before they are due, to whoever has not ticked them. */
+      var evening = Number(Utilities.formatDate(now, tz, 'H')) >= 18;
+      var tomorrow = Utilities.formatDate(new Date(now.getTime() + 24 * 3600000), tz, 'yyyy-MM-dd');
+      var done = dashRow_('sfdone:' + a.code, {});
+      (cfg.sfChecklist || []).forEach(function (c) {
+        if (!c || !c.id || c.due !== tomorrow || !evening || auto.checklist === false) return;
+        if (!once('c:' + c.id + ':' + c.due)) return;
+        var ticked = {};
+        (done[c.id] || []).forEach(function (n) { ticked[n] = 1; });
+        var names = dashResolve_(people(), cfg, c['for']).filter(function (p) { return !ticked[f(p.name)]; })
+          .map(function (p) { return p.name; });
+        if (names.length) out.push({title: 'Due tomorrow · ' + c.label, body: (c.detail || 'Tick it off on the dashboard once it is done.'),
+                                    target: {names: names}});
+      });
+    }
+
+    /* SFBLC team notices. */
+    var teamKey = 'DASH_TEAMS_' + a.code, before = props.getProperty(teamKey), snap = {};
+    (cfg.teams || []).forEach(function (t) {
+      if (t && t.kind === 'flc' && t.id) snap[t.id] = (t.members || []).map(f).filter(Boolean);
+    });
+    if (before !== null && auto.on && auto.teams !== false) {
+      var prev = {};
+      try { prev = JSON.parse(before) || {}; } catch (e) {}
+      (cfg.teams || []).forEach(function (t) {
+        if (!t || t.kind !== 'flc' || !t.id) return;
+        var was = {};
+        (prev[t.id] || []).forEach(function (n) { was[n] = 1; });
+        var added = (t.members || []).filter(function (m) { return m && !was[f(m)]; });
+        if (!added.length) return;
+        var mates = (t.members || []).filter(Boolean);
+        out.push({title: 'Your SFBLC team: ' + (t.event || '') + (t.name ? ' · ' + t.name : ''),
+                  body: 'Team: ' + mates.join(', ') + '. Your schedule and coaching sessions are on the dashboard.',
+                  target: {names: added}, url: '/dash#teams'});
+      });
+    }
+    props.setProperty(teamKey, JSON.stringify(snap));
+
+    out.forEach(function (o) {
+      var sm = (dashSendNow_(a.code, cfg, {id: 'a' + now.getTime().toString(36) + Math.floor(Math.random() * 1e5).toString(36),
+        title: dashClean_(o.title, 80), body: dashClean_(o.body, 600), url: o.url || '/dash#sfblc',
+        target: dashTarget_(o.target), auto: true, by: 'automation', created: now.toISOString()}, people()));
+      mine[sm.id] = sm; changed = true;
+    });
+    /* Read again under the lock, so whatever an officer sent meanwhile is kept. */
+    if (changed) withLock_(function () {
+      var cur = readMsgs_(a.code), seen = {};
+      cur.forEach(function (m, i) { if (mine[m.id]) { cur[i] = mine[m.id]; seen[m.id] = 1; } });
+      Object.keys(mine).forEach(function (k) { if (!seen[k]) cur.push(mine[k]); });
+      writeMsgs_(a.code, cur);
+      return {ok: true};
+    });
+    props.setProperty(sentKey, JSON.stringify(sent.slice(-400)));
+    if (out.length) report.push(a.name + ': ' + out.length + ' automated message(s)');
+  });
+  if (report.length) Logger.log(report.join('\n'));
+  return report.join('\n');
+}
+
+/* The sheets each club's officers may read through linkedRead. The script runs
+   as the master account, which can open every club's files (every response
+   sheet holds all of a club's answers), so an officer can only name a sheet
+   listed here for their own club. Add a sheet here and redeploy to link it;
+   the ids match dash-app/sources.js. */
+var LINKED_SHEETS_ = {
+  'deanza-pbl': [
+    '1oKlEes6653hEO8pJj2sExZzAI1daXZLVRCMaDWQtVJY',  // SFBLC 2026 Master Sheet
+    '19xazg1JCkQl-JJADMmgZqKfx0l35u1uNPct33MPcq8E',  // PBL Verify Records (Discord bot)
+    '11epr7XrJQbhJwWWnVH9pUsHlMZAx3XoUzjmYjVr5p3A',  // Fall 26' Attendance
+    '1NTWldqi2UpApSSo7jbZ8wNMBlQ45oU_zPNiEYsnyMgY',  // De Anza PBL sign-up (responses)
+    '1pOsiOmbX9yYzhFoMyLbLZD1p05cMoL3jqvvtWu4fNiA',  // Fall 26 Track Interest Form
+    '1aejSol5F1hHqUY0WlfK9UrNcaIh_Vp0TSaMwC5KYsB8',  // Fall 26' IM Re-enrollment
+    '1GAULwXMwynTCfAaFv1G5tJo5zdoEqDPTfzRRMg5UTSQ'   // Winter IM master sheet
+  ]
+};
+
+/* payload: {sheetId, tabs: ['Teams'] | ['*'] (every tab) | ['#first'], cols: ['Person', 'Major', '#1' (a column by position)]}
+   The header row is the first of the top six rows that names any wanted column. */
+function linkedRead_(payload, aff) {
+  var p = payload || {}, id = String(p.sheetId || '');
+  if (!/^[A-Za-z0-9_-]{20,80}$/.test(id)) return {ok: false, error: 'That is not a Google Sheets id.'};
+  if ((LINKED_SHEETS_[aff] || []).indexOf(id) < 0)
+    return {ok: false, error: 'That sheet is not linked to this club. Add it to LINKED_SHEETS_ in Code.gs.'};
+  var want = (p.cols || []).slice(0, 20).map(function (c) { return String(c).toLowerCase().trim(); }).filter(String);
+  if (!want.length) return {ok: false, error: 'Name the columns to read.'};
+  var ss;
+  try { ss = SpreadsheetApp.openById(id); } catch (e) { return {ok: false, error: 'The club account cannot open that sheet. Share it with the club account.'}; }
+  var all = ss.getSheets(), tabs = p.tabs || ['#first'];
+  var pick = tabs[0] === '*' ? all : tabs[0] === '#first' ? all.slice(0, 1)
+    : all.filter(function (sh) { return tabs.indexOf(sh.getName()) > -1; });
+  var out = pick.slice(0, 30).map(function (sh) {
+    var nr = Math.min(sh.getLastRow(), 700), nc = Math.min(sh.getLastColumn(), 30);
+    if (nr < 1 || nc < 1) return {name: sh.getName(), headers: [], rows: []};
+    var v = sh.getRange(1, 1, nr, nc).getDisplayValues(), hr = -1, cols = [];
+    for (var r = 0; r < Math.min(6, v.length) && hr < 0; r++) {
+      var hit = [];
+      v[r].forEach(function (h, c) {
+        var hl = String(h).toLowerCase().trim();
+        want.forEach(function (w) {
+          if ((w.charAt(0) === '#' && +w.slice(1) === c) || (w.charAt(0) !== '#' && hl && hl.indexOf(w) > -1)) if (hit.indexOf(c) < 0) hit.push(c);
+        });
+      });
+      if (hit.some(function (c) { return String(v[r][c]).trim(); })) { hr = r; cols = hit.sort(function (a, b) { return a - b; }); }
+    }
+    if (hr < 0) return {name: sh.getName(), headers: [], rows: []};
+    return {name: sh.getName(), idx: cols, headers: cols.map(function (c) { return String(v[hr][c]).trim() || ('#' + c); }),
+            rows: v.slice(hr + 1).map(function (row) { return cols.map(function (c) { return String(row[c]).slice(0, 120); }); })
+              .filter(function (row) { return row.some(function (x) { return String(x).trim(); }); })};
+  });
+  return {ok: true, title: ss.getName(), tabs: out};
 }

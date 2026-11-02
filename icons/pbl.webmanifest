@@ -3,7 +3,7 @@
   "short_name": "De Anza PBL",
   "start_url": "/",
   "scope": "/",
-  "display": "browser",
+  "display": "standalone",
   "background_color": "#edebe7",
   "theme_color": "#8a2320",
   "icons": [

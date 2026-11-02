@@ -121,6 +121,10 @@
     {
       "source": "/home-screen",
       "destination": "/"
+    },
+    {
+      "source": "/dash",
+      "destination": "/dash.html"
     }
   ]
 }

@@ -6,3 +6,8 @@ tools/demos/out2/
 tools/demos/out3/
 dist/
 node_modules/
+tools/demos/out-howto/
+tools/demos/out4/
+# narrated how-to videos for the member email: they show the join code
+email-videos/
+.DS_Store
