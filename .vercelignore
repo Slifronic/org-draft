@@ -7,3 +7,4 @@ tools/
 .claude/
 dist/
 node_modules/
+email-videos/

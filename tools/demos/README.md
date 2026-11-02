@@ -37,3 +37,26 @@ package) can be set in the environment.
 After re-recording, bump `DEMO_V` in `index.html` and the `?v=` on the walkthrough
 in `orientation.html`: `/media` is cached for a day, so the old video would keep
 showing at the same address. Update the lengths shown beside each clip too.
+
+## Narrated how-to videos for the member email
+
+`howto.js` records two short narrated videos with the real site running in a phone
+on `stage.html`: joining (sign up with Google, the join code, the sign-up form, then
+the add-to-home-screen steps from `media/demos/homescreen.mp4`, voiced) and handing
+in homework. The voice is Kokoro-82M, run locally: free, no ElevenLabs credits.
+
+They show the real join code, and this repo is public, so the code is passed in
+and the videos go to `email-videos/` (ignored by git and never deployed). Send them
+to members by email or a Drive link; do not put them in `media/`.
+
+```
+node serve.js ../.. 8791
+JOIN_CODE=XXXX node howto.js lines out-howto              # the narration script
+~/jarvis/.venv/bin/python howto-voice.py out-howto         # any env with kokoro + soundfile
+JOIN_CODE=XXXX node howto.js record out-howto              # about 2 minutes, in real time
+python3 howto-build.py out-howto ../../email-videos        # encode, voice and join the parts
+```
+
+Each step lasts as long as its line, and `record` prints `ran over its line` when an
+action takes longer. Change the words in `howto.js` (`say` is spoken, `t`/`sub` are
+shown) and run all four steps again.
