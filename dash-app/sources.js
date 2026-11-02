@@ -218,6 +218,138 @@ function tagSourcesCard() {
     '<ul class="autos">' + rows + '</ul></section>';
 }
 
+/* ---------- Sheets & Discord sync (Sync.gs) ----------
+   The backend keeps the attendance sheet's meeting tabs, the Discord bot's
+   tickets, the master sheet's SFBLC teams, rooms and itinerary, and the
+   verified Discord profiles in step with the Org System. Officers see when
+   it last ran and what it changed, decide tickets (Attendance) and link the
+   Discord profiles the name match missed. Read once on load, then again
+   after anything here changes them. */
+var SYNC = {status: null, tickets: null, profiles: null, linked: {}, err: {}, edit: {}, busy: false};
+var SYNC_DOMAINS = {attendance: 'Attendance', tickets: 'Tickets', teams: 'Teams', rooms: 'Rooms', itinerary: 'Itinerary', discord: 'Discord'};
+var TICKET_ST = {'Pending': 'Pending', 'Present': 'Present', 'Excused Late': 'Excused late', 'Unexcused Late': 'Unexcused late',
+                 'Excused Abscence': 'Excused absence', 'Unexcused Abscence': 'Unexcused absence'};
+function syncErr(r) { return (r && r.error) || 'The backend did not answer.'; }
+function loadSync(what) {
+  if (!M || !M.officer) return Promise.resolve();
+  var acts = {status: 'syncStatus', tickets: 'ticketList', profiles: 'discordList'};
+  return Promise.all((what || Object.keys(acts)).map(function (k) {
+    return call(acts[k]).then(function (r) {
+      if (!(r && r.ok)) { SYNC.err[k] = syncErr(r); return; }
+      delete SYNC.err[k];
+      SYNC[k] = k === 'status' ? r : k === 'tickets' ? (r.tickets || []) : (r.profiles || []);
+    });
+  })).then(function () { linkMap(); rebuild(); render(); });
+}
+function linkMap() {
+  SYNC.linked = {};
+  (SYNC.profiles || []).forEach(function (x) { if (x.member) SYNC.linked[flat(x.member)] = x; });
+}
+/* The club data again, so a decided ticket or a sync shows in attendance and tags. */
+function reloadClub() {
+  return call('getAll').then(function (all) {
+    if (!(all && all.ok)) return;
+    RAW.all = all;
+    BASE = JSON.parse(JSON.stringify(all.config || {}));
+    RAW.all.config = JSON.parse(JSON.stringify(BASE));
+    build(RAW); render(); refreshSheet();
+  });
+}
+/* Tickets say "Absent", "Late" or "Leaving early"; the last two are decided as late. */
+function ticketAbsent(t) { return /abs/i.test(t.label || t.type || ''); }
+function ticketOpen(t) { return !t.status || t.status === 'Pending'; }
+/* Who a ticket is about: the roster member their Discord profile is linked to, else by name. */
+function ticketWho(t) {
+  var pr = (SYNC.profiles || []).filter(function (x) { return x.member && t.username && x.username === t.username; })[0];
+  return (pr && M.byKey[flat(pr.member)]) || personByName(t.name);
+}
+/* A meeting's tickets by member, for the absences card ("Meeting 10/29" is ticket meeting "10/29"). */
+function ticketsAt(label) {
+  var out = {};
+  (SYNC.tickets || []).forEach(function (t) { if ('Meeting ' + t.meeting === label) { var p = ticketWho(t); if (p) out[p.key] = t; } });
+  return out;
+}
+
+function syncCard() {
+  if (!M.officer) return '';
+  var s = SYNC.status, e = SYNC.err.status;
+  var h = '<section class="card" id="sync"><header><h3>Sheets &amp; Discord sync</h3>' + (s ? '<span class="count">' + (s.linked ? 'Linked' : 'Not linked') + '</span>' : '') +
+    '<button class="btn sm" data-act="syncNow"' + (s && s.linked && !SYNC.busy ? '' : ' disabled') + '>' + (SYNC.busy ? 'Syncing…' : 'Sync now') + '</button></header>' +
+    '<p class="meta">Syncs the attendance sheet’s meeting tabs, the Discord bot’s tickets, SFBLC teams, rooms and itinerary on the master sheet, and verified Discord profiles.</p>';
+  if (!s) return h + '<p class="meta' + (e ? ' bad' : '') + '">' + esc(e || 'Reading…') + '</p></section>';
+  if (!s.linked) return h + '<p class="mb sm">This club has no linked sheets, so nothing syncs yet.</p></section>';
+  var counts = s.counts || {}, keys = Object.keys(SYNC_DOMAINS).filter(function (k) { return counts[k] != null; })
+    .concat(Object.keys(counts).filter(function (k) { return !SYNC_DOMAINS[k]; }));
+  h += '<p class="mb sm">' + (s.ranAt ? 'Last synced ' + esc(ago(new Date(s.ranAt))) : 'Not synced yet') + '. ' +
+    (s.triggers ? 'It also runs when a linked sheet is edited, and every ten minutes.' : 'Edit triggers are not installed yet; Sync now installs them.') + '</p>' +
+    (keys.length ? '<p class="meta">' + esc(keys.map(function (k) { return (SYNC_DOMAINS[k] || k) + ' ' + counts[k]; }).join(' · ')) + '</p>' : '') +
+    (s.errors || []).map(function (x) { return '<p class="note warn">' + esc(x) + '</p>'; }).join('');
+  var log = s.log || [], sh = s.sheets || {};
+  if (log.length) h += '<details class="brief"><summary>Recent changes (' + log.length + ')</summary><ul class="inbox">' + log.map(function (x) {
+    var v = function (y) { y = String(y == null ? '' : y); return y ? y.slice(0, 80) : 'blank'; };
+    return '<li><div class="mh"><p class="mt">' + esc((SYNC_DOMAINS[x.domain] || x.domain) + ' · ' + x.key) + '</p><span class="ma">' + esc(ago(x.at)) + '</span></div>' +
+      '<p class="meta">' + esc(({'sheet → org': 'From the sheet', 'org → sheet': 'To the sheet'}[x.dir] || x.dir) + ': ' + v(x.from) + ' → ' + v(x.to) + (x.why ? ' · ' + x.why : '')) + '</p></li>';
+  }).join('') + '</ul></details>';
+  var open = function (id, label) { return id ? '<a class="btn sm ghost" href="https://docs.google.com/spreadsheets/d/' + esc(id) + '/edit" target="_blank" rel="noopener">' + label + '</a>' : ''; };
+  return h + '<div class="rowacts">' + open(sh.attendance, 'Attendance sheet') + open(sh.master, 'Master sheet') + open(sh.records, 'Discord records') + '</div></section>';
+}
+ACT_EXT.syncNow = function () {
+  SYNC.busy = true; render();
+  call('syncNow').then(function (r) {
+    SYNC.busy = false;
+    if (!(r && (r.ok || r.ran))) { render(); return toast(syncErr(r), true); }
+    var org = 0, sheet = 0;
+    (r.ran || []).forEach(function (x) { org += +x.toOrg || 0; sheet += +x.toSheet || 0; });
+    toast((org || sheet ? org + ' copied to the Org System, ' + sheet + ' to the sheets.' : 'Already in step: nothing to copy.') + (r.ok ? '' : ' Part of it failed; see the sync card.'), !r.ok);
+    return Promise.all([loadSync(), reloadClub()]);
+  });
+};
+
+/* Discord profiles: the ones nobody is linked to first, each with a member picker. */
+function discordPick(x) {
+  var cur = x.member ? flat(x.member) : x.by === 'none' ? '-' : '';
+  var fw = flat(String(x.name || '').split(/\s+/)[0]);
+  var likely = fw ? M.people.filter(function (p) { return flat(p.name.split(' ')[0]) === fw; }) : [];
+  var opt = function (p) { return '<option value="' + esc(p.key) + '"' + (cur === p.key ? ' selected' : '') + '>' + esc(p.name) + '</option>'; };
+  return '<select class="mini dpick" data-act="discLink" data-id="' + esc(x.id) + '" aria-label="Member for ' + esc(x.name || x.username) + '">' +
+    '<option value="">' + (cur ? 'Unlink, check later' : 'Pick a member') + '</option><option value="-"' + (cur === '-' ? ' selected' : '') + '>Not a member</option>' +
+    (likely.length ? '<optgroup label="Same first name">' + likely.map(opt).join('') + '</optgroup><optgroup label="Everyone">' : '') + M.people.map(opt).join('') + (likely.length ? '</optgroup>' : '') + '</select>';
+}
+function discordCard() {
+  if (!M.officer) return '';
+  var list = SYNC.profiles, e = SYNC.err.profiles;
+  var h = '<section class="card" id="discord"><header><h3>Discord profiles</h3>';
+  if (!list) return h + '</header><p class="meta' + (e ? ' bad' : '') + '">' + esc(e || 'Reading…') + '</p></section>';
+  var open = list.filter(function (x) { return !x.member && x.by !== 'none'; }), linked = list.filter(function (x) { return x.member; }), none = list.filter(function (x) { return !x.member && x.by === 'none'; });
+  h += '<span class="count">' + linked.length + ' linked, ' + open.length + ' to check</span></header>' +
+    '<p class="meta">Everyone who verified with the PBL Verify bot. Names that match the roster link on their own; pick the member for the rest. A link set here is never redone by the name match.</p>';
+  if (!list.length) return h + empty('No verified profiles yet', 'They appear once members verify on the Discord server and the sync runs.') + '</section>';
+  if (open.length) h += '<ul class="inbox">' + open.map(function (x) {
+    return '<li><div class="mh"><p class="mt">' + esc(x.name || x.username) + '</p><span class="ma">@' + esc(x.username) + '</span></div>' + (x.major ? '<p class="meta">' + esc(x.major) + '</p>' : '') + discordPick(x) + '</li>';
+  }).join('') + '</ul>';
+  else h += '<p class="mb sm">Nothing to check: every profile is linked or marked as not a member.</p>';
+  var row = function (x) {
+    if (SYNC.edit[x.id]) return '<li><span class="tt">' + esc(x.name || x.username) + '</span><span class="meta">@' + esc(x.username) + '</span>' + discordPick(x) + '<button class="link" data-act="discChange" data-id="' + esc(x.id) + '">Cancel</button></li>';
+    return '<li><span class="tt">' + esc(x.member || x.name || x.username) + '</span><span class="meta">@' + esc(x.username) + (x.member && x.name && flat(x.name) !== flat(x.member) ? ' · on Discord as ' + esc(x.name) : '') +
+      (x.member ? (x.by === 'officer' ? ' · set by an officer' : ' · matched by name') : '') + '</span><button class="link" data-act="discChange" data-id="' + esc(x.id) + '">Change</button></li>';
+  };
+  if (linked.length) h += '<div class="fg"><p class="fl">Linked</p><ul class="inbox tight">' + linked.map(row).join('') + '</ul></div>';
+  if (none.length) h += '<div class="fg"><p class="fl">Not members</p><ul class="inbox tight">' + none.map(row).join('') + '</ul></div>';
+  return h + '</section>';
+}
+ACT_EXT.discChange = function (el, d) { SYNC.edit[d.id] = !SYNC.edit[d.id]; render(); };
+CHANGE_EXT.discLink = function (el, d, v) {
+  var x = (SYNC.profiles || []).filter(function (y) { return y.id === d.id; })[0], p = v && v !== '-' ? M.byKey[v] : null;
+  if (!x) return;
+  el.disabled = true;
+  call('discordLink', {discordId: x.id, member: p ? p.name : '', none: v === '-'}).then(function (r) {
+    if (!(r && r.ok)) { el.disabled = false; return toast(syncErr(r), true); }
+    x.member = r.member || ''; x.by = r.by != null ? r.by : x.member ? 'officer' : v === '-' ? 'none' : ''; delete SYNC.edit[x.id]; linkMap();
+    var msg = x.member ? '@' + x.username + ' is linked to ' + x.member + '.' : v === '-' ? '@' + x.username + ' marked as not a member.' : '@' + x.username + ' unlinked.';
+    rebuild(); render(); toast(msg);
+  });
+};
+
 /* ---------- the demo's version of those sheets ---------- */
 function demoLinked(pl, s) {
   var src = SOURCES.filter(function (x) { return x.sheet === pl.sheetId && JSON.stringify(x.tabs) === JSON.stringify(pl.tabs); })[0];

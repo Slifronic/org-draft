@@ -42,7 +42,8 @@ var NEEDS = {
   syncMemberDrives: 'admin', ensureMyDrive: 'member',
   savePush: 'member', dropPush: 'member', testPush: 'member', googleSession: 'member',
   msgList: 'admin', msgSend: 'admin', msgCancel: 'admin', myInbox: 'member', sfCheck: 'member',
-  linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin'
+  linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin',
+  syncStatus: 'admin', syncNow: 'admin', ticketList: 'admin', ticketDecide: 'admin', discordList: 'admin', discordLink: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -253,7 +254,9 @@ var TAB = {
   teams:      {name: 'Teams',      cols: ['MemberName', 'Org', 'Track', 'Year', 'MBTI', 'LeadInterest', 'IsLead', 'Notes', 'Affiliation',
                                           'Availability', 'Focus']},
   pointsLog:  {name: 'PointsLog',  cols: ['Timestamp', 'MemberName', 'ActionId', 'ActionLabel', 'Points', 'Track', 'Org', 'Affiliation']},
-  attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation']},
+  /* Status and Note (Nov 2026) come from the chapter's attendance sheet through Sync.gs:
+     "Present", "Excused Late"... and absences, which getAll never counts as a check-in. */
+  attendance: {name: 'Attendance', cols: ['Timestamp', 'MemberName', 'EventLabel', 'Track', 'Org', 'Affiliation', 'Status', 'Note']},
   roster:     {name: 'Form Responses 1', cols: null, readOnly: true},
   config:     {name: 'Config',     cols: ['Key', 'Value']},
   /* New fields are appended, never inserted, so an existing Users sheet is
@@ -274,7 +277,16 @@ var TAB = {
   /* One row per phone (or browser) a member turned notifications on from.
      Sub is the browser's subscription as JSON: its endpoint and keys are
      only good for sending that device a message, through api/push. */
-  push:       {name: 'Push',       cols: ['Affiliation', 'Email', 'Name', 'Endpoint', 'Sub', 'CreatedAt']}
+  push:       {name: 'Push',       cols: ['Affiliation', 'Email', 'Name', 'Endpoint', 'Sub', 'CreatedAt']},
+  /* Two-way sync with the chapter's sheets (Sync.gs): what both sides last
+     agreed on, every copy it made, the bot's attendance tickets, and the
+     bot's verified Discord profiles linked to members. */
+  syncBase:   {name: 'SyncBase',   cols: ['Affiliation', 'Domain', 'Key', 'Value', 'Ref']},
+  syncLog:    {name: 'SyncLog',    cols: ['At', 'Affiliation', 'Domain', 'Key', 'Direction', 'From', 'To', 'Why']},
+  tickets:    {name: 'Tickets',    cols: ['Affiliation', 'TicketId', 'Meeting', 'Name', 'DiscordId', 'Username', 'Type', 'Label',
+                                          'Reason', 'Status', 'OpenedAt', 'DecidedBy', 'DecidedAt', 'Thread']},
+  discord:    {name: 'Discord',    cols: ['Affiliation', 'DiscordId', 'Username', 'Name', 'Major', 'CWID', 'VerifiedAt',
+                                          'MemberName', 'MatchedBy', 'UpdatedAt']}
 };
 var DEFAULT_AFF = 'default';
 /* The form every club starts from. Copied per club rather than shared, so one
@@ -1023,7 +1035,8 @@ function failRef_(where, err) {
 
 var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
                  listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
-                 clubRoster: 1, formSchema: 1, formItems: 1, msgList: 1, myInbox: 1, linkedRead: 1, extList: 1};
+                 clubRoster: 1, formSchema: 1, formItems: 1, msgList: 1, myInbox: 1, linkedRead: 1, extList: 1,
+                 syncStatus: 1, ticketList: 1, discordList: 1};
 
 /* ---- homework tracks (Fall 2026) ----
    Every member's homework is curated toward consulting ('c') or case
@@ -1342,7 +1355,8 @@ function clubSnapshot_(aff) {
             memberNames: memberNames_(aff), affName: (findAff(aff) || {}).name || aff,
             teamBoard: teamBoard_(aff, cfg), orgBoard: orgBoard_(aff, cfg),
             teams: readScoped('teams', aff), pointsLog: readScoped('pointsLog', aff),
-            attendance: readScoped('attendance', aff)};
+            /* Absences synced from the attendance sheet are kept for the sync, never counted as check-ins. */
+            attendance: readScoped('attendance', aff).filter(function (r) { return !attAbsent_(r.Status); })};
   });
 }
 
@@ -1380,6 +1394,7 @@ function keepWarm() {
   try { handinAlerts_(false); } catch (e) { Logger.log('handinAlerts_: ' + (e && e.message || e)); }
   try { pushHomework_(); } catch (e) { Logger.log('pushHomework_: ' + (e && e.message || e)); }
   try { dashAuto_(); } catch (e) { Logger.log('dashAuto_: ' + (e && e.message || e)); }
+  try { syncKeepWarm_(); } catch (e) { Logger.log('syncKeepWarm_: ' + (e && e.message || e)); }
 }
 
 /* ---------------- hand-in alerts ----------------
@@ -3407,6 +3422,10 @@ function dispatch(action, payload, email, role, id) {
        not ask for -- and only to officers. */
     case 'linkedRead': return linkedRead_(payload, aff);
 
+    /* Two-way sync with the chapter's sheets and the PBL Verify bot (Sync.gs). */
+    case 'syncStatus': case 'syncNow': case 'ticketList': case 'ticketDecide': case 'discordList': case 'discordLink':
+      return syncAction_(action, payload, aff, id, email);
+
     /* Deadline extensions, as the member contract has them: asked for at
        least three days before the due date, decided by an officer. An
        approved one means a late hand-in is not counted against the member. */
@@ -3479,6 +3498,19 @@ function dispatch(action, payload, email, role, id) {
 
     case 'setConfig': {
       var ckey = 'club:' + aff;
+      /* SFBLC teams, rooms and the itinerary are on the master sheet too: an
+         edit to them here is copied there before the page hears back. */
+      var cPay = payload || {}, cTouched = function (k) {
+        return cPay.__patch ? !!((cPay.set || {}).hasOwnProperty(k) || (cPay.items || {})[k] || (cPay.del || []).indexOf(k) > -1)
+                            : cPay[k] !== undefined;
+      };
+      var cSync = ['teams', 'rooms', 'sfSchedule'].filter(cTouched)
+        .map(function (k) { return k === 'sfSchedule' ? 'itinerary' : k; });
+      var cDone = function (cfg) {
+        if (!cSync.length || !SYNC_[aff]) return {ok: true, saved: true, cfg: cfg};
+        var sr = syncAfterOrg_(aff, cSync);
+        return {ok: true, saved: true, cfg: clubCfg_(aff), synced: !!(sr && sr.ok)};
+      };
       var sh0 = tab('config'), v0 = sh0.getDataRange().getValues(), next = payload || {};
       /* Two officers saving at once used to cost one of them their change:
          each save replaced the whole club. A page now sends only what it
@@ -3506,12 +3538,12 @@ function dispatch(action, payload, email, role, id) {
           sh0.getRange(q + 1, 2).setValue(JSON.stringify(next));
           /* The merged result goes back, so this page shows what the others
              saved too, straight away. */
-          return {ok: true, saved: true, cfg: next};
+          return cDone(next);
         }
       }
       var json = JSON.stringify(next);
       sh0.appendRow([ckey, json]);
-      return {ok: true, saved: true, cfg: next};
+      return cDone(next);
     }
 
     /* An Org Lead runs their own Org, and naming it is the one piece of that
@@ -3606,7 +3638,10 @@ function dispatch(action, payload, email, role, id) {
     case 'addAttendanceBulk': {
       var t = new Date();
       (payload || []).forEach(function (r) { if (!r.Timestamp) r.Timestamp = t; r.Affiliation = aff; });
-      return {ok: true, wrote: appendRows('attendance', payload || [])};
+      var wrote = appendRows('attendance', payload || []);
+      /* A check-in at "Meeting 10/29" goes onto that meeting's tab of the attendance sheet. */
+      if ((payload || []).some(function (r) { return meetTab_(r.EventLabel); })) syncAfterOrg_(aff, ['attendance']);
+      return {ok: true, wrote: wrote};
     }
 
     case 'listRoles': {

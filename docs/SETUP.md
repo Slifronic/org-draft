@@ -425,3 +425,51 @@ Profiles: `Availability`, `Prefs`) — nothing is archived. **Redeploy before me
 preferences:** the old script accepts the save and quietly drops the preferences. Until then,
 link hand-ins are refused ("No file arrived"), Org Cups show only hand-awarded cups, and
 "Use signed-up members" drafts everyone as 1st year / not sure (use the Google Sheet tab instead).
+
+## Two-way sync with the chapter's sheets and the PBL Verify bot, Nov 2, 2026
+
+The Org System now stays in step with the sheets the EBOD already works in, both ways, and
+with what the PBL Verify Discord bot writes to them. `apps-script/Sync.gs` does it; the list
+of sheets per club is `SYNC_` at its top.
+
+| Sheet | In the Org System | Direction |
+| --- | --- | --- |
+| Fall 26' Attendance, one tab per meeting (`10/29`) | Attendance rows labelled `Meeting 10/29`, with a Status (Present, Excused/Unexcused Late, Excused/Unexcused Abscence) and *Not in business casual* | both ways; a check-in at `Meeting 11/3` with no tab yet makes the tab, copied from the latest meeting |
+| Bot tickets (PBL Verify Records · Attendance tickets, and the Tickets tab of the attendance sheet) | Attendance → Tickets: decide Excused / Unexcused | both ways; a decision sets the member's cell on that meeting's tab and clears the bot's yellow and note |
+| SFBLC Master Sheet · Teams | SFBLC teams (Person 1–4, the confirmed tick) | both ways; a team made here is added as a row |
+| SFBLC Master Sheet · Rooming Assignments | Hotel rooms | both ways |
+| SFBLC Master Sheet · Itinerary | The SFBLC schedule items that came from it | both ways for those rows; items made here stay here |
+| PBL Verify Records · Verified members | Officer tools → Discord profiles, each linked to a member | into the Org System; an officer can fix a link |
+
+The sign-up, track interest and re-enrollment sheets are form responses and stay read-only
+(tags, through `linkedRead`). Dues are not synced: the only sheet with dues is the Winter 2026
+IM master sheet. Add a current one to `SYNC_` when there is one.
+
+**Which edit wins.** Each synced thing remembers the value both sides last agreed on (the
+**SyncBase** tab). Whichever side moved away from it is copied to the other. If both moved, the
+later edit wins. Every copy is logged on the **SyncLog** tab and under Officer tools → *Sheets &
+Discord sync*, with *Sync now*.
+
+**When it runs.** Right after an edit here, inside the same save. About 30 seconds after
+someone edits a linked sheet (an onChange trigger, one run per burst of typing). Every 10
+minutes from `keepWarm`, for what neither notices: the bot writes through its own script, and
+script edits fire no trigger. That is also why the sync never echoes its own writes. A club
+whose sheets have not changed is skipped.
+
+**First run.** Rows on the sheets come in. SFBLC teams, rooms and itinerary items from an
+earlier one-off *Import* are matched to their rows by content and keep their ids. SFBLC teams
+made here and not on the master sheet are kept here only (`local`) and never pushed, so
+nothing is added to the EBOD's sheet unasked.
+
+**Deploy (as deanzacapbl):**
+1. In the Org System's Apps Script project, paste `apps-script/Code.gs`, then add a file
+   **Sync** (+ → Script) and paste `apps-script/Sync.gs`. Save, then Deploy → Manage deployments
+   → the club account deployment → New version.
+2. Run `keepWarm` once from the editor. It installs the onChange triggers on the linked sheets.
+   Google may ask you to allow the script to manage triggers and read Drive; allow it.
+3. In the attendance sheet (Extensions → Apps Script, the bot's project), paste the bot repo's
+   `apps-script/Attendance.gs` and deploy a new version. It stops a bot restart from turning a
+   decided ticket back to Pending.
+4. Officer tools → *Sheets & Discord sync* → **Sync now**, and check the counts.
+
+Tests: `node apps-script/test/sync.test.js` runs both files against in-memory sheets.

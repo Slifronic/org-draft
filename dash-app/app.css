@@ -857,3 +857,13 @@ html[data-motion="calm"] .reveal{opacity:1;transform:none}
 .board2 li.mine .pn{color:var(--ink)}
 @media (max-width:860px){.steps.big3{flex-direction:column}.steps.big3 li{border-top:0;border-left:3px solid var(--rule);padding:4px 0 4px 12px}.steps.big3 li.now{border-left-color:var(--red)}}
 .stand>li.handled{opacity:.7}
+
+/* Sheets & Discord sync, Discord profiles and tickets (sources.js, more.js) */
+.inbox.tight li{flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 0}
+.inbox.tight li:first-child{padding-top:0}
+.inbox.tight .meta{flex:1;min-width:160px}
+.inbox .dpick{max-width:100%;margin-top:4px;align-self:flex-start}
+.inbox.tight .dpick{margin-top:0}
+.chip em{font-style:normal;font-weight:500}
+.card>.meta+.inbox,.card>.meta+.mb{margin-top:12px}
+.inbox.tight .link{margin-left:auto}

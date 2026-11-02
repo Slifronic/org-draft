@@ -28,6 +28,7 @@ function boot() {
     document.body.classList.toggle('officer', M.officer);
     route();
     loadLinked();
+    loadSync();
     if (M.officer) call('extList').then(function (r) { if (r && r.ok) { STAND.ext = r.ext || []; render(); } });
   });
 }

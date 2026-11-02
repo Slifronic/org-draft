@@ -329,6 +329,8 @@ function tagsOf(p, cfg, officer) {
   if (p.going && (cfg.rooms || []).length && !p.room) out.push(tag('gap:room', 'No hotel room', 'gap'));
   /* From the linked sheets (sources.js), once they have been read. */
   if (typeof LINKED !== 'undefined') (LINKED.tags[p.key] || []).forEach(function (t) { out.push(tag('ln:' + t.replace(/ ×\d+$/, ''), t, 'linked')); });
+  /* Whether a verified Discord profile is linked to them (sources.js, read once from discordList). */
+  if (typeof SYNC !== 'undefined' && SYNC.profiles && p.role === 'member') out.push(SYNC.linked[p.key] ? tag('dc:linked', 'Discord linked', 'linked') : tag('dc:none', 'No Discord link', 'linked'));
   return out;
 }
 function hasTag(p, id) {
@@ -473,6 +475,11 @@ function gaps() {
     if (meet) add('mid', plural(meet, 'member') + ' due a meeting with the President or VP', 'A second late assignment, or two unexcused meetings in a row.', {label: 'See who', go: 'standing'});
     var wx = STAND.ext.filter(function (x) { return x.status === 'waiting'; }).length;
     if (wx) add('mid', plural(wx, 'extension request') + ' waiting', '', {label: 'Answer', go: 'standing'});
+  }
+  /* Attendance tickets from the Discord bot (sources.js) that no officer has decided. */
+  if (M.officer && typeof SYNC !== 'undefined' && SYNC.tickets) {
+    var tw = SYNC.tickets.filter(ticketOpen).length;
+    if (tw) add('mid', plural(tw, 'attendance ticket') + ' to decide', 'From the Discord bot. Each decision goes on the attendance sheet.', {label: 'Decide', go: 'attendance/absent'});
   }
   var noForm = ppl.filter(function (p) { return p.answered === false; });
   if (noForm.length) add('low', plural(noForm.length, 'member') + ' never sent the sign-up form', '', {label: 'See them', go: 'members?tag=gap:form'});

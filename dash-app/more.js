@@ -260,20 +260,29 @@ SUBMIT_EXT.cupSave = function (f) {
 };
 
 /* ---------------- Attendance (officers) ---------------- */
-var ATT = {label: '', q: '', on: {}, meeting: ''};
+var ATT = {label: '', q: '', on: {}, meeting: '', typed: false};
+/* The label the chapter's attendance sheet syncs: "Meeting 11/2", no leading zeros, one tab per date. */
+function meetingLabel(d) { d = d || new Date(); return 'Meeting ' + (d.getMonth() + 1) + '/' + d.getDate(); }
 VIEWS.attendance = function (sub) {
   sub = sub || 'take';
-  var h = head('People', 'Attendance') + subtabs(sub, [['take', 'Take attendance'], ['absent', 'Who was absent']], 'attendance');
+  var waiting = (SYNC.tickets || []).filter(ticketOpen).length;
+  var h = head('People', 'Attendance') + subtabs(sub, [['take', 'Take attendance'], ['absent', 'Absences and tickets', waiting]], 'attendance');
   var rows = (RAW.all.attendance || []);
   var meetings = {};
-  rows.forEach(function (r) { var e = String(r.EventLabel || ''); if (!e) return; var m = meetings[e] || (meetings[e] = {label: e, at: r.Timestamp, n: {}}); m.n[flat(r.MemberName)] = 1; });
+  rows.forEach(function (r) {
+    var e = String(r.EventLabel || ''); if (!e) return;
+    var m = meetings[e] || (meetings[e] = {label: e, at: r.Timestamp, n: {}, st: {}});
+    m.n[flat(r.MemberName)] = 1; m.st[flat(r.MemberName)] = String(r.Status || '');
+  });
   var ml = Object.keys(meetings).map(function (k) { return meetings[k]; }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
   var ppl = M.people.filter(function (p) { return p.role === 'member'; });
   if (sub === 'take') {
     var q = flat(ATT.q), list = ppl.filter(function (p) { return !q || p.key.indexOf(q) > -1; }), n = Object.keys(ATT.on).filter(function (k) { return ATT.on[k]; }).length;
     var todays = calEvents(false).filter(function (e) { return e.date === today(); }).map(function (e) { return e.title; });
-    h += '<section class="card form"><label class="fld"><span>Event</span><input id="attlabel" list="attlist" value="' + esc(ATT.label) + '" placeholder="General meeting, Nov 3" maxlength="80"></label>' +
-      '<datalist id="attlist">' + todays.concat(ml.map(function (m) { return m.label; })).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' +
+    var def = meetingLabel();
+    h += '<section class="card form"><label class="fld"><span>Event</span><input id="attlabel" list="attlist" value="' + esc(ATT.typed ? ATT.label : def) + '" placeholder="' + esc(def) + '" maxlength="80"></label>' +
+      '<p class="meta">“' + esc(def) + '” puts these check-ins on the chapter’s attendance sheet, in the ' + esc(def.slice(8)) + ' tab. Any other name stays in the Org System.</p>' +
+      '<datalist id="attlist">' + [def].concat(todays, ml.map(function (m) { return m.label; })).filter(function (x, i, a) { return a.indexOf(x) === i; }).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' +
       '<label class="search">' + icon('search') + '<input id="attq" type="search" placeholder="Find a member" value="' + esc(ATT.q) + '"></label>' +
       '<div class="checkgrid">' + list.map(function (p) {
         return '<label class="' + (ATT.on[p.key] ? 'on' : '') + '"><input type="checkbox" data-act="attTick" data-key="' + esc(p.key) + '"' + (ATT.on[p.key] ? ' checked' : '') + '><span>' + esc(p.name) + '</span><small>' + esc(p.org || '') + '</small></label>';
@@ -283,16 +292,62 @@ VIEWS.attendance = function (sub) {
       '<button class="btn" data-act="attSave"' + (n ? '' : ' disabled') + '>' + icon('check') + 'Check in ' + plural(n, 'person', 'people') + '</button></div></section>';
     return h;
   }
+  h += ticketsCard();
   if (!ml.length) return h + empty('No attendance yet', 'Take attendance at a meeting and absences show up here.');
   if (!ATT.meeting) ATT.meeting = ml[0].label;
   var m = meetings[ATT.meeting] || ml[0], absent = ppl.filter(function (p) { return !m.n[p.key]; });
-  h += '<section class="toolbar"><select class="mini" data-act="attMeeting" aria-label="Meeting">' + ml.map(function (x) { return '<option' + (x.label === m.label ? ' selected' : '') + '>' + esc(x.label) + ' (' + Object.keys(x.n).length + ' came)</option>'; }).join('') + '</select><span class="grow"></span>' +
+  /* A late check-in (from the attendance sheet) came, so it is not an absence. */
+  var lateOf = function (x) { return Object.keys(x.st).filter(function (k) { return /late/i.test(x.st[k]); }); };
+  var late = ppl.filter(function (p) { return /late/i.test(m.st[p.key] || ''); }), tk = ticketsAt(m.label);
+  var tkWord = function (t) { return !t ? '' : ticketOpen(t) ? 'ticket pending' : /^excused/i.test(t.status) ? 'excused' : /^unexcused/i.test(t.status) ? 'unexcused' : ''; };
+  h += '<section class="toolbar"><select class="mini" data-act="attMeeting" aria-label="Meeting">' + ml.map(function (x) {
+    var nl = lateOf(x).length;
+    return '<option value="' + esc(x.label) + '"' + (x.label === m.label ? ' selected' : '') + '>' + esc(x.label) + ' (' + Object.keys(x.n).length + ' came' + (nl ? ', ' + nl + ' late' : '') + ')</option>';
+  }).join('') + '</select><span class="grow"></span>' +
     '<button class="btn sm ghost" data-act="copy" data-v="' + esc(absent.map(function (p) { return p.name; }).join(', ')) + '">Copy names</button>' +
     (absent.length ? '<button class="btn sm" data-act="attMsg">' + icon('send') + 'Message the ' + absent.length + '</button>' : '') + '</section>';
   h += '<section class="card"><header><h3>Absent from ' + esc(m.label) + '</h3><span class="count">' + absent.length + ' of ' + ppl.length + '</span></header><div class="chips">' +
-    absent.map(function (p) { return '<button class="chip tone-ink" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + (p.absent >= 2 ? ' <b>' + p.absent + '</b>' : '') + '</button>'; }).join('') + '</div>' +
-    '<p class="meta">The number is how many club meetings they have missed in all. Anyone at 2 or more carries the "Missed 2+ meetings" tag on Members.</p></section>';
+    absent.map(function (p) {
+      var w = tkWord(tk[p.key]);
+      return '<button class="chip ' + (w === 'excused' ? 'tone-green' : 'tone-ink') + '" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + (p.absent >= 2 ? ' <b>' + p.absent + '</b>' : '') + (w ? ' <em>' + w + '</em>' : '') + '</button>';
+    }).join('') + '</div>' +
+    (late.length ? '<div class="fg"><p class="fl">Came late</p><div class="chips">' + late.map(function (p) {
+      return '<button class="chip tone-gold" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + ' <em>' + esc((TICKET_ST[m.st[p.key]] || m.st[p.key]).toLowerCase()) + '</em></button>';
+    }).join('') + '</div></div>' : '') +
+    '<p class="meta">The number is how many club meetings they have missed in all. Anyone at 2 or more carries the "Missed 2+ meetings" tag on Members. Late check-ins come from the attendance sheet and count as there.</p></section>';
   return h;
+};
+/* Attendance tickets members open with the Discord bot: the ones waiting first. */
+function ticketsCard() {
+  var list = SYNC.tickets, e = SYNC.err.tickets;
+  var h = '<section class="card" id="tickets"><header><h3>Tickets</h3>';
+  if (!list) return h + '</header><p class="meta' + (e ? ' bad' : '') + '">' + esc(e || 'Reading…') + '</p></section>';
+  var open = list.filter(ticketOpen).sort(function (a, b) { return String(a.opened).localeCompare(String(b.opened)); });
+  var done = list.filter(function (t) { return !ticketOpen(t); }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+  h += '<span class="count">' + open.length + ' to decide</span></header>' +
+    '<p class="meta">Late, absent and leaving-early tickets from the Discord bot. A decision goes on the attendance sheet and into that meeting’s attendance here.</p>';
+  h += open.length ? '<ul class="inbox">' + open.map(function (t) {
+    var abs = ticketAbsent(t);
+    return '<li><div class="mh"><p class="mt">' + esc(t.name || '@' + t.username) + ' · ' + esc(t.label || t.type) + '</p><span class="ma">' + esc(t.opened ? ago(t.opened) : '') + '</span></div>' +
+      '<p class="mb sm">Meeting ' + esc(t.meeting) + (t.username ? ' · @' + esc(t.username) : '') + '</p>' + (t.reason ? '<p class="meta">“' + esc(t.reason) + '”</p>' : '') +
+      '<div class="rowacts"><button class="qbtn" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="' + (abs ? 'Excused Abscence' : 'Excused Late') + '">' + icon('check') + '<span>Excused</span></button>' +
+      '<button class="qbtn" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="' + (abs ? 'Unexcused Abscence' : 'Unexcused Late') + '">' + icon('close') + '<span>Unexcused</span></button></div></li>';
+  }).join('') + '</ul>' : '<p class="mb sm">No tickets waiting.</p>';
+  if (done.length) h += '<div class="fg"><p class="fl">Decided</p><ul class="inbox tight">' + done.slice(0, 20).map(function (t) {
+    return '<li><span class="tt">' + esc(t.name || '@' + t.username) + '</span><span class="meta">Meeting ' + esc(t.meeting) + ' · ' + esc(t.label || t.type) + ' · ' + esc(TICKET_ST[t.status] || t.status) +
+      (t.by ? ' by ' + esc(t.by) : '') + (t.at ? ', ' + esc(ago(t.at)) : '') + '</span><button class="link" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="Pending">Reopen</button></li>';
+  }).join('') + '</ul></div>';
+  return h + '</section>';
+}
+ACT_EXT.tkDecide = function (el, d) {
+  el.disabled = true;
+  call('ticketDecide', {id: d.id, status: d.s}).then(function (r) {
+    if (!(r && r.ok)) { el.disabled = false; return toast((r && r.error) || 'Not saved. Try again.', true); }
+    (SYNC.tickets || []).forEach(function (t) { if (t.id === d.id) t.status = r.status; });
+    render();
+    toast(d.s === 'Pending' ? 'Reopened.' : (TICKET_ST[r.status] || r.status) + '. ' + (r.synced ? 'The attendance sheet has it too.' : 'It reaches the attendance sheet on the next sync.'));
+    return Promise.all([loadSync(['tickets', 'status']), reloadClub()]);
+  });
 };
 ACT_EXT.attSave = function (el) {
   var label = clean(($('attlabel') || {}).value || ATT.label, 80).trim();
@@ -320,7 +375,7 @@ document.addEventListener('input', function (e) {
     ATT.q = e.target.value; ATT.label = ($('attlabel') || {}).value || ATT.label;
     clearTimeout(ATT.t); ATT.t = setTimeout(function () { render(); var i = $('attq'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
   }
-  if (e.target.id === 'attlabel') ATT.label = e.target.value;
+  if (e.target.id === 'attlabel') { ATT.label = e.target.value; ATT.typed = true; }
 });
 
 /* ---------------- Profile ---------------- */
@@ -417,7 +472,7 @@ VIEWS.tools = function () {
   h += '<div class="navcards">' + TOOLS.map(function (t, i) {
     return '<a class="navcard" href="' + t[2] + '"><span class="nn">' + String(i + 1).padStart(2, '0') + '</span><span class="nt">' + esc(t[0]) + '</span><span class="ns">' + esc(t[1]) + '</span>' + icon('arrow', 'go') + '</a>';
   }).join('') + '</div>';
-  h += tagSourcesCard();
+  h += syncCard() + discordCard() + tagSourcesCard();
   var sz = JSON.stringify(M.cfg).length;
   h += '<section class="card"><header><h3>Club record</h3><span class="count">' + Math.round(sz / 1000) + ' / 50 KB</span></header><div class="bar"><i style="width:' + Math.min(100, sz / 500) + '%"></i></div>' +
     '<p class="meta">Everything officers set (teams, homework, SFBLC schedule, tags) is one cell in the Org System Data sheet, which Google caps at 50,000 characters.</p></section>';
@@ -425,6 +480,7 @@ VIEWS.tools = function () {
 };
 /* Filled in by tagSourcesCard() in sources.js once linked sheets are set up. */
 if (typeof tagSourcesCard !== 'function') var tagSourcesCard = function () { return ''; };
+if (typeof syncCard !== 'function') var syncCard = function () { return ''; }, discordCard = syncCard;
 
 Object.assign(VIEWS, {orgs: VIEWS.orgs, homework: VIEWS.homework, calendar: VIEWS.calendar, cup: VIEWS.cup, attendance: VIEWS.attendance, profile: VIEWS.profile, tools: VIEWS.tools});
 

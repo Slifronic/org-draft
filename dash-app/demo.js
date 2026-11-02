@@ -186,6 +186,60 @@ var Demo = (function () {
     });
   }
 
+  /* The chapter's sheets as Sync.gs keeps them: two recent meetings on the
+     attendance sheet (late check-ins carry a Status), the Discord bot's
+     tickets, the verified Discord profiles and the sync log. */
+  function seedSync(s) {
+    var P = function (i) { return s.people[i].name; };
+    var U = function (i) { var b = s.people[i].name.toLowerCase().split(' '); return b[0] + '_' + b[1].charAt(0) + (i * 7 % 90 + 10); };
+    var hrs = function (h) { return new Date(Date.now() - h * 36e5).toISOString(); };
+    var dA = new Date(), dB = new Date(); dA.setDate(dA.getDate() - 6); dB.setDate(dB.getDate() - 4);
+    var md = function (d) { return (d.getMonth() + 1) + '/' + d.getDate(); }, A = md(dA), B = md(dB);
+    var away = {}, late = {};
+    away[A] = [26, 44, 51]; away[B] = [17, 33, 47];
+    late[A] = {3: 'Excused Late', 12: 'Unexcused Late'}; late[B] = {30: 'Excused Late'};
+    [[A, dA], [B, dB]].forEach(function (m) {
+      s.people.forEach(function (p, j) {
+        if (away[m[0]].indexOf(j) > -1) return;
+        s.attendance.push({MemberName: p.name, EventLabel: 'Meeting ' + m[0], Timestamp: isoDay(m[1]), Status: late[m[0]][j] || 'Present', Note: j === 20 ? 'Not in business casual' : ''});
+      });
+    });
+    var T = function (id, mt, i, label, reason, status, by, h) {
+      return {id: id, meeting: mt, name: P(i), username: U(i), type: /abs/i.test(label) ? 'absent' : /early/i.test(label) ? 'early' : 'late', label: label, reason: reason,
+              status: status, opened: hrs(h), by: by || '', at: by ? hrs(h - 6) : ''};
+    };
+    var tickets = [
+      T('1297', A, 3, 'Late', 'My class ran over; I was there by 6:15.', 'Excused Late', 'Derick', 150),
+      T('1298', A, 26, 'Absent', 'Overslept after a night shift.', 'Unexcused Abscence', 'Rameesha', 148),
+      T('1300', B, 30, 'Leaving early', 'Work shift at 7.', 'Excused Late', 'Arin', 100),
+      T('1301', B, 8, 'Late', 'My bus was 20 minutes behind; I texted my Org chat.', 'Pending', '', 30),
+      T('1302', B, 17, 'Absent', 'Midterm review session ran over.', 'Pending', '', 26)
+    ];
+    var majors = ['Business Administration', 'Economics', 'Computer Science', 'Accounting', 'Marketing'];
+    var D = function (i, k, name, member, by) { return {id: '1204' + (31000000000000 + k * 7919), username: i < 0 ? 'kai.alum' : U(i), name: name, major: majors[k % 5], verifiedAt: hrs(200 - k * 30), member: member, by: by}; };
+    var profiles = [
+      D(0, 0, P(0), P(0), 'name'), D(1, 1, P(1), P(1), 'name'), D(2, 2, P(2).split(' ')[0], P(2), 'officer'), D(5, 3, P(5), P(5), 'name'),
+      D(8, 4, P(8).split(' ')[0] + ' ' + P(8).split(' ')[1].charAt(0) + '.', '', ''), D(-1, 5, 'Kai', '', '')
+    ];
+    var L = function (h, domain, key, dir, from, to, why) { return {at: hrs(h), domain: domain, key: key, dir: dir, from: from, to: to, why: why}; };
+    var log = [
+      L(0.2, 'tickets', '#1302 · ' + P(17), 'sheet → org', '', 'Pending', 'New ticket from the Discord bot'),
+      L(0.2, 'tickets', '#1301 · ' + P(8), 'sheet → org', '', 'Pending', 'New ticket from the Discord bot'),
+      L(3, 'discord', '@kai.alum', 'sheet → org', '', 'Kai', 'Verified on Discord; no roster name matched'),
+      L(20, 'discord', '@' + U(8), 'sheet → org', '', profiles[4].name, 'Verified on Discord; no roster name matched'),
+      L(94, 'attendance', B + ' · ' + P(30), 'org → sheet', 'Present', 'Excused Late', 'Ticket decided'),
+      L(94, 'tickets', '#1300 · ' + P(30), 'org → sheet', 'Pending', 'Excused Late', 'Decided in the Org System'),
+      L(96, 'attendance', B + ' · ' + P(0), 'org → sheet', '', 'Present', 'Checked in on the dashboard'),
+      L(97, 'itinerary', 'Saturday 7:00 PM', 'sheet → org', 'Social', 'Social night', 'Edited on the master sheet'),
+      L(110, 'teams', 'Finance 2', 'sheet → org', '3 people', '4 people', 'Edited on the master sheet'),
+      L(140, 'attendance', A + ' · ' + P(12), 'sheet → org', 'Present', 'Unexcused Late', 'Edited on the attendance sheet'),
+      L(142, 'attendance', A + ' · ' + P(3), 'org → sheet', 'Present', 'Excused Late', 'Ticket decided'),
+      L(142, 'tickets', '#1297 · ' + P(3), 'org → sheet', 'Pending', 'Excused Late', 'Decided in the Org System')
+    ];
+    return {tickets: tickets, profiles: profiles, log: log, ranAt: Date.now() - 7 * 6e4, runs: 0, dirty: 0,
+            errors: ['Rooming Assignments: no “Room #” column was found, so rooms were skipped this run.']};
+  }
+
   /* What the backend's orgBoard_ works out: per Org, per assignment due, how many of
      its members it was for handed in on time. */
   function orgBoard(s) {
@@ -205,6 +259,7 @@ var Demo = (function () {
     if (S) return S;
     try { S = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (e) { S = null; }
     if (!S || !S.member || !S.gcal || !S.ext) S = seed();
+    if (!S.sync) { S.sync = seedSync(S); store(); }
     S.me = AS === 'member' ? S.member : 'Demo Officer';
     return S;
   }
@@ -226,6 +281,54 @@ var Demo = (function () {
       out[k] = list;
     });
     return out;
+  }
+
+  function syncAnswer(s, action, pl) {
+    var y = s.sync, now = new Date().toISOString();
+    var L = function (domain, key, dir, from, to, why) { y.log.unshift({at: now, domain: domain, key: key, dir: dir, from: from, to: to, why: why}); y.log = y.log.slice(0, 60); };
+    var counts = function () {
+      return {attendance: s.attendance.filter(function (r) { return /^Meeting \d/.test(r.EventLabel); }).length, teams: s.cfg.teams.filter(function (t) { return t.kind === 'flc'; }).length,
+              rooms: 9, itinerary: 9, tickets: y.tickets.length};
+    };
+    switch (action) {
+      case 'syncStatus':
+        return {ok: true, linked: true, sheets: {attendance: '11epr7XrJQbhJwWWnVH9pUsHlMZAx3XoUzjmYjVr5p3A', master: '1oKlEes6653hEO8pJj2sExZzAI1daXZLVRCMaDWQtVJY', records: '19xazg1JCkQl-JJADMmgZqKfx0l35u1uNPct33MPcq8E'},
+                counts: counts(), log: y.log, ranAt: y.ranAt, errors: y.errors, triggers: true};
+      case 'syncNow': {
+        /* The first run finds two edits made on the master sheet; every run carries what was changed here. */
+        var fromSheet = y.runs ? 0 : 2, toSheet = y.dirty;
+        if (fromSheet) { L('rooms', 'Room 405', 'sheet → org', '', s.people[9].name + ', ' + s.people[15].name, 'New on the master sheet'); L('itinerary', 'Sunday 12:30 PM', 'sheet → org', '12:00 PM', '12:30 PM', 'Edited on the master sheet'); }
+        y.runs++; y.dirty = 0; y.errors = []; y.ranAt = Date.now(); store();
+        var c = counts();
+        return {ok: true, errors: [], ran: [{domain: 'attendance', toOrg: 0, toSheet: toSheet, keys: c.attendance}, {domain: 'rooms', toOrg: fromSheet ? 1 : 0, toSheet: 0, keys: 9},
+                                           {domain: 'itinerary', toOrg: fromSheet ? 1 : 0, toSheet: 0, keys: 9}, {domain: 'tickets', toOrg: 0, toSheet: 0, keys: c.tickets}]};
+      }
+      case 'ticketList': return {ok: true, tickets: JSON.parse(JSON.stringify(y.tickets))};
+      case 'ticketDecide': {
+        var tk = y.tickets.filter(function (t) { return t.id === String(pl.id); })[0], st = String(pl.status || '');
+        if (!tk) return {ok: false, error: 'That ticket is not here yet. Try Sync now.'};
+        if (['Excused Late', 'Unexcused Late', 'Excused Abscence', 'Unexcused Abscence', 'Present', 'Pending'].indexOf(st) < 0) return {ok: false, error: 'Unknown status.'};
+        var was = tk.status;
+        tk.status = st; tk.by = st === 'Pending' ? '' : 'Demo Officer'; tk.at = st === 'Pending' ? '' : now;
+        L('tickets', '#' + tk.id + ' · ' + tk.name, 'org → sheet', was, st, 'Decided in the Org System');
+        /* The meeting's cell on the sheet changes, and comes back into attendance. */
+        var lbl = 'Meeting ' + tk.meeting, row = s.attendance.filter(function (r) { return r.EventLabel === lbl && flat(r.MemberName) === flat(tk.name); })[0], before = row ? row.Status || 'Present' : '';
+        if (/late/i.test(st)) { if (row) row.Status = st; else s.attendance.push({MemberName: tk.name, EventLabel: lbl, Timestamp: (s.attendance.filter(function (r) { return r.EventLabel === lbl; })[0] || {}).Timestamp || now, Status: st, Note: ''}); }
+        else if (/abscence/i.test(st)) s.attendance = s.attendance.filter(function (r) { return r !== row; });
+        else if (row && /late/i.test(row.Status)) row.Status = 'Present';
+        var after = (s.attendance.filter(function (r) { return r.EventLabel === lbl && flat(r.MemberName) === flat(tk.name); })[0] || {}).Status || '';
+        if (before !== after) L('attendance', tk.meeting + ' · ' + tk.name, 'org → sheet', before, after, 'Ticket decided');
+        store();
+        return {ok: true, status: st, synced: true};
+      }
+      case 'discordList': return {ok: true, profiles: JSON.parse(JSON.stringify(y.profiles))};
+      case 'discordLink': {
+        var pr = y.profiles.filter(function (x) { return x.id === String(pl.discordId); })[0];
+        if (!pr) return {ok: false, error: 'No such Discord profile.'};
+        pr.member = pl.none ? '' : clean(pl.member, 80); pr.by = pl.none ? 'none' : pr.member ? 'officer' : ''; store();
+        return {ok: true, member: pr.member, by: pr.by};
+      }
+    }
   }
 
   function answer(action, pl) {
@@ -261,7 +364,10 @@ var Demo = (function () {
         return {ok: true, revision: had ? had.revision : 1, replaced: !!had};
       }
       case 'addAttendanceBulk':
-        (pl || []).forEach(function (r) { s.attendance.push({MemberName: r.MemberName, EventLabel: r.EventLabel, Timestamp: new Date().toISOString()}); }); store();
+        (pl || []).forEach(function (r) {
+          s.attendance.push({MemberName: r.MemberName, EventLabel: r.EventLabel, Timestamp: new Date().toISOString(), Status: 'Present', Note: ''});
+          if (/^Meeting \d{1,2}\/\d{1,2}$/.test(r.EventLabel)) s.sync.dirty++;
+        }); store();
         return {ok: true, wrote: (pl || []).length};
       case 'saveProfile': return {ok: true};
       case 'extList': return officer ? {ok: true, ext: s.ext} : {ok: false};
@@ -317,6 +423,9 @@ var Demo = (function () {
       case 'msgCancel':
         s.msgs.forEach(function (m) { if (m.id === pl.id && m.status === 'scheduled') m.status = 'cancelled'; }); store();
         return {ok: true};
+      /* Sheets & Discord sync (Sync.gs), officers only. */
+      case 'syncStatus': case 'syncNow': case 'ticketList': case 'ticketDecide': case 'discordList': case 'discordLink':
+        return officer ? syncAnswer(s, action, pl) : {ok: false, error: 'Officers only.'};
       case 'sfCheck': {
         var l = (s.done[pl.id] || []).filter(function (n) { return n !== me; });
         if (pl.done) l.push(me);
