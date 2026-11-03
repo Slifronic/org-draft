@@ -210,6 +210,7 @@ function syncDomain_(aff, domain, why) {
   var refs = {};
   if (Object.keys(toSheet).length) refs = A.writeSheet(ctx, toSheet, S, O) || {};
   if (Object.keys(toOrg).length || A.alwaysOrg || ctx.dirty) A.writeOrg(ctx, toOrg, S, O);
+  var respelled = A.tidy ? A.tidy(ctx) : 0;
   /* What both sides hold now, which is the next run's base. */
   var nb = {};
   Object.keys(keys).forEach(function (k) {
@@ -220,7 +221,7 @@ function syncDomain_(aff, domain, why) {
   });
   syncBaseWrite_(aff, domain, nb);
   syncLog_(log);
-  return {domain: domain, toOrg: Object.keys(toOrg).length, toSheet: Object.keys(toSheet).length, keys: Object.keys(nb).length};
+  return {domain: domain, toOrg: Object.keys(toOrg).length + respelled, toSheet: Object.keys(toSheet).length, keys: Object.keys(nb).length};
 }
 
 /* Runs domains under the script lock (held already inside a write request). */
@@ -334,6 +335,10 @@ function syncFuzzy_(s, roster) {
     if (a === b) return 2;
     if (Math.min(a.length, b.length) >= 3 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return 1;
     if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 4) return 0;
+    if (a.length === b.length) {
+      var d = []; for (var x = 0; x < a.length; x++) if (a[x] !== b[x]) d.push(x);
+      if (d.length === 2 && d[1] === d[0] + 1 && a[d[0]] === b[d[1]] && a[d[1]] === b[d[0]]) return 1;   // two letters swapped
+    }
     var i = 0, j = 0, miss = 0;
     while (i < a.length && j < b.length) {
       if (a[i] === b[j]) { i++; j++; continue; }
@@ -344,10 +349,22 @@ function syncFuzzy_(s, roster) {
   };
   var me = parts(s);
   if (!me) return '';
+  /* Edit distance, for a longer surname spelled two letters differently ("Ghokale"/"Gokhale", "Li-Tran"/"Lee-Tran"). */
+  var dist = function (a, b) {
+    var prev = [], cur, i, j;
+    for (j = 0; j <= b.length; j++) prev[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      cur = [i];
+      for (j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[b.length];
+  };
   var hits = Object.keys(roster).filter(function (k) {
     var o = parts(roster[k]);
     if (!o) return false;
     var f = near(me[0], o[0]), l = near(me[1], o[1]);
+    if (f === 2 && !l && Math.min(me[1].length, o[1].length) >= 6 && dist(me[1], o[1]) <= 2) l = 1;
     return f && l && f + l >= 3;
   });
   return hits.length === 1 ? roster[hits[0]] : '';
@@ -621,6 +638,20 @@ function syncRowKeys_(ctx, domain) {
   return byRow;
 }
 function syncCfg_(ctx) { return ctx.cfg || (ctx.cfg = clubCfg_(ctx.aff)); }
+/* Rewrites members' names on the club's teams or rooms in the roster's spelling; returns how many changed. */
+function syncRespell_(ctx, key, which) {
+  var cfg = clubCfg_(ctx.aff), roster = syncRoster_(ctx.aff), n = 0;
+  (cfg[key] || []).forEach(function (x) {
+    if (!which(x)) return;
+    x.members = (x.members || []).map(function (m) {
+      var r = syncMatchName_(m, roster);
+      if (roster[flatName_(r)] && r !== m) { n++; return r; }
+      return m;
+    });
+  });
+  if (n) syncCfgSave_(ctx.aff, cfg);
+  return n;
+}
 /* On the first run, items an earlier one-off Import made are matched to the
    sheet rows they came from by content, so they keep their ids. */
 function syncAdoptBy_(S, O, score) {
@@ -676,6 +707,9 @@ SYNC_ADAPT_.teams = {
     return out;
   },
   adopt: function (ctx, S, O) { syncAdoptBy_(S, O, overlap_); syncSettle_(ctx, O, 'teams', 'team', /^mst-/); },
+  /* Names on the master sheet that are another spelling of an account ("Koshin Ghokale") are
+     kept here in the account's spelling, so the dashboard sees one person. The sheet is left as it is. */
+  tidy: function (ctx) { return syncRespell_(ctx, 'teams', function (t) { return t && t.kind === 'flc' && !t.local; }); },
   writeOrg: function (ctx, ch, S, O) {
     var cfg = syncCfg_(ctx);
     var teams = (cfg.teams || []).slice(), n = {};
@@ -755,6 +789,7 @@ SYNC_ADAPT_.rooms = {
     });
     syncSettle_(ctx, O, 'rooms', 'room', /^mst-r/);
   },
+  tidy: function (ctx) { return syncRespell_(ctx, 'rooms', function (r) { return r && !r.local; }); },
   writeOrg: function (ctx, ch, S) {
     var cfg = syncCfg_(ctx), rooms = (cfg.rooms || []).slice();
     var roster = syncRoster_(ctx.aff);

@@ -79,7 +79,9 @@ function standingOf(p, meetings) {
 var LEVELS = {good: ['Good standing', 'ok'], warning: ['Warning', 'gold'], meeting: ['Meeting needed', 'gold'], removal: ['Removal review', 'bad']};
 
 VIEWS.standing = function () {
-  var meetings = meetingsInOrder(), rows = M.people.filter(function (p) { return p.role === 'member'; })
+  /* Only Internal Members with an account are judged: a name that is only on a sheet or a team
+     (often another spelling of someone) has no record here to judge by. */
+  var meetings = meetingsInOrder(), rows = M.people.filter(function (p) { return p.role === 'member' && (p.email || !M.officer); })
     .map(function (p) { return {p: p, s: standingOf(p, meetings)}; });
   var rank = {removal: 0, meeting: 1, warning: 2, good: 3};
   rows.sort(function (a, b) { return rank[a.s.level] - rank[b.s.level] || b.s.late.length - a.s.late.length || a.p.name.localeCompare(b.p.name); });
