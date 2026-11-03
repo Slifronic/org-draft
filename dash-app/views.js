@@ -631,6 +631,8 @@ function editorSheet() {
 /* Every screen, by the id in the address (#homework). more.js adds the rest. */
 var VIEWS = {overview: renderOverview, members: renderMembers, sfblc: renderSfblc, teams: renderTeams, messages: renderMessages};
 var ACT_EXT = {}, CHANGE_EXT = {}, SUBMIT_EXT = {};
+/* Feature files (auth, onboard, teams2, orgs2, admin) answer demo calls here and hook boot and sign-out. */
+var DEMO_EXT = {}, BOOT_EXT = [];
 
 
 /* A ranked list of events, compact: "1 Finance · 2 Marketing". */

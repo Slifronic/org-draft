@@ -333,6 +333,8 @@ var Demo = (function () {
 
   function answer(action, pl) {
     var s = load(), officer = AS !== 'member', me = flat(s.me);
+    /* Feature files answer their own actions in the demo: DEMO_EXT[action](payload, state, officer, me, store). */
+    if (DEMO_EXT[action]) return DEMO_EXT[action](pl || {}, s, officer, me, store);
     var rows = s.people.map(function (p) {
       var mine = flat(p.name) === me;
       return {MemberName: p.name, Org: p.org, Track: p.track, Year: p.year === 2 ? '2nd year' : '1st year',

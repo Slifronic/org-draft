@@ -30,11 +30,15 @@ function boot() {
     loadLinked();
     loadSync();
     if (M.officer) call('extList').then(function (r) { if (r && r.ok) { STAND.ext = r.ext || []; render(); } });
+    /* Feature files that need the loaded club (onboarding gates, Drive folders...) start here. */
+    BOOT_EXT.forEach(function (fn) { try { fn(raw); } catch (e) { console.error(e); } });
   });
 }
 function rebuild() { RAW.all.config = M.cfg; build(RAW); }
 function signedOut(err) {
   document.body.classList.add('out');
+  /* auth.js draws sign-in, sign-up and joining a club. */
+  if (typeof authGate === 'function') return authGate(err);
   $('view').innerHTML = '<section class="signin card"><h2>Sign in to the Org System first</h2>' +
     '<p>The dashboard uses the same account as the classic Org System. Sign in there, then come back to this page.</p>' +
     (err && err !== 'signin' ? '<p class="note warn">' + esc(err) + '</p>' : '') +
