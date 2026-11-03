@@ -1170,3 +1170,126 @@ body.out #view{margin:0 auto;width:100%;max-width:520px}
   .feqmid,.feq>input,.feq>textarea{padding-left:0;margin-left:0;width:100%!important}
   .admbar .search{flex-basis:100%}
 }
+
+/* ---- roles ---- */
+/* Positions on cards and Profile, the PM panel, Club settings → Positions,
+   and the org chart. Theme tokens only, so all four looks keep their contrast. */
+.rltitle{font-weight:600;color:var(--ink)}
+.rlpos .chips .chip i{opacity:.8}
+.rlticks{display:flex;flex-direction:column;gap:8px}
+.rlticks .tick{align-items:flex-start}
+.rlticks .tick span{display:flex;flex-direction:column;line-height:1.35}
+.rllist{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rllist li{display:flex;gap:10px;align-items:baseline}
+.rllist li>span:last-child{display:flex;flex-direction:column;min-width:0}
+.rllist small{color:var(--mute);font-size:12.5px}
+.rllist .sw{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none;margin:0}
+.rlpm{margin-bottom:16px;border-color:var(--rule)}
+.rlpm .rlinits{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.rlpm .rlinits .fld{flex:1;min-width:200px}
+.rlasg select{max-width:170px!important}
+.rlasg li{border-top:1px solid var(--hair);padding-top:4px}
+.rlcatl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.rlcatl li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--hair)}
+.rlcatl .nn{color:var(--mute);font-size:12.5px;padding-top:10px}
+.rlcm{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rlcm input{max-width:340px}
+.rlcm summary{cursor:pointer;color:var(--slate);font-size:13px;font-weight:600}
+.rlcm details .chips{margin-top:6px}
+.rlmv{display:flex;gap:4px}
+.rlmv .ghost.icon{width:34px;height:34px}
+.rlmv .ghost.icon:disabled{opacity:.35;cursor:default}
+.ic.up{transform:rotate(180deg)}
+.rlebl{display:flex;flex-direction:column;gap:8px}
+.rlebr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) 110px auto;gap:8px;align-items:center}
+.rlebr .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rlcat .sendrow,.rlebod .sendrow{gap:8px;justify-content:flex-start}
+
+/* the chart */
+.ocbar{margin:12px 0}
+.oczoom{display:flex;gap:4px;align-items:center}
+.oczoom .btn{min-width:40px;justify-content:center}
+.occard{padding:16px}
+.ocwrap{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:var(--rule) transparent}
+.oc{--ocl:color-mix(in srgb,var(--mute) 60%,var(--card));--ocg:22px;padding:2px 2px 8px;width:max-content;min-width:100%}
+.oc ul{list-style:none;margin:0;padding:0}
+.ocn{position:relative;background:var(--card);border:1px solid var(--rule);border-radius:var(--r);padding:8px 12px;text-align:left;min-width:0}
+.ocn.mine{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.ocbox{background:var(--raise);padding:10px 12px 12px;max-width:820px}
+.ocg{font-size:12px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;text-align:center;margin-bottom:8px;display:flex;justify-content:center;gap:8px;align-items:center}
+.ocppl{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.ocppl.sm{justify-content:flex-start;margin-top:6px}
+.ochead{background:var(--raise);border-width:1px 1px 1px 3px;border-left-color:var(--accent)}
+.ochd{display:flex;gap:10px;align-items:center}
+.ocx{flex:1;min-width:0}
+.ocic{width:30px;height:30px;display:grid;place-items:center;border-radius:var(--r);background:var(--card);border:1px solid var(--hair);color:var(--slate);flex:none}
+.oct{font-weight:600;font-size:14px;color:var(--ink);overflow-wrap:anywhere}
+.ocm{font-size:12.5px;color:var(--mute)}
+.ocsub{padding:6px 10px;background:var(--raise)}
+.ocsub .oct{font-size:13.5px;display:flex;gap:8px;align-items:center}
+.ocp{display:inline-flex;align-items:center;gap:8px;max-width:240px;padding:4px 10px 4px 4px;background:var(--card);border:1px solid var(--hair);border-radius:999px;cursor:pointer;text-align:left;color:var(--ink)}
+[data-theme^="phi"] .ocp{border-radius:var(--r)}
+.ocp:hover{border-color:var(--slate)}
+.ocp.me{border-color:var(--accent)}
+.ocp>span{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.ocp .pn{font-size:13px}
+.ocp .pe{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocp .av{width:28px;height:28px;font-size:11px}
+.ocp.sm .av{width:24px;height:24px;font-size:10px}
+.ocp.sm{padding:3px 9px 3px 3px}
+.octg{flex:none;width:32px;height:32px;display:grid;place-items:center;background:none;border:1px solid var(--rule);border-radius:var(--r);color:var(--slate);cursor:pointer;padding:0}
+.octg:hover{color:var(--ink);border-color:var(--slate)}
+.octg .ic{width:18px;height:18px;transition:transform .15s}
+.octg[aria-expanded="false"] .ic{transform:rotate(-90deg)}
+/* vertical branches: a rail on the left with an elbow to each node */
+.ocv{margin:0 0 0 14px}
+.ocv>li{position:relative;padding:8px 0 0 18px}
+.ocv>li::before{content:'';position:absolute;left:0;top:0;bottom:0;border-left:2px solid var(--ocl)}
+.ocv>li:last-child::before{bottom:auto;height:calc(8px + var(--ocy,18px))}
+.ocv>li::after{content:'';position:absolute;left:0;top:calc(8px + var(--ocy,18px));width:14px;border-top:2px solid var(--ocl)}
+.ocv>li.ocl{--ocy:16px;padding-top:6px}
+.ocv>li.ocl:last-child::before{height:calc(6px + var(--ocy))}
+.ocv>li.ocl::after{top:calc(6px + var(--ocy))}
+@media (min-width:861px){
+  .oc{zoom:var(--ocz,1)}
+  /* the top of the chart: boxes joined by lines, then the programs side by side */
+  .och{display:flex;justify-content:center;position:relative}
+  li>.och{padding-top:var(--ocg)}
+  li>.och::before{content:'';position:absolute;top:0;left:50%;height:var(--ocg);border-left:2px solid var(--ocl)}
+  .och>li{position:relative;display:flex;flex-direction:column;align-items:center;padding:var(--ocg) 8px 0}
+  .och>li::before,.och>li::after{content:'';position:absolute;top:0;right:50%;width:50%;height:var(--ocg);border-top:2px solid var(--ocl)}
+  .och>li::after{right:auto;left:50%;border-left:2px solid var(--ocl)}
+  .och>li:only-child{padding-top:0}
+  .och>li:only-child::before,.och>li:only-child::after{display:none}
+  .och>li:first-child::before,.och>li:last-child::after{border:0 none}
+  .och>li:last-child::before{border-right:2px solid var(--ocl);border-top-right-radius:8px}
+  .och>li:first-child::after{border-top-left-radius:8px}
+  .och>li.ocbr{align-items:stretch;width:296px}
+  .och>li.ocbr>.ocn{width:100%}
+}
+@media (max-width:860px){
+  .oczoom{display:none}
+  .occard{padding:12px}
+  .oc{width:auto;min-width:0}
+  .ocwrap{overflow:visible}
+  /* phones: the board stacks, then each program is an indented tree */
+  li>.och{position:relative;padding-top:12px}
+  li>.ocstack::before{content:'';position:absolute;left:22px;top:0;height:12px;border-left:2px solid var(--ocl)}
+  .ocstack>li{padding:0}
+  .ocprog{margin-left:22px}
+  li>.ocprog{padding-top:0}
+  .ocprog>li{position:relative;padding:12px 0 0 16px}
+  .ocprog>li::before{content:'';position:absolute;left:0;top:0;bottom:0;border-left:2px solid var(--ocl)}
+  .ocprog>li:last-child::before{bottom:auto;height:30px}
+  .ocprog>li::after{content:'';position:absolute;left:0;top:30px;width:14px;border-top:2px solid var(--ocl)}
+  .ocv{margin-left:10px}
+  .ocv>li{padding-left:14px}
+  .ocv>li::after{width:12px}
+  .ocbox{max-width:none}
+  .ocg,.ocppl{justify-content:flex-start}
+  .ocp{max-width:100%}
+  .rlebr{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+  .rlebr .hint{display:none}
+  .rlcm input{max-width:none}
+  .rlasg select{max-width:140px!important}
+}

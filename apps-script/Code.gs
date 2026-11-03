@@ -15,7 +15,7 @@
 
 var CLIENT_ID    = '60468094639-p10c21qva7269q2p6lqhucg488g98caa.apps.googleusercontent.com';                        // <-- same OAuth Web client ID as index.html
 var MASTER_EMAIL = 'bryguy.vo@gmail.com';     // <-- cannot be demoted or removed
-var SHEET_ID     = '';                        // leave '' if this script is bound to the Sheet
+var SHEET_ID     = '1FSS82LmwaoltYAZzEHLAvWsm9aWtlLDWWXf6cR_Xv30';                        // leave '' if this script is bound to the Sheet
 
 var RANK  = {none: 0, member: 1, admin: 2, master: 3};
 var NEEDS = {
@@ -30,7 +30,7 @@ var NEEDS = {
   createAffiliation: 'master', updateAffiliation: 'master', deleteAffiliation: 'master',
   getProfile: 'member', saveProfile: 'member', setMyPassword: 'member',
   memberCard: 'member', formSchema: 'member', submitForm: 'member',
-  listSignups: 'admin', deleteSignup: 'admin', setOrgName: 'member',
+  listSignups: 'admin', deleteSignup: 'admin', setOrgName: 'member', pmSaveTeam: 'member',
   myFormAnswers: 'member', submitWork: 'member', calendarSync: 'admin',
   listSubmissions: 'admin', reviewSubmission: 'admin',
   formItems: 'admin', saveFormItems: 'admin',
@@ -3589,6 +3589,89 @@ function dispatch(action, payload, email, role, id) {
         changed++;
       }
       return {ok: true, renamed: onTo, rows: changed};
+    }
+
+    /* A consulting client team's two project managers run it day to day:
+       its initiatives, who works on which, and how far along it is. They are
+       members, not officers, so this is the one write they get. The page
+       says which team it means; this checks the caller's name (matched as
+       setOrgName matches it) against that team's PMs on the stored club
+       record, and changes only those fields of that one team. doPost already
+       holds the write lock. */
+    case 'pmSaveTeam': {
+      var pmPay = payload || {};
+      var pmAllowed = {teamId: 1, initiatives: 1, assign: 1, stage: 1};
+      var pmExtra = Object.keys(pmPay).filter(function (k) { return !pmAllowed[k]; });
+      if (pmExtra.length) return {ok: false, error: 'A PM can change initiatives, assignments and the stage only (not ' + pmExtra.join(', ') + ').'};
+      var pmTeamId = String(pmPay.teamId || '');
+      if (!pmTeamId || pmTeamId.length > 80) return {ok: false, error: 'Which team?'};
+      if (JSON.stringify(pmPay).length > 8000) return {ok: false, error: 'That is too much to save at once.'};
+
+      var pmRow = cfgRow_('club:' + aff), pmCfg;
+      if (pmRow.row < 0) return {ok: false, error: 'This club has no saved setup yet.'};
+      try { pmCfg = JSON.parse(pmRow.val || '{}') || {}; } catch (e) { return {ok: false, error: 'The club record could not be read.'}; }
+      var pmT = (Array.isArray(pmCfg.teams) ? pmCfg.teams : []).filter(function (t) { return t && String(t.id) === pmTeamId; })[0];
+      var pmKind = pmT ? (pmT.kind || (pmT.track === 'c' ? 'consulting' : '')) : '';
+      if (!pmT || pmKind !== 'consulting') return {ok: false, error: 'That client team was not found.'};
+
+      var pmMe = flatName_(id.name || email);
+      var pmIsPm = !!pmMe && (pmT.pms || []).some(function (n) { return flatName_(n) === pmMe; });
+      if (!pmIsPm && RANK[role] < RANK.admin)
+        return {ok: false, error: 'Only a project manager of ' + (pmT.client || pmT.name || 'that team') + ' can change it.'};
+
+      var pmText = function (v) { return String(v == null ? '' : v).replace(/[<>]/g, '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 60); };
+      /* Initiative assignments are keyed the way the classic page keys them (normName). */
+      var pmNorm = function (s) {
+        s = String(s || '').trim();
+        if (s.indexOf(',') > -1) { var pp = s.split(','); s = pp[1] + ' ' + pp[0]; }
+        return s.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+      };
+      if (pmPay.initiatives !== undefined) {
+        if (!Array.isArray(pmPay.initiatives)) return {ok: false, error: 'Initiatives are a list.'};
+        if (pmPay.initiatives.length > 8) return {ok: false, error: 'A team can have up to 8 initiatives.'};
+        var pmSeen = {}, pmList = [];
+        pmPay.initiatives.forEach(function (x) {
+          var v = pmText(x);
+          if (v && !pmSeen[v.toLowerCase()]) { pmSeen[v.toLowerCase()] = 1; pmList.push(v); }
+        });
+        pmT.initiatives = pmList;
+      }
+      var pmInits = Array.isArray(pmT.initiatives) ? pmT.initiatives : [];
+      if (pmPay.assign !== undefined) {
+        var pmAs = pmPay.assign;
+        if (!pmAs || typeof pmAs !== 'object' || Array.isArray(pmAs)) return {ok: false, error: 'Assignments are name: initiative.'};
+        var paKeys = Object.keys(pmAs);
+        if (paKeys.length > 60) return {ok: false, error: 'Too many assignments.'};
+        var pmOn = {};
+        (pmT.members || []).forEach(function (m) { var k = flatName_(m); if (k) pmOn[k] = String(m); });
+        var pmNext = {}, pmBad = '';
+        paKeys.forEach(function (k) {
+          if (pmBad) return;
+          var who = pmOn[flatName_(k)], v = pmText(pmAs[k]);
+          if (!who) { pmBad = String(k).slice(0, 60) + ' is not on this team.'; return; }
+          if (!v) return;
+          if (pmInits.indexOf(v) < 0) { pmBad = '“' + v + '” is not one of this team’s initiatives.'; return; }
+          pmNext[pmNorm(who)] = v;
+        });
+        if (pmBad) return {ok: false, error: pmBad};
+        pmT.assign = pmNext;
+      }
+      /* Anyone left on an initiative that is gone has none, rather than one nobody sees. */
+      var pmKept = {}, pmA = pmT.assign && typeof pmT.assign === 'object' ? pmT.assign : {};
+      Object.keys(pmA).forEach(function (k) { if (pmInits.indexOf(pmA[k]) > -1) pmKept[k] = pmA[k]; });
+      pmT.assign = pmKept;
+      if (pmPay.stage !== undefined) {
+        var pmStage = String(pmPay.stage);
+        if (['scope', 'research', 'deliver', 'done'].indexOf(pmStage) < 0) return {ok: false, error: 'Unknown stage.'};
+        var pmSt = {}, pmOld = pmCfg.consultStage && typeof pmCfg.consultStage === 'object' ? pmCfg.consultStage : {};
+        Object.keys(pmOld).forEach(function (k) { pmSt[k] = pmOld[k]; });
+        pmSt[pmTeamId] = pmStage;
+        pmCfg.consultStage = pmSt;
+      }
+      var pmJson = JSON.stringify(pmCfg);
+      if (pmJson.length > 50000) return {ok: false, error: 'The club record is full. Ask an officer to trim it.'};
+      pmRow.sh.getRange(pmRow.row, 2).setValue(pmJson);
+      return {ok: true, team: pmT, stage: (pmCfg.consultStage || {})[pmTeamId] || 'scope'};
     }
 
     case 'setTeams': {
