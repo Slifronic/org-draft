@@ -101,6 +101,10 @@ function attPerson_(first, last, roster) {
   var raw = attName_(first, last), name = syncMatchName_(raw, roster);
   if (roster[flatName_(name)]) return name;
   var f = sclean_(first).replace(/,/g, ' ').split(' ').filter(String), nick = sclean_(last);
+  if (nick.replace(/,/g, ' ').split(' ').filter(String).length > 1) {
+    var whole = syncMatchName_(nick, roster);
+    if (roster[flatName_(whole)]) return whole;
+  }
   if (f.length > 1 && nick && nick.split(' ').length === 1) {
     var alt = syncMatchName_(nick + ' ' + f[f.length - 1], roster);
     if (roster[flatName_(alt)]) return alt;
@@ -167,6 +171,7 @@ function syncDomain_(aff, domain, why) {
   var A = SYNC_ADAPT_[domain];
   if (!A) return null;
   var ctx = {aff: aff, ids: ids, why: why, cfg: null};
+  SYNC_ROSTER_ = syncRoster_(aff);
   var S = A.sheet(ctx), O = A.org(ctx), B = syncBaseRead_(aff, domain);
   ctx.S = S;
   var first = !Object.keys(B).length;
@@ -293,7 +298,37 @@ function syncMatchName_(raw, roster) {
   if (m && roster[flatName_(m[2] + m[1])]) return roster[flatName_(m[2] + m[1])];
   var w = s.split(' ');
   if (w.length > 2 && roster[flatName_(w[0] + w[w.length - 1])]) return roster[flatName_(w[0] + w[w.length - 1])];
-  return s;
+  return syncFuzzy_(s, roster) || s;
+}
+/* The roster and the sheets spell people differently ("Colin"/"Collin",
+   "Emelia"/"Emilia", "Qieu"/"Kieu", "Chris"/"Christopher", "Sen"/"Senthil").
+   A roster name is taken when both its first and last name agree with this
+   one -- equal, one starting the other (3+ letters), or one letter apart --
+   with at most one of the two not equal, and only if exactly one roster
+   name fits, so two people are never merged. */
+function syncFuzzy_(s, roster) {
+  var parts = function (x) { var w = String(x).toLowerCase().replace(/,/g, ' ').replace(/[^a-z ]/g, '').split(' ').filter(String); return w.length > 1 ? [w[0], w[w.length - 1]] : null; };
+  var near = function (a, b) {
+    if (a === b) return 2;
+    if (Math.min(a.length, b.length) >= 3 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return 1;
+    if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 4) return 0;
+    var i = 0, j = 0, miss = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { i++; j++; continue; }
+      if (++miss > 1) return 0;
+      if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+    }
+    return miss + (a.length - i) + (b.length - j) <= 1 ? 1 : 0;
+  };
+  var me = parts(s);
+  if (!me) return '';
+  var hits = Object.keys(roster).filter(function (k) {
+    var o = parts(roster[k]);
+    if (!o) return false;
+    var f = near(me[0], o[0]), l = near(me[1], o[1]);
+    return f && l && f + l >= 3;
+  });
+  return hits.length === 1 ? roster[hits[0]] : '';
 }
 
 /* ---- adapters ---- */
@@ -543,8 +578,11 @@ function syncTicketCell_(ctx, s, id, status) {
 function teamVal_(confirmed, event, members) {
   return [confirmed ? '1' : '0', sclean_(event)].concat((members || []).slice(0, 4).map(sclean_).filter(String)).join('|');
 }
+var SYNC_ROSTER_ = null;
 function syncSame_(a, b) {
-  var f = function (x) { return String(x || '').split('|').map(flatName_).join('|'); };
+  var f = function (x) {
+    return String(x || '').split('|').map(function (n) { return flatName_(SYNC_ROSTER_ && n ? syncMatchName_(n, SYNC_ROSTER_) : n); }).join('|');
+  };
   return f(a) === f(b);
 }
 function syncRows_(ctx, tabName, want) {
@@ -682,7 +720,7 @@ SYNC_ADAPT_.rooms = {
     var out = {};
     (syncCfg_(ctx).rooms || []).forEach(function (rm) {
       if (!rm || rm.local) return;
-      var lab = rm.label || ('Room ' + (rm.no || '')).trim();
+      var lab = rm.label != null ? rm.label : ('Room ' + (rm.no || '')).trim();
       out[rm.id] = {v: roomVal_(lab, rm.type || '', rm.gender || ({w: 'Female', m: 'Male'})[rm.group] || '', rm.members), room: rm, label: lab};
     });
     return out;
