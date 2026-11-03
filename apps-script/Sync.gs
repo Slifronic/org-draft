@@ -85,6 +85,28 @@ function meetOrder_(tab) {
   return m ? ((+m[1] < 8 ? +m[1] + 12 : +m[1]) * 100 + +m[2]) : -1;
 }
 function meetLabel_(tab) { return 'Meeting ' + tab; }
+/* A member's name from a meeting tab, as people actually fill it in. When the
+   "First Name" column already holds two or more words it is the whole name
+   ("Dillon Takeshima", "Aaron, Tang") and "Last Name" is a nickname or a repeat
+   ("Dillon", "Tina"); with one word, "Last Name" is the surname ("Anna" |
+   "Shvedova"). The roster's spelling wins: if it does not know the full name,
+   the nickname with the surname is tried ("Augustina Apeh" | "Tina" -> "Tina Apeh"). */
+function attName_(first, last) {
+  var f = sclean_(first).replace(/\s*,\s*/g, ', '), l = sclean_(last);
+  if (!l) return f;
+  if (!f) return l;
+  return f.replace(/,/g, ' ').split(' ').filter(String).length > 1 ? f : f + ' ' + l;
+}
+function attPerson_(first, last, roster) {
+  var raw = attName_(first, last), name = syncMatchName_(raw, roster);
+  if (roster[flatName_(name)]) return name;
+  var f = sclean_(first).replace(/,/g, ' ').split(' ').filter(String), nick = sclean_(last);
+  if (f.length > 1 && nick && nick.split(' ').length === 1) {
+    var alt = syncMatchName_(nick + ' ' + f[f.length - 1], roster);
+    if (roster[flatName_(alt)]) return alt;
+  }
+  return name;
+}
 function meetTab_(label) { var m = String(label || '').match(/^Meeting (\d{1,2}\/\d{1,2})$/); return m ? m[1] : ''; }
 
 /* ---- state: SyncBase, SyncLog, stamps ---- */
@@ -282,7 +304,7 @@ var SYNC_ADAPT_ = {};
    getAll leaves them out, so nothing that counts check-ins counts them. */
 SYNC_ADAPT_.attendance = {
   sheet: function (ctx) {
-    var ss = sbook_(ctx.ids.attendance), out = {};
+    var ss = sbook_(ctx.ids.attendance), out = {}, roster = syncRoster_(ctx.aff);
     ss.getSheets().forEach(function (sh) {
       var tabName = sh.getName();
       if (meetOrder_(tabName) < 0) return;
@@ -290,9 +312,10 @@ SYNC_ADAPT_.attendance = {
       var h = shead_(v, {first: /^first/, last: sopt_(/^last/), att: /^attendance$/, bc: sopt_(/bus casual/), mail: sopt_(/gmail|e-?mail/)});
       if (!h) return;
       for (var r = h.row + 1; r < v.length; r++) {
-        var name = sclean_([v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : ''].join(' '));
-        if (!name) continue;
-        var k = tabName + '|' + flatName_(name);
+        var raw = attName_(v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : '');
+        if (!raw) continue;
+        /* Keyed by the roster's spelling, so the dashboard counts the meeting for the right person. */
+        var name = attPerson_(v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : '', roster), k = tabName + '|' + flatName_(name);
         if (out[k]) continue;
         var code = attCode_(v[r][h.col.att]), bc = h.col.bc >= 0 && strue_(v[r][h.col.bc]);
         out[k] = {v: code ? code + (bc ? '*' : '') : (bc ? '*' : ''), tab: tabName, row: r + 1, name: name,
@@ -356,10 +379,12 @@ SYNC_ADAPT_.attendance = {
       var h = shead_(v, {first: /^first/, last: sopt_(/^last/), att: /^attendance$/, bc: sopt_(/bus casual/)});
       if (!h) return;
       var bool = h.col.bc >= 0 && v.slice(h.row + 1).some(function (r) { return typeof r[h.col.bc] === 'boolean'; });
-      var rowOf = {};
+      var rowOf = {}, roster = syncRoster_(ctx.aff);
       for (var r = h.row + 1; r < v.length; r++) {
-        var n = sclean_([v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : ''].join(' '));
-        if (n && rowOf[flatName_(n)] == null) rowOf[flatName_(n)] = r + 1;
+        var n = attName_(v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : '');
+        if (!n) continue;
+        [flatName_(n), flatName_(attPerson_(v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : '', roster))]
+          .forEach(function (f) { if (rowOf[f] == null) rowOf[f] = r + 1; });
       }
       byTab[t].forEach(function (k) {
         var val = ch[k], code = val.replace(/\*$/, ''), bc = /\*$/.test(val), o = O[k] || {};
@@ -501,7 +526,7 @@ function syncTicketCell_(ctx, s, id, status) {
   if (!h) return;
   var want = flatName_(s.name), handle = sn_(s.username).replace(/^@/, '');
   for (var r = h.row + 1; r < v.length; r++) {
-    var n = flatName_([v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : ''].join(' '));
+    var n = flatName_(attName_(v[r][h.col.first], h.col.last >= 0 ? v[r][h.col.last] : ''));
     var hd = h.col.handle >= 0 ? sn_(v[r][h.col.handle]).replace(/^@/, '') : '';
     if (!(handle && hd === handle) && !(want && n === want)) continue;
     var cell = sh.getRange(r + 1, h.col.att + 1);

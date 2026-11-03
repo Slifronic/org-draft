@@ -40,13 +40,23 @@ function meetingsInOrder() {
     m.who[flat(r.MemberName)] = 1;
   });
   var size = M.people.length || 1;
-  return Object.keys(ev).map(function (k) { return ev[k]; }).filter(function (m) { return Object.keys(m.who).length >= size * 0.25; })
-    .sort(function (a, b) { return a.at.localeCompare(b.at); });
+  /* Meetings synced from the attendance sheet ("Meeting 10/29") were all copied
+     at once, so they are put in order by their date, not by when they arrived. */
+  var when = function (m) {
+    var d = m.label.match(/^Meeting (\d{1,2})\/(\d{1,2})$/);
+    return d ? ((+d[1] < 8 ? 2 : 1) + '-' + ('0' + d[1]).slice(-2) + '-' + ('0' + d[2]).slice(-2)) : '0-' + m.at;
+  };
+  var ex = {};
+  (RAW.all.excused || []).forEach(function (r) { (ex[String(r.EventLabel)] = ex[String(r.EventLabel)] || {})[flat(r.MemberName)] = 1; });
+  return Object.keys(ev).map(function (k) { ev[k].excused = ex[k] || {}; return ev[k]; })
+    .filter(function (m) { return Object.keys(m.who).length >= size * 0.25; })
+    .sort(function (a, b) { return when(a).localeCompare(when(b)); });
 }
 function standingOf(p, meetings) {
   meetings = meetings || meetingsInOrder();
   var streak = 0;
-  for (var i = meetings.length - 1; i >= 0 && !meetings[i].who[p.key]; i--) streak++;
+  /* An excused absence neither counts as missed nor breaks the run. */
+  for (var i = meetings.length - 1; i >= 0 && !meetings[i].who[p.key]; i--) if (!(meetings[i].excused || {})[p.key]) streak++;
   var excused = {};
   STAND.ext.forEach(function (x) { if (x.who === p.key && x.status === 'approved') excused[flat(x.work)] = 1; });
   var lateList = p.hw.late.concat(p.hw.missing).filter(function (t) { return !excused[flat(t)]; });

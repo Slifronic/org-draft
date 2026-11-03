@@ -70,7 +70,7 @@ function world() {
   const att = new Book(ATT_ID, {
     Tickets: [['Ticket', 'Meeting', 'Name', 'Discord', 'Type', 'Reason', 'Status', 'Opened', 'Decided by', 'Thread'],
       ['tk000001', '10/29', 'Bo Chan', 'bochan', 'Late', 'bus', 'Pending', '10/29 6:00 PM', '', 'https://discord/x']],
-    '10/22': [head, ['Ann Lee', '', 'Present', false, 'ann@x.com', '', 'annlee'], ['Bo Chan', '', 'Unexcused Abscence', false, '', '', 'bochan'], ['Cy Park', '', 'Excused Late', true, '', '', '']],
+    '10/22': [head, ['Ann Lee', 'Ann', 'Present', false, 'ann@x.com', '', 'annlee'], ['Bo Chan', '', 'Unexcused Abscence', false, '', '', 'bochan'], ['Cy Park', '', 'Excused Late', true, '', '', '']],
     '10/29': [head, ['Ann Lee', '', 'Present', false, '', '', 'annlee'], ['Bo Chan', '', '', false, '', '', 'bochan'], ['Cy Park', '', '', false, '', '', ''], ['Gus Ray', '', '', false, '', '', '']]
   });
   att.getSheetByName('10/29').getRange(3, 3).setNote('🎫 Ticket tk000001 pending · Late: bus').setBackground('#fff2cc');
@@ -144,6 +144,7 @@ test('first run brings every sheet into the Org System', () => {
   assert.equal(at('Meeting 10/22', 'Cy Park').Note, 'Not in business casual');
   assert.equal(at('Meeting 10/22', 'Cy Park').Org, 'Org 2');
   assert.ok(!at('Meeting 10/29', 'Bo Chan'), 'a blank cell is no row');
+  assert.ok(!att.some((x) => /Ann Lee Ann/.test(x.MemberName)), 'a last name already in the first-name column is not added twice');
   const c = cfg(g), flc = c.teams.filter((t) => t.kind === 'flc');
   assert.ok(flc.find((t) => t.id === 'mst-finance-1' && t.confirmed === true), 'old import adopted, keeps its id');
   assert.ok(flc.find((t) => t.event === 'Management' && t.members.join() === 'Gus Ray,Ed Wu' && t.confirmed === false));

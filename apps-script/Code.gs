@@ -1356,7 +1356,10 @@ function clubSnapshot_(aff) {
             teamBoard: teamBoard_(aff, cfg), orgBoard: orgBoard_(aff, cfg),
             teams: readScoped('teams', aff), pointsLog: readScoped('pointsLog', aff),
             /* Absences synced from the attendance sheet are kept for the sync, never counted as check-ins. */
-            attendance: readScoped('attendance', aff).filter(function (r) { return !attAbsent_(r.Status); })};
+            attendance: readScoped('attendance', aff).filter(function (r) { return !attAbsent_(r.Status); }),
+            /* Excused absences, for officers only: Standing must not count them as missed. */
+            excused: readScoped('attendance', aff).filter(function (r) { return attCode_(r.Status) === 'EA'; })
+              .map(function (r) { return {MemberName: r.MemberName, EventLabel: r.EventLabel}; })};
   });
 }
 
@@ -3492,7 +3495,8 @@ function dispatch(action, payload, email, role, id) {
            the roster they need from clubRoster, scoped to their own club. */
         teams:      officer ? sh.teams : memberRows_('teams', sh.teams, meRow),
         pointsLog:  officer ? sh.pointsLog : memberRows_('pointsLog', sh.pointsLog, meRow),
-        attendance: officer ? sh.attendance : memberRows_('attendance', sh.attendance, meRow)
+        attendance: officer ? sh.attendance : memberRows_('attendance', sh.attendance, meRow),
+        excused:    officer ? (sh.excused || []) : []
       };
     }
 
