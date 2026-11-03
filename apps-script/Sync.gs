@@ -195,6 +195,18 @@ function syncDomain_(aff, domain, why) {
     log.push({At: now, Affiliation: aff, Domain: domain, Key: k, Direction: dir === 'org' ? 'sheet → org' : 'org → sheet',
               From: dir === 'org' ? o : s, To: dir === 'org' ? s : o, Why: why2 || why || ''});
   });
+  /* A sheet that suddenly reads as empty (a tab renamed or restructured) or a
+     run that would mostly remove things without adding any is stopped and
+     reported, never carried out: removals are only applied when they look
+     like edits, not like a sheet that went missing. */
+  var nB = Object.keys(B).length, gone = function (m) { return Object.keys(m).filter(function (k) { return !m[k]; }).length; };
+  var added = function (m) { return Object.keys(m).filter(function (k) { return m[k] && !B[k]; }).length; };
+  if (nB > 2 && !Object.keys(S).length) throw new Error(domain + ': the sheet came back empty, so nothing was changed. Check that its tab and header row are still there.');
+  [[toOrg, 'the Org System'], [toSheet, 'the sheet']].forEach(function (x) {
+    var g = gone(x[0]);
+    if (g > Math.max(5, nB * 0.5) && added(x[0]) < g / 2)
+      throw new Error(domain + ': this run would remove ' + g + ' of ' + nB + ' from ' + x[1] + ', so nothing was changed. Check the sheet, then run Sync now again.');
+  });
   var refs = {};
   if (Object.keys(toSheet).length) refs = A.writeSheet(ctx, toSheet, S, O) || {};
   if (Object.keys(toOrg).length || A.alwaysOrg || ctx.dirty) A.writeOrg(ctx, toOrg, S, O);

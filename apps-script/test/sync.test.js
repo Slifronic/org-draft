@@ -294,6 +294,16 @@ test('"not a member" sticks through later syncs', () => {
   assert.equal(call('discordList').profiles.find((x) => x.id === '222').by, 'none');
 });
 
+test('a sheet tab that goes missing stops the sync instead of emptying the Org System', () => {
+  const tabSheet = w.mst.getSheetByName('Teams'); const before = cfg(g).teams.filter((t) => t.kind === 'flc' && !t.local).length;
+  tabSheet.setName('Teams (renamed)');
+  const r = run();
+  assert.ok(!r.ok && /came back empty/.test(r.errors.join(' ')), JSON.stringify(r.errors));
+  assert.equal(cfg(g).teams.filter((t) => t.kind === 'flc' && !t.local).length, before, 'teams kept');
+  tabSheet.setName('Teams');
+  assert.ok(run().ok);
+});
+
 test('syncStatus answers for officers', () => {
   const r = call('syncStatus', null);
   assert.ok(r.ok && r.linked && r.log.length && r.counts.attendance > 0);
