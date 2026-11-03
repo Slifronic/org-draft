@@ -1293,3 +1293,15 @@ body.out #view{margin:0 auto;width:100%;max-width:520px}
   .rlcm input{max-width:none}
   .rlasg select{max-width:140px!important}
 }
+
+/* ---- links ---- */
+.lklist{list-style:none;margin:0;padding:0}
+.lkrow{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--hair)}
+.lkrow:first-child{border-top:0}
+.lkkind{flex:0 0 76px;font-size:12px;color:var(--mute);text-align:center;border:1px solid var(--hair);border-radius:999px;padding:3px 6px}
+.lkmain{flex:1;min-width:0}
+.lkt{font-weight:600;color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
+.lkt:hover,.lkt:focus-visible{text-decoration:underline}
+.lkmain .meta{margin:2px 0 0;overflow-wrap:anywhere}
+.lkacts{display:flex;gap:4px;flex:0 0 auto}
+@media (max-width:860px){.lkkind{display:none}.lkacts .qbtn span{display:none}}

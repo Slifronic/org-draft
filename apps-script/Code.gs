@@ -1194,7 +1194,9 @@ var MEMBER_HIDDEN_CFG_ = ['sheetUrl', 'sheetId', 'formEditUrl', 'formId', 'owner
                           /* The dashboard's officer-made tags on members ("Needs a ride"). */
                           'memberTags', 'tagSources',
                           /* Warnings and meetings officers logged under the member contract. */
-                          'standingLog'];
+                          'standingLog',
+                          /* Links the Links page keeps for officers only (internal sheets, edit pages). */
+                          'officerLinks'];
 function memberCfg_(cfg, meName) {
   if (!cfg) return cfg;
   var c = {};
