@@ -594,7 +594,7 @@ if (PBL_HOST) (function () {
   };
 })();
 
-/* ---------- the demo: /dash?demo&as=new walks through all of it ---------- */
+/* ---------- the demo: /?demo&as=new walks through all of it ---------- */
 var DEMO_CODE = 'PBL2026';
 function demoState() { return ssGet(DEMO_AUTH) || ''; }
 /* Signed up, signed in or joined: the demo carries on as the demo club's member view. */

@@ -9,7 +9,7 @@ var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby1mYJ3PlDt2YlCnGGRLZq
 var KEYS = {session: 'orgsystem.session', gtok: 'orgsystem.gtok', aff: 'orgsystem.aff', theme: 'orgsystem.theme',
             seen: 'orgsystem.dash.seen', nav: 'orgsystem.dash.nav', dtheme: 'orgsystem.dash.theme', size: 'orgsystem.dash.size', motion: 'orgsystem.dash.motion'};
 var RANK = {none: 0, member: 1, admin: 2, master: 3};
-var DEMO = /(^|[?&])demo(=|&|$)/.test(location.search);
+var DEMO = /(^|[?&])demo(=|&|$)/.test(location.search) || /^\/demo\/?$/.test(location.pathname);
 
 /* ---------- small helpers ---------- */
 function $(id) { return document.getElementById(id); }
@@ -83,7 +83,7 @@ var SFBLC = {
       ],
       sfChecklist: [
         {id: 'c-reg', label: 'Registered on CAPBL', due: '2026-10-30', detail: 'Late registration closes Fri Oct 30 at 5 pm, and only while housing lasts.', 'for': all},
-        {id: 'c-push', label: 'Phone notifications on', due: '', detail: 'Open the Org System from its home-screen icon, then Homework → Phone notifications.', 'for': all},
+        {id: 'c-push', label: 'Phone notifications on', due: '', detail: 'Open the Org System from its home-screen icon, then Profile → Phone notifications.', 'for': all},
         {id: 'c-prompt', label: 'Read your case prompt and rubric', due: '', detail: 'Once CAPBL releases them.', 'for': all},
         {id: 'c-attire', label: 'Business professional outfit ready', due: '2026-11-12', detail: '', 'for': all}
       ],

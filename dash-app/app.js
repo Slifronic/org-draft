@@ -22,6 +22,7 @@ function boot() {
   loadAll().then(function (raw) {
     if (raw.err) return signedOut(raw.err);
     RAW = raw;
+    document.body.classList.remove('out');
     BASE = JSON.parse(JSON.stringify(raw.all.config || {}));
     raw.all.config = JSON.parse(JSON.stringify(BASE));
     build(RAW);
@@ -42,11 +43,17 @@ function signedOut(err) {
   $('view').innerHTML = '<section class="signin card"><h2>Sign in to the Org System first</h2>' +
     '<p>The dashboard uses the same account as the classic Org System. Sign in there, then come back to this page.</p>' +
     (err && err !== 'signin' ? '<p class="note warn">' + esc(err) + '</p>' : '') +
-    '<div class="sheetacts"><a class="btn" href="/">Open the Org System</a><a class="btn ghost" href="/dash?demo">Try the demo</a></div></section>';
+    '<div class="sheetacts"><a class="btn" href="/">Try again</a><a class="btn ghost" href="/?demo">Try the demo</a></div></section>';
 }
 
 /* ---------- routing ---------- */
+/* The classic page's addresses (and links in old emails and notifications) open the matching screen. */
+var OLD_PATHS = {intake: 'orgs/draft', roster: 'club/roster', draft: 'orgs/draft', orgs: 'orgs', teams: 'teams', attendance: 'attendance',
+                 cup: 'cup', assistant: 'orgs/swaps', profile: 'profile', 'sign-up-form': 'club/form', access: 'admin/access',
+                 calendar: 'calendar', homework: 'homework', 'home-screen': 'profile'};
 function parseHash() {
+  var oldPath = location.pathname.replace(/^\/|\/$/g, '');
+  if (!location.hash && OLD_PATHS[oldPath]) history.replaceState(null, '', '/' + location.search + '#' + OLD_PATHS[oldPath]);
   var h = location.hash.replace(/^#/, ''), qi = h.indexOf('?'), q = {};
   if (qi > -1) { h.slice(qi + 1).split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) q[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || ''); }); h = h.slice(0, qi); }
   var parts = h.split('/'), v = parts[0] || 'overview';
@@ -103,8 +110,8 @@ function drawNav() {
   $('who').innerHTML = avatar(M.me) + '<span><span class="pn">' + esc(M.me.name) + '</span><span class="pe">' + esc(M.officer ? (M.master ? 'Master' : 'Officer') : 'Member') + (M.demo ? ' · demo' : '') + '</span></span>';
   var db = $('demobar');
   db.hidden = !M.demo;
-  if (M.demo) db.innerHTML = 'Demo club: nothing is saved or sent. <a href="/dash?demo&amp;as=officer' + location.hash + '"' + (Demo.as !== 'member' ? ' class="on"' : '') + '>Officer view</a>' +
-    '<a href="/dash?demo&amp;as=member' + location.hash + '"' + (Demo.as === 'member' ? ' class="on"' : '') + '>Member view</a><button class="link" data-act="resetDemo">Reset</button>';
+  if (M.demo) db.innerHTML = 'Demo club: nothing is saved or sent. <a href="/?demo&amp;as=officer' + location.hash + '"' + (Demo.as !== 'member' ? ' class="on"' : '') + '>Officer view</a>' +
+    '<a href="/?demo&amp;as=member' + location.hash + '"' + (Demo.as === 'member' ? ' class="on"' : '') + '>Member view</a><button class="link" data-act="resetDemo">Reset</button>';
 }
 function unreadCount() {
   if (M.officer) return 0;
@@ -238,7 +245,7 @@ function syncCompose() {
   if (f.at) CMP.at = f.at.value;
 }
 function compose(o) {
-  CMP = Object.assign({title: '', body: '', url: '/dash#inbox', target: {tags: [], names: [], every: false}, email: false, when: 'now', at: ''}, o || {});
+  CMP = Object.assign({title: '', body: '', url: '/#inbox', target: {tags: [], names: [], every: false}, email: false, when: 'now', at: ''}, o || {});
   if (location.hash === '#messages/compose') render(true); else location.hash = '#messages/compose';
 }
 function syncEdit() {
@@ -280,8 +287,8 @@ var RUN = {
   importRooms: function () { IMPORT.rooms().catch(function (e) { toast(e.message, true); }); },
   composePush: function () {
     var ppl = M.people.filter(function (p) { return p.going && p.reach === false; });
-    compose({title: 'Turn on phone notifications for SFBLC', body: 'Schedule changes and reminders go out as notifications. Open the Org System from its home-screen icon, then Homework → Phone notifications → Turn on.',
-             target: {tags: [], names: ppl.map(function (p) { return p.name; }), every: false}, email: true, url: '/homework'});
+    compose({title: 'Turn on phone notifications for SFBLC', body: 'Schedule changes and reminders go out as notifications. Open the Org System from its home-screen icon, then Profile → Phone notifications → Turn on.',
+             target: {tags: [], names: ppl.map(function (p) { return p.name; }), every: false}, email: true, url: '/#profile'});
   }
 };
 function act(el, ev) {
@@ -295,7 +302,7 @@ function act(el, ev) {
       return openSheet('<header class="sh"><h3>Everything</h3></header><div class="morenav">' + navFor().map(function (n, i) {
         return '<a href="#' + n.id + '" data-close class="' + (ROUTE.view === n.id ? 'on' : '') + '"><span class="nn">' + String(i + 1).padStart(2, '0') + '</span>' + icon(n.id) +
           '<span class="nl">' + esc(!M.officer && n.member ? n.member : n.label) + '</span></a>';
-      }).join('') + '</div><a class="classic" href="/">Open the classic view</a>');
+      }).join('') + '</div><a class="classic" href="/classic">The old version (a demo)</a>');
     case 'confirmYes': { var fn = CONFIRM_FN; CONFIRM_FN = null; closeSheet(); return fn && fn(); }
     case 'theme': return cycleTheme();
     case 'resetDemo': Demo.reset(); location.reload(); return;
@@ -362,7 +369,7 @@ function act(el, ev) {
       (M.done[c.id] || []).forEach(function (k) { done[k] = 1; });
       var left = resolve(c['for']).filter(function (p) { return !done[p.key]; });
       return compose({title: 'Reminder: ' + c.label, body: (c.due ? 'Due ' + fmtDay(c.due) + '. ' : '') + (c.detail || '') + ' Tick it off on your dashboard once it is done.',
-                      target: {tags: [], names: left.map(function (p) { return p.name; })}, url: '/dash#sfblc/checklist'});
+                      target: {tags: [], names: left.map(function (p) { return p.name; })}, url: '/#sfblc/checklist'});
     }
 
     /* teams */
@@ -380,6 +387,8 @@ function act(el, ev) {
     }
     case 'dropTeam': {
       var tl = cloneTeams().filter(function (t) { return t.id !== d.id; });
+      /* As on the classic page, a team that came from a request takes the request with it. */
+      call('deleteTeamRequest', {teamId: d.id});
       return saveCfg({teams: tl}, 'Team deleted.');
     }
     case 'autofill': {
@@ -480,7 +489,7 @@ function submit(form, e) {
                             at: later ? new Date(CMP.at).toISOString() : null}).then(function (r) {
       if (!(r && r.ok)) { btn.disabled = false; return toast((r && r.error) || 'Not sent: the backend did not answer.', true); }
       toast(later ? 'Scheduled for ' + new Date(CMP.at).toLocaleString(undefined, {weekday: 'short', hour: 'numeric', minute: '2-digit'}) + '.' : 'Sending to ' + plural(who.length, 'person', 'people') + '.');
-      CMP = {title: '', body: '', url: '/dash#inbox', target: {tags: [], names: [], every: false}, email: false, when: 'now', at: ''};
+      CMP = {title: '', body: '', url: '/#inbox', target: {tags: [], names: [], every: false}, email: false, when: 'now', at: ''};
       location.hash = '#messages/log';
       reloadMsgs();
     });
