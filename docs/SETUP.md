@@ -473,3 +473,20 @@ nothing is added to the EBOD's sheet unasked.
 4. Officer tools → *Sheets & Discord sync* → **Sync now**, and check the counts.
 
 Tests: `node apps-script/test/sync.test.js` runs both files against in-memory sheets.
+
+## The dashboard is the Org System, Nov 2, 2026
+
+The dashboard is now the whole site for everyone: members, officers and the master account.
+Its page is `index.html` (it was `dash.html`) with `dash-app/`; sign-in, sign-up and joining a
+club are in `dash-app/auth.js`, and every tool the classic page had lives in `auth.js`,
+`onboard.js`, `teams2.js`, `orgs2.js` and `admin.js` (see `docs/DASH-PORT.md`).
+
+- `/` is the dashboard. `/dash` redirects to it. The classic addresses (`/draft`, `/homework`,
+  `/teams`, `/access`…) and links in old emails and notifications open the matching screen.
+- `/?demo` (or `/demo`) is the dashboard's demo: `&as=member`, `&as=master`, `&as=new`.
+- **The classic page is kept only as a demo** at `/classic` (source `classic.html`). `build.mjs`
+  forces its demo mode on and stops it writing the sign-in keys or touching this device's
+  phone notifications, so it never reads or changes a real club and cannot sign anyone out.
+- The Vercel project does not move the domain to new production builds by itself
+  (auto-assign custom domains is off): after a push to `main`, promote the build
+  (`vercel promote <deployment-url> --yes`) for it to go live.

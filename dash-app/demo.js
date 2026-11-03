@@ -1,4 +1,4 @@
-/* The dashboard's demo (/dash?demo, /dash?demo&as=member). A made-up club two
+/* The dashboard's demo (/?demo, /?demo&as=member). A made-up club two
    weeks before SFBLC, answering every backend call in memory. Nothing is sent
    or saved anywhere; it lasts for this browser tab. */
 'use strict';
@@ -333,6 +333,8 @@ var Demo = (function () {
 
   function answer(action, pl) {
     var s = load(), officer = AS !== 'member', me = flat(s.me);
+    /* Feature files answer their own actions in the demo: DEMO_EXT[action](payload, state, officer, me, store). */
+    if (DEMO_EXT[action]) return DEMO_EXT[action](pl || {}, s, officer, me, store);
     var rows = s.people.map(function (p) {
       var mine = flat(p.name) === me;
       return {MemberName: p.name, Org: p.org, Track: p.track, Year: p.year === 2 ? '2nd year' : '1st year',
@@ -343,6 +345,7 @@ var Demo = (function () {
       case 'getAll': {
         var cfg = JSON.parse(JSON.stringify(s.cfg));
         if (!officer) { delete cfg.memberTags; delete cfg.standingLog; delete cfg.tagSources; }
+        if (!officer) cfg.rooms = (cfg.rooms || []).filter(function (r) { return (r.members || []).some(function (n) { return flat(n) === me; }); });
         return {ok: true, role: officer ? 'admin' : 'member', name: s.me, email: officer ? 'deanzacapbl@gmail.com' : (mePerson || {}).email,
                 affName: 'De Anza PBL (demo)', config: cfg, teams: rows,
                 attendance: officer ? s.attendance : s.attendance.filter(function (r) { return flat(r.MemberName) === me; }),
@@ -409,7 +412,7 @@ var Demo = (function () {
         return {ok: true, saved: true, cfg: s.cfg};
       case 'msgSend': {
         if (!officer) return {ok: false};
-        var m = {id: uid('dm'), title: clean(pl.title, 80), body: clean(pl.body, 600), url: pl.url || '/dash#inbox', target: pl.target,
+        var m = {id: uid('dm'), title: clean(pl.title, 80), body: clean(pl.body, 600), url: pl.url || '/#inbox', target: pl.target,
                  email: !!pl.email, by: 'deanzacapbl@gmail.com', created: new Date().toISOString()};
         if (pl.at && new Date(pl.at).getTime() > Date.now() + 60000) { m.status = 'scheduled'; m.at = new Date(pl.at).toISOString(); }
         else {

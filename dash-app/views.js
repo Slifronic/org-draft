@@ -498,7 +498,7 @@ function teamCard(t, cap) {
 }
 
 /* ---------------- messages ---------------- */
-var CMP = {title: '', body: '', url: '/dash#inbox', target: {tags: [], names: [], every: false}, email: false, when: 'now', at: ''};
+var CMP = {title: '', body: '', url: '/#inbox', target: {tags: [], names: [], every: false}, email: false, when: 'now', at: ''};
 function renderMessages(sub) {
   if (!M.officer) return '<section class="card"><header><h3>Inbox</h3></header>' + inboxList(60) + '</section>' + pushHint();
   sub = sub || 'compose';
@@ -511,7 +511,7 @@ function renderMessages(sub) {
   return h;
 }
 function pushHint() {
-  return '<p class="note">' + icon('bell') + '<span>Messages also arrive as phone notifications once you turn them on: open the Org System from its home-screen icon, then Homework → Phone notifications.</span></p>';
+  return '<p class="note">' + icon('bell') + '<span>Messages also arrive as phone notifications once you turn them on: open the Org System from its home-screen icon, then Profile → Phone notifications.</span></p>';
 }
 function inboxList(n) {
   if (!M.inboxReady && !M.demo) return empty('Inbox is not switched on yet', 'EBOD is updating the backend.');
@@ -522,7 +522,7 @@ function inboxList(n) {
     var url = /^\/[A-Za-z0-9\/#?=&._-]*$/.test(String(m.url || '')) ? m.url : '';
     return '<li class="' + (String(m.at) > seen ? 'new' : '') + '"><div class="mh"><p class="mt">' + esc(m.title) + '</p><span class="ma">' + esc(ago(m.at)) + '</span></div>' +
       (m.body ? '<p class="mb">' + esc(m.body) + '</p>' : '') + '<p class="meta">' + (m.auto ? 'Automatic' : 'From EBOD') +
-      (url && url.indexOf('/dash#inbox') < 0 ? ' · <a href="' + esc(url) + '">Open</a>' : '') + '</p></li>';
+      (url && url.indexOf('/#inbox') < 0 ? ' · <a href="' + esc(url) + '">Open</a>' : '') + '</p></li>';
   }).join('') + '</ul>';
 }
 function audiencePicker(target, act) {
@@ -548,10 +548,10 @@ function audiencePicker(target, act) {
     '<datalist id="namelist">' + M.people.map(function (p) { return '<option value="' + esc(p.name) + '">'; }).join('') + '</datalist></div>';
 }
 var TEMPLATES = [
-  ['Registration', 'Register for SFBLC by Fri 5 pm', 'Late registration on CAPBL closes Friday Oct 30 at 5 pm, and only while housing lasts. Tick "Registered" on your dashboard checklist once you are in.', {tags: ['sfblc']}, '/dash#sfblc/checklist'],
-  ['Team announcement', 'SFBLC teams are set', 'Your team, teammates and coaching sessions are on the dashboard. Reach out to your team today.', {tags: ['sfblc']}, '/dash#teams'],
-  ['Coaching', 'Coaching this week', 'Your event has a coaching session on the schedule. Bring your notes and a laptop.', {tags: ['sfblc']}, '/dash#sfblc/coaching'],
-  ['Travel', 'SFBLC travel plan', 'Carpools leave De Anza on Fri Nov 13. Check the schedule for the time and the meeting spot.', {tags: ['sfblc']}, '/dash#sfblc/schedule']
+  ['Registration', 'Register for SFBLC by Fri 5 pm', 'Late registration on CAPBL closes Friday Oct 30 at 5 pm, and only while housing lasts. Tick "Registered" on your dashboard checklist once you are in.', {tags: ['sfblc']}, '/#sfblc/checklist'],
+  ['Team announcement', 'SFBLC teams are set', 'Your team, teammates and coaching sessions are on the dashboard. Reach out to your team today.', {tags: ['sfblc']}, '/#teams'],
+  ['Coaching', 'Coaching this week', 'Your event has a coaching session on the schedule. Bring your notes and a laptop.', {tags: ['sfblc']}, '/#sfblc/coaching'],
+  ['Travel', 'SFBLC travel plan', 'Carpools leave De Anza on Fri Nov 13. Check the schedule for the time and the meeting spot.', {tags: ['sfblc']}, '/#sfblc/schedule']
 ];
 function composeView() {
   var who = resolve(CMP.target), reach = who.filter(function (p) { return p.reach; }).length;
@@ -560,7 +560,7 @@ function composeView() {
     '<label class="fld"><span>To</span>' + audiencePicker(CMP.target, 'cmp') + '</label>' +
     '<label class="fld"><span>Title</span><input name="title" maxlength="80" required value="' + esc(CMP.title) + '" placeholder="Shows as the notification\'s first line"></label>' +
     '<label class="fld"><span>Message</span><textarea name="body" maxlength="600" rows="4" placeholder="What they need to know or do">' + esc(CMP.body) + '</textarea><small class="cc">' + CMP.body.length + '/600 · notifications show the first 240</small></label>' +
-    '<label class="fld"><span>Tapping it opens</span><select name="url">' + [['/dash#inbox', 'Their inbox'], ['/dash#sfblc/schedule', 'SFBLC schedule'], ['/dash#sfblc/coaching', 'Coaching'], ['/dash#sfblc/checklist', 'Checklist'], ['/dash#teams', 'Their team'], ['/homework', 'Homework (classic)']]
+    '<label class="fld"><span>Tapping it opens</span><select name="url">' + [['/#inbox', 'Their inbox'], ['/#sfblc/schedule', 'SFBLC schedule'], ['/#sfblc/coaching', 'Coaching'], ['/#sfblc/checklist', 'Checklist'], ['/#teams', 'Their team'], ['/#homework', 'Homework']]
       .map(function (o) { return '<option value="' + o[0] + '"' + (CMP.url === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
     '<div class="fld"><span>When</span><div class="seg"><button type="button" class="' + (CMP.when === 'now' ? 'on' : '') + '" data-act="when" data-v="now">Send now</button><button type="button" class="' + (CMP.when === 'later' ? 'on' : '') + '" data-act="when" data-v="later">Schedule</button></div>' +
     (CMP.when === 'later' ? '<input type="datetime-local" name="at" value="' + esc(CMP.at) + '" required>' : '') + '</div>' +
@@ -631,6 +631,8 @@ function editorSheet() {
 /* Every screen, by the id in the address (#homework). more.js adds the rest. */
 var VIEWS = {overview: renderOverview, members: renderMembers, sfblc: renderSfblc, teams: renderTeams, messages: renderMessages};
 var ACT_EXT = {}, CHANGE_EXT = {}, SUBMIT_EXT = {};
+/* Feature files (auth, onboard, teams2, orgs2, admin) answer demo calls here and hook boot and sign-out. */
+var DEMO_EXT = {}, BOOT_EXT = [];
 
 
 /* A ranked list of events, compact: "1 Finance · 2 Marketing". */

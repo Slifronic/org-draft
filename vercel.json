@@ -121,10 +121,18 @@
     {
       "source": "/home-screen",
       "destination": "/"
-    },
+    }
+  ],
+  "redirects": [
     {
       "source": "/dash",
-      "destination": "/dash.html"
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/dash.html",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }

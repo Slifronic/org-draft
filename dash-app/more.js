@@ -129,7 +129,7 @@ ACT_EXT.hwNudge = function (el, d) {
   M.subs.forEach(function (s) { if (s.workId === w.id) got[flat(s.name)] = 1; });
   var missing = M.people.filter(function (p) { return p.role === 'member' && workFor(w, p) && !got[p.key]; });
   compose({title: (w.due && daysTo(w.due) < 0 ? 'Still missing: ' : 'Reminder: ') + w.title, body: (w.due ? 'Due ' + fmtDay(w.due) + '. ' : '') + 'Hand it in on the Homework tab.',
-           target: {tags: [], names: missing.map(function (p) { return p.name; })}, url: '/dash#homework'});
+           target: {tags: [], names: missing.map(function (p) { return p.name; })}, url: '/#homework'});
 };
 SUBMIT_EXT.hwSave = function (f) {
   var forV = f['for'].value, org = forV.indexOf('org:') === 0 ? forV.slice(4) : '', team = forV.indexOf('team:') === 0 ? forV.slice(5) : 'all';
@@ -460,14 +460,14 @@ var TOOLS = [
   ['Consulting teams', 'Client teams, PMs and initiatives', '/teams'],
   ['Team requests', 'Teams members formed themselves, to approve or send back', '/teams'],
   ['SFBLC hotel rooms', 'Rooming groups, roommates and room numbers', '/teams'],
-  ['Hand-in review', 'Check off hand-ins and see who is late', '/homework'],
+  ['Hand-in review', 'Check off hand-ins and see who is late', '#homework/review'],
   ['Calendar connection', 'Link the chapter Google Calendar, hide events', '/calendar'],
   ['Assistant', 'Ask questions about the club\'s data', '/assistant'],
   ['Access', 'Who is an officer, and the master account', '/access'],
   ['Member walkthrough', 'The orientation page and tab-by-tab clips', '/orientation']
 ];
 VIEWS.tools = function () {
-  var h = head('You', 'Officer tools', '<a class="btn sm ghost" href="/">Open the classic view</a>');
+  var h = head('You', 'Officer tools', '<a class="btn sm ghost" href="/classic">The old version (a demo)</a>');
   h += '<p class="lede">Setting the club up happens a few times a season, so these stay on the classic page. Each opens straight to its tab.</p>';
   h += '<div class="navcards">' + TOOLS.map(function (t, i) {
     return '<a class="navcard" href="' + t[2] + '"><span class="nn">' + String(i + 1).padStart(2, '0') + '</span><span class="nt">' + esc(t[0]) + '</span><span class="ns">' + esc(t[1]) + '</span>' + icon('arrow', 'go') + '</a>';
