@@ -188,7 +188,7 @@ VIEWS.calendar = function () {
   for (var n = 1; n <= days; n++) {
     var iso = p[0] + '-' + p[1] + '-' + pad2(n), ev = byDay[iso] || [];
     cells += '<button class="cday' + (iso === t0 ? ' today' : '') + (iso === CAL.sel ? ' sel' : '') + (ev.length ? ' has' : '') + '" data-act="calDay" data-d="' + iso + '"><span class="dn">' + n + '</span>' +
-      ev.slice(0, 3).map(function (e) { return '<span class="ce src-' + e.src + '">' + esc(e.title) + '</span>'; }).join('') + (ev.length > 3 ? '<span class="cmore">+' + (ev.length - 3) + '</span>' : '') +
+      ev.slice(0, 3).map(function (e) { return '<span class="ce src-' + e.src + (e.hidden || e.ebod ? ' hid' : '') + '">' + esc(e.title) + '</span>'; }).join('') + (ev.length > 3 ? '<span class="cmore">+' + (ev.length - 3) + '</span>' : '') +
       '<span class="cdots">' + ev.slice(0, 4).map(function (e) { return '<i class="src-' + e.src + '"></i>'; }).join('') + '</span></button>';
   }
   h += '<div class="cols cal"><section class="card month"><div class="grid7">' + cells + '</div><div class="legend">' +
@@ -196,10 +196,15 @@ VIEWS.calendar = function () {
   var list = all.filter(function (e) { return CAL.sel ? (e.date <= CAL.sel && (e.end || e.date) >= CAL.sel) : e.date.slice(0, 7) === CAL.month && (e.end || e.date) >= (CAL.month === t0.slice(0, 7) ? t0 : ''); });
   h += '<section class="card"><header><h3>' + (CAL.sel ? esc(fmtDay(CAL.sel, true)) : 'Coming up this month') + '</h3>' + (CAL.sel ? '<button class="link" data-act="calDay" data-d="">Whole month</button>' : '') + '</header>' +
     (list.length ? '<ul class="items">' + list.map(function (e) {
-      return '<li class="item"><div class="when"><span class="d">' + esc(fmtDay(e.date)) + '</span><span class="t">' + esc(e.time || 'All day') + '</span></div><div class="what"><p class="tt">' + esc(e.title) +
-        (e.hidden ? ' <span class="badge">Hidden from members</span>' : '') + (e.ebod ? ' <span class="badge">EBOD only</span>' : '') + '</p><p class="meta"><i class="sw src-' + e.src + '"></i>' +
+      var off = e.hidden || e.ebod, canHide = M.officer && (e.src === 'gcal' || e.src === 'club' || e.src === 'season');
+      return '<li class="item' + (off ? ' calhid' : '') + '"><div class="when"><span class="d">' + esc(fmtDay(e.date)) + '</span><span class="t">' + esc(e.time || 'All day') + '</span></div><div class="what"><p class="tt">' + esc(e.title) +
+        (off ? ' <span class="badge">Hidden from members</span>' : '') + (e.rec ? ' <span class="badge">Repeats</span>' : '') + '</p><p class="meta"><i class="sw src-' + e.src + '"></i>' +
         ({gcal: 'Chapter calendar', club: 'Added here', season: 'Season', sfblc: 'SFBLC', coaching: 'Coaching', due: 'Homework'})[e.src] + (e.where ? ' · ' + esc(e.where) : '') + '</p></div>' +
-        '<a class="ghost icon" href="' + esc(gcalLink(e)) + '" target="_blank" rel="noopener" aria-label="Add ' + esc(e.title) + ' to Google Calendar">' + icon('plus') + '</a></li>';
+        /* One switch per event: what members see. A repeating Google event switches as a whole series. */
+        '<div class="calacts">' + (canHide ? '<button class="qbtn calvis' + (off ? ' off' : '') + '" data-act="calVis" data-src="' + e.src + '" data-id="' + esc(e.id) + '" aria-pressed="' + !off + '" title="' +
+          esc(off ? 'Members cannot see this' + (e.rec ? ' (every time it repeats)' : '') + '. Tap to show it.' : 'Members see this' + (e.rec ? ' (every time it repeats)' : '') + '. Tap to hide it.') + '">' +
+          icon(off ? 'close' : 'check') + '<span>' + (off ? 'Hidden' : 'Shown') + '</span></button>' : '') +
+        '<a class="ghost icon" href="' + esc(gcalLink(e)) + '" target="_blank" rel="noopener" aria-label="Add ' + esc(e.title) + ' to Google Calendar">' + icon('plus') + '</a></div></li>';
     }).join('') + '</ul>' : empty('Nothing on this ' + (CAL.sel ? 'day' : 'month'), '')) +
     '<div class="rowacts">' + (share ? '<a class="btn sm ghost" href="' + esc(share) + '" target="_blank" rel="noopener">' + icon('calendar') + 'Add the org calendar</a>' : '') +
     (feed ? '<button class="btn sm ghost" data-act="copy" data-v="' + esc(feed) + '">' + icon('link') + 'Copy calendar feed</button>' : '') + '</div>' +

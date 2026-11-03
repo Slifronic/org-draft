@@ -545,6 +545,22 @@ ACT_EXT.admGHide = function (el, d) {
   saveHide(h, {hide: 'Hidden from members.', show: 'Members see it again.', hideall: 'Every “' + e.title + '” is hidden, including future ones.', showall: 'Members see every “' + e.title + '” again.'}[m]);
 };
 ACT_EXT.admCalPast = function () { ADM.calPast = !ADM.calPast; render(); };
+/* The Calendar screen's one switch per event (more.js), on the same lists this page keeps:
+   Google events on calHide (a repeating one as its whole series), events added here as
+   EBOD-only, season dates on seasonOff. */
+ACT_EXT.calVis = function (el, d) {
+  if (d.src === 'season' || /^f26-/.test(d.id)) return ACT_EXT.admSeason(el, d);
+  if (d.src === 'club') return ACT_EXT.admEvHide(el, d);
+  var e = M.gcal.filter(function (x) { return x.id === d.id; })[0]; if (!e) return;
+  var h = calHideOf(), hidden = gHidden(e, h);
+  if (!(e.rec && e.gid)) return ACT_EXT.admGHide(el, {id: e.id, m: hidden ? 'show' : 'hide'});
+  if (!hidden) return ACT_EXT.admGHide(el, {id: e.id, m: 'hideall'});
+  /* Showing a series also clears any single dates of it hidden one by one. */
+  var mine = M.gcal.filter(function (x) { return x.gid === e.gid; }).map(function (x) { return x.id; });
+  h.series = h.series.filter(function (g) { return g !== e.gid; });
+  h.ids = h.ids.filter(function (id) { return mine.indexOf(id) < 0; });
+  saveHide(h, 'Members see every “' + e.title + '” again.');
+};
 ACT_EXT.admEvHide = function (el, d) {
   var list = admClone(M.cfg.events || []), e = list.filter(function (x) { return x && x.id === d.id; })[0]; if (!e) return;
   e.ebod = !e.ebod;

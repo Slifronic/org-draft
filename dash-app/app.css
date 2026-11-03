@@ -1321,6 +1321,14 @@ details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overf
 .connsync .meta{margin:0;flex:1;min-width:0}
 @media (max-width:860px){.conn .cn{display:none}}
 
+/* ---- calendar visibility ---- */
+.ce.hid{opacity:.45;text-decoration:line-through}
+.calacts{display:flex;align-items:center;gap:4px;align-self:center}
+.item.calhid .tt{color:var(--mute)}
+.qbtn.calvis{flex:0 0 auto;border:1px solid var(--ok);color:var(--ok);border-radius:999px;padding:3px 10px}
+.qbtn.calvis.off{border-color:var(--hair);color:var(--mute)}
+.qbtn.calvis span{position:static;width:auto;height:auto;overflow:visible;clip:auto}
+
 /* ---- attendance statuses ---- */
 .atttally{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
 .atttally span.chip{cursor:default}

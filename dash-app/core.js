@@ -541,15 +541,16 @@ function calEvents(mineOnly) {
   var off = {};
   (M.cfg.seasonOff || []).forEach(function (id) { off[id] = 1; });
   var out = [];
-  M.gcal.forEach(function (e) { out.push({id: e.id, title: e.title, date: e.date, end: e.end, time: e.time, where: e.where, src: 'gcal', hidden: !!e.hidden, rec: !!e.rec}); });
+  M.gcal.forEach(function (e) { out.push({id: e.id, gid: e.gid, title: e.title, date: e.date, end: e.end, time: e.time, where: e.where, src: 'gcal', hidden: !!e.hidden, rec: !!e.rec}); });
   (M.cfg.events || []).forEach(function (e) {
     if (!e || !e.date || (e.ebod && !M.officer)) return;
     if (out.some(function (x) { return x.gid && x.gid === e.gid; })) return;
     out.push({id: e.id, title: e.title, date: e.date, time: e.time || '', where: e.where || '', src: 'club', cat: e.cat, ebod: !!e.ebod});
   });
   SEASON.forEach(function (e) {
-    if (off[e.id] || out.some(function (x) { return x.date === e.date && flat(x.title).indexOf(flat(e.title).slice(0, 8)) > -1; })) return;
-    out.push(Object.assign({src: 'season'}, e));
+    /* A hidden season date stays on officers' calendars (marked), so they can show it again from there. */
+    if ((off[e.id] && !M.officer) || out.some(function (x) { return x.date === e.date && flat(x.title).indexOf(flat(e.title).slice(0, 8)) > -1; })) return;
+    out.push(Object.assign({src: 'season', hidden: !!off[e.id]}, e));
   });
   sf('sfSchedule').concat(sf('sfCoaching')).forEach(function (it) {
     if (mineOnly && !isForMe(it)) return;
