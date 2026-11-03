@@ -87,7 +87,8 @@ function world() {
     'Attendance tickets': [['Ticket ID', 'Discord ID', 'Username', 'Name', 'Meeting', 'Type', 'Label', 'Reason', 'Status', 'Thread ID', 'Created at', 'Decided by', 'Decided at'],
       ['tk000001', '333', 'bochan', 'Bo Chan', '10/29', 'late', 'Late', 'bus', 'open', '999', '2026-10-29T01:00:00Z', '', '']]
   });
-  return {org, att, mst, rec, books: {ORG: org, [ATT_ID]: att, [MST_ID]: mst, [REC_ID]: rec}};
+  // Code.gs pins its own data sheet by id (SHEET_ID); here that is the in-memory org book.
+  return {org, att, mst, rec, books: {ORG: org, '1FSS82LmwaoltYAZzEHLAvWsm9aWtlLDWWXf6cR_Xv30': org, [ATT_ID]: att, [MST_ID]: mst, [REC_ID]: rec}};
 }
 
 function load(w) {
