@@ -227,13 +227,16 @@ function syncDomain_(aff, domain, why) {
 function syncRun_(aff, domains, why) {
   var l = LockService.getScriptLock(), mine = false;
   if (!l.hasLock()) { if (!l.tryLock(25000)) return {ok: false, error: 'Busy, the sync will run on its next turn.'}; mine = true; }
-  var out = [], errs = [];
+  var out = [], errs = [], moved = false;
   try {
     SYNC_DOMAINS_.forEach(function (d) {
       if (domains && domains.indexOf(d) < 0) return;
-      try { var r = syncDomain_(aff, d, why); if (r) out.push(r); }
+      try { var r = syncDomain_(aff, d, why); if (r) out.push(r); if (r && (r.toOrg || r.profiles)) moved = true; }
       catch (e) { errs.push(d + ': ' + (e && e.message || e)); Logger.log('sync ' + d + ': ' + (e && e.stack || e)); }
     });
+    /* The page reads the club from a shared cache that only page writes renew;
+       what the sync copied in must show at once, not when that cache runs out. */
+    if (moved || !domains) bumpShared_(aff);
     syncProps_().setProperty('syncRunAt:' + aff, String(Date.now()));
     syncProps_().setProperty('syncErr:' + aff, errs.join('\n'));
   } finally { if (mine) l.releaseLock(); }
