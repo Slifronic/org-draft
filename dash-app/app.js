@@ -550,6 +550,8 @@ document.addEventListener('change', function (e) {
   var el = e.target;
   if (el.matches('select[data-act], input[type=number][data-act], input[data-act="auto"], input[data-act$="Every"]')) return change(el);
   if (el.matches('input[data-act$="Name"]')) return change(el);
+  /* Switches and ticks whose screen registered a change handler (the linked-sheet switches, for one). */
+  if (el.matches('input[type=checkbox][data-act]') && CHANGE_EXT[el.dataset.act]) return change(el);
 });
 document.addEventListener('submit', function (e) { var f = e.target.closest('form[data-act]'); if (f) submit(f, e); });
 document.addEventListener('input', function (e) {
