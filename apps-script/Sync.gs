@@ -297,6 +297,13 @@ function syncRoster_(aff) {
     var n = sclean_([r.FirstName, r.LastName].join(' '));
     if (n) names[flatName_(n)] = names[flatName_(n)] || n;
   });
+  /* Everyone signed up with Google too, as the dashboard counts them ("Tajinder (TJ) Bahia"). */
+  try {
+    accountsFor(aff).forEach(function (a) {
+      var n = sclean_([a.first, a.last].join(' '));
+      if (n) names[flatName_(n)] = names[flatName_(n)] || n;
+    });
+  } catch (e) {}
   return names;
 }
 /* A sheet name to a roster name: exact, "Last, First", or first and last
