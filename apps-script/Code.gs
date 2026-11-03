@@ -43,7 +43,8 @@ var NEEDS = {
   savePush: 'member', dropPush: 'member', testPush: 'member', googleSession: 'member',
   msgList: 'admin', msgSend: 'admin', msgCancel: 'admin', myInbox: 'member', sfCheck: 'member',
   linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin',
-  syncStatus: 'admin', syncNow: 'admin', ticketList: 'admin', ticketDecide: 'admin', discordList: 'admin', discordLink: 'admin'
+  syncStatus: 'admin', syncNow: 'admin', ticketList: 'admin', ticketDecide: 'admin', discordList: 'admin', discordLink: 'admin',
+  rideList: 'member', rideSave: 'member', rideAssign: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -1036,7 +1037,7 @@ function failRef_(where, err) {
 var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
                  listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
                  clubRoster: 1, formSchema: 1, formItems: 1, msgList: 1, myInbox: 1, linkedRead: 1, extList: 1,
-                 syncStatus: 1, ticketList: 1, discordList: 1};
+                 syncStatus: 1, ticketList: 1, discordList: 1, rideList: 1};
 
 /* ---- homework tracks (Fall 2026) ----
    Every member's homework is curated toward consulting ('c') or case
@@ -3459,6 +3460,63 @@ function dispatch(action, payload, email, role, id) {
       return {ok: true, ext: edHit};
     }
 
+    /* Carpools for the trip (SFBLC first). Each person keeps their own entry --
+       driving with seats, riding, or getting there on their own -- in its own
+       row (rides:<club>), because a member cannot write the club record. A
+       phone number goes only to officers and to the people in the same car. */
+    case 'rideList':
+      return {ok: true, rides: ridesFor_(dashRow_('rides:' + aff, []), flatName_(id.name || email), RANK[role] >= RANK.admin)};
+    case 'rideSave': {
+      var rsP = payload || {}, rsMe = flatName_(id.name || email), rsL = dashRow_('rides:' + aff, []);
+      if (!rsMe) return {ok: false, error: 'Your account has no name yet.'};
+      var rsRole = String(rsP.role || ''), rsOld = rsL.filter(function (x) { return x.who === rsMe; })[0];
+      if (rsRole === 'none') {
+        rsL = rsL.filter(function (x) { return x.who !== rsMe; });
+        rideFreeCar_(rsL, rsMe);
+      } else {
+        if (['driver', 'rider', 'own'].indexOf(rsRole) < 0) return {ok: false, error: 'Choose driving, riding or your own way.'};
+        /* "Join this car" sends only the car, so whatever is left out keeps what was saved before. */
+        var rsGet = function (k, n) { return dashClean_(k in rsP ? rsP[k] : (rsOld || {})[k], n); };
+        var rsFrom = rsGet('from', 10), rsLeave = rsGet('leave', 5);
+        var rsE = {who: rsMe, name: dashClean_(id.name || email, 80), role: rsRole,
+                   from: ['deanza', 'hotel', 'other'].indexOf(rsFrom) > -1 ? rsFrom : 'deanza', fromNote: rsGet('fromNote', 80),
+                   leave: /^\d{2}:\d{2}$/.test(rsLeave) ? rsLeave : '', back: 'back' in rsP ? !!rsP.back : !!(rsOld && rsOld.back),
+                   phone: rsGet('phone', 30), note: rsGet('note', 200), at: new Date().toISOString()};
+        if (rsRole === 'driver') {
+          var rsSeats = Math.floor(+('seats' in rsP ? rsP.seats : (rsOld || {}).seats)) || 0, rsTaken = rideRiders_(rsL, rsMe, '').length;
+          if (rsSeats < 1 || rsSeats > 7) return {ok: false, error: 'Seats for riders go from 1 to 7.'};
+          if (rsSeats < rsTaken) return {ok: false, error: 'You have ' + rsTaken + ' riders. Ask an officer to move someone before cutting seats.'};
+          rsE.seats = rsSeats;
+        } else { rsE.leave = ''; rideFreeCar_(rsL, rsMe); }
+        if (rsRole === 'rider') {
+          var rsCar = 'car' in rsP ? dashClean_(rsP.car, 80) : String((rsOld && rsOld.role === 'rider' && rsOld.car) || '');
+          var rsNo = rsCar ? rideCanJoin_(rsL, rsCar, rsMe) : '';
+          if (rsNo) return {ok: false, error: rsNo};
+          rsE.car = rsCar;
+        }
+        rsL = rsL.filter(function (x) { return x.who !== rsMe; });
+        rsL.push(rsE);
+      }
+      dashWrite_('rides:' + aff, rsL.slice(-400));
+      return {ok: true, rides: ridesFor_(rsL, rsMe, RANK[role] >= RANK.admin)};
+    }
+    case 'rideAssign': {
+      var raP = payload || {}, raL = dashRow_('rides:' + aff, []), raWho = dashClean_(raP.who, 80);
+      var raE = raL.filter(function (x) { return x.who === raWho; })[0];
+      if (!raE) return {ok: false, error: 'That person has no carpool entry.'};
+      if (raP.remove) {
+        raL = raL.filter(function (x) { return x.who !== raWho; });
+        rideFreeCar_(raL, raWho);
+      } else {
+        if (raE.role !== 'rider') return {ok: false, error: 'Only riders can be put in a car.'};
+        var raCar = dashClean_(raP.car, 80), raNo = raCar ? rideCanJoin_(raL, raCar, raWho) : '';
+        if (raNo) return {ok: false, error: raNo};
+        raE.car = raCar; raE.by = id.name || email;
+      }
+      dashWrite_('rides:' + aff, raL);
+      return {ok: true, rides: raL};
+    }
+
     case 'getAll': {
       /* Everything the club looks like, shared by every caller and read
          through the short-lived cache above. */
@@ -4411,6 +4469,31 @@ function dashRow_(key, fallback) {
 function dashWrite_(key, value) {
   var r = cfgRow_(key), j = JSON.stringify(value);
   if (r.row > 0) r.sh.getRange(r.row, 2).setValue(j); else r.sh.appendRow([key, j]);
+}
+/* Carpools (rideList/rideSave/rideAssign). A car is its driver's `who`. */
+function rideRiders_(list, car, except) {
+  return list.filter(function (x) { return x.role === 'rider' && x.car === car && x.who !== except; });
+}
+function rideCanJoin_(list, car, who) {
+  var d = list.filter(function (x) { return x.who === car && x.role === 'driver'; })[0];
+  if (!d) return 'That car is no longer offered.';
+  return rideRiders_(list, car, who).length >= (d.seats || 0) ? 'That car is full.' : '';
+}
+/* When a driver stops driving, their riders go back to waiting rather than riding a car that is gone. */
+function rideFreeCar_(list, car) {
+  list.forEach(function (x) { if (x.role === 'rider' && x.car === car) x.car = ''; });
+}
+function ridesFor_(list, me, officer) {
+  if (officer) return list;
+  var mine = list.filter(function (x) { return x.who === me; })[0];
+  var car = mine ? (mine.role === 'driver' ? me : mine.role === 'rider' ? mine.car || '' : '') : '';
+  return list.map(function (x) {
+    var c = {}; for (var k in x) if (Object.prototype.hasOwnProperty.call(x, k)) c[k] = x[k];
+    var same = x.who === me || (car && (x.who === car || (x.role === 'rider' && x.car === car)));
+    if (!same) delete c.phone;
+    delete c.by;
+    return c;
+  });
 }
 function readMsgs_(aff) { return dashRow_('msgs:' + aff, []); }
 function writeMsgs_(aff, list) {

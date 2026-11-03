@@ -353,8 +353,9 @@ var SFV = {mine: null};
 function renderSfblc(sub) {
   sub = sub || 'schedule';
   var h = subtabs(sub, [['schedule', 'Schedule'], ['coaching', 'Coaching', sf('sfCoaching').filter(function (c) { return (M.officer || isForMe(c)) && at(c.date, c.end || c.start || '23:59') >= new Date(); }).length || ''],
-                        ['checklist', 'Checklist'], ['about', 'About'], ['season', 'Season']], 'sfblc');
+                        ['checklist', 'Checklist'], ['rides', 'Carpools', M.officer && RIDES.ready ? rideWaiting().length || '' : ''], ['about', 'About'], ['season', 'Season']], 'sfblc');
   if (sub === 'schedule') h += sfSchedule();
+  else if (sub === 'rides') h += ridesView();
   else if (sub === 'coaching') h += sfCoachingView();
   else if (sub === 'checklist') h += M.officer ? sfChecklistOfficer() : checklistCard(false);
   else if (sub === 'season') h += seasonStrip();

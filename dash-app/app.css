@@ -1305,3 +1305,8 @@ body.out #view{margin:0 auto;width:100%;max-width:520px}
 .lkmain .meta{margin:2px 0 0;overflow-wrap:anywhere}
 .lkacts{display:flex;gap:4px;flex:0 0 auto}
 @media (max-width:860px){.lkkind{display:none}.lkacts .qbtn span{display:none}}
+
+/* ---- rides ---- */
+.rides li .rowacts{margin-top:4px}
+.rides .fld{margin-top:6px}
+.rides .meta a{color:var(--slate)}
