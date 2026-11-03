@@ -1310,3 +1310,13 @@ body.out #view{margin:0 auto;width:100%;max-width:520px}
 .rides li .rowacts{margin-top:4px}
 .rides .fld{margin-top:6px}
 .rides .meta a{color:var(--slate)}
+
+/* ---- connectors ---- */
+details.card.conn{padding-top:10px;padding-bottom:10px}
+details.card.conn>summary{gap:8px}
+details.card.conn>summary>.ic{flex:0 0 auto;color:var(--mute)}
+details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conn .cn{font-weight:400;color:var(--mute);margin-left:6px}
+.connsync{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 0 0;border-top:1px solid var(--hair);margin-top:12px}
+.connsync .meta{margin:0;flex:1;min-width:0}
+@media (max-width:860px){.conn .cn{display:none}}
