@@ -60,51 +60,51 @@
   "rewrites": [
     {
       "source": "/demo",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/intake",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/roster",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/draft",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/orgs",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/teams",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/attendance",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/cup",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/assistant",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/profile",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/sign-up-form",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/access",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/orientation",
@@ -112,15 +112,15 @@
     },
     {
       "source": "/calendar",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/homework",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/home-screen",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ],
   "redirects": [
