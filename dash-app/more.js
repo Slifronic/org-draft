@@ -260,9 +260,41 @@ SUBMIT_EXT.cupSave = function (f) {
 };
 
 /* ---------------- Attendance (officers) ---------------- */
-var ATT = {label: '', q: '', on: {}, meeting: '', typed: false};
+var ATT = {label: '', q: '', draft: {}, draftFor: '', meeting: '', typed: false, unmarked: false};
 /* The label the chapter's attendance sheet syncs: "Meeting 11/2", no leading zeros, one tab per date. */
 function meetingLabel(d) { d = d || new Date(); return 'Meeting ' + (d.getMonth() + 1) + '/' + d.getDate(); }
+/* The five statuses on the chapter's attendance sheet, in its order and colours. TEXT is the
+   sheet's own spelling ("Abscence"), which the Discord bot also looks for. */
+var ATT_ST = [{c: 'P', label: 'Present', short: 'Present', tone: 'green'},
+              {c: 'EL', label: 'Excused late', short: 'Late (exc.)', tone: 'gold'},
+              {c: 'UL', label: 'Unexcused late', short: 'Late (unexc.)', tone: 'red'},
+              {c: 'EA', label: 'Excused absence', short: 'Absent (exc.)', tone: 'gold'},
+              {c: 'UA', label: 'Unexcused absence', short: 'Absent (unexc.)', tone: 'red'}];
+var ATT_TEXT = {P: 'Present', EL: 'Excused Late', UL: 'Unexcused Late', EA: 'Excused Abscence', UA: 'Unexcused Abscence'};
+function attStOf(c) { return ATT_ST.filter(function (x) { return x.c === c; })[0]; }
+/* A check-in with no Status (taken on the dashboard before statuses) is Present. */
+function attCodeOf(t) {
+  var s = String(t || '').toLowerCase();
+  if (!s || /^present/.test(s)) return 'P';
+  var un = /unexcused/.test(s);
+  if (/late/.test(s)) return un ? 'UL' : 'EL';
+  if (/abs/.test(s)) return un ? 'UA' : 'EA';
+  return 'P';
+}
+/* What is saved for an event: check-ins (any late too) and the marked absences. */
+function attSaved(label) {
+  var o = {};
+  (RAW.all.attendance || []).forEach(function (r) { if (r.EventLabel === label) o[flat(r.MemberName)] = attCodeOf(r.Status); });
+  (RAW.all.absences || []).forEach(function (r) { if (r.EventLabel === label) o[flat(r.MemberName)] = attCodeOf(r.Status); });
+  return o;
+}
+function attLabelNow() { return clean(($('attlabel') || {}).value || (ATT.typed ? ATT.label : meetingLabel()), 80).trim(); }
+/* Unsaved marks belong to one event; naming another event starts over. */
+function attDraft(label) { if (ATT.draftFor !== label) { ATT.draft = {}; ATT.draftFor = label; } return ATT.draft; }
+function attChanges(label) {
+  var saved = attSaved(label), d = attDraft(label);
+  return Object.keys(d).filter(function (k) { return d[k] !== (saved[k] || ''); });
+}
 VIEWS.attendance = function (sub) {
   sub = sub || 'take';
   var waiting = (SYNC.tickets || []).filter(ticketOpen).length;
@@ -277,19 +309,35 @@ VIEWS.attendance = function (sub) {
   var ml = Object.keys(meetings).map(function (k) { return meetings[k]; }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
   var ppl = M.people.filter(function (p) { return p.role === 'member'; });
   if (sub === 'take') {
-    var q = flat(ATT.q), list = ppl.filter(function (p) { return !q || p.key.indexOf(q) > -1; }), n = Object.keys(ATT.on).filter(function (k) { return ATT.on[k]; }).length;
     var todays = calEvents(false).filter(function (e) { return e.date === today(); }).map(function (e) { return e.title; });
-    var def = meetingLabel();
-    h += '<section class="card form"><label class="fld"><span>Event</span><input id="attlabel" list="attlist" value="' + esc(ATT.typed ? ATT.label : def) + '" placeholder="' + esc(def) + '" maxlength="80"></label>' +
-      '<p class="meta">“' + esc(def) + '” puts these check-ins on the chapter’s attendance sheet, in the ' + esc(def.slice(8)) + ' tab. Any other name stays in the Org System.</p>' +
+    var def = meetingLabel(), label = ATT.typed ? ATT.label : def;
+    var saved = attSaved(label), draft = attDraft(label), cur = function (k) { return draft[k] !== undefined ? draft[k] : (saved[k] || ''); };
+    var q = flat(ATT.q), list = ppl.filter(function (p) { return (!q || p.key.indexOf(q) > -1) && (!ATT.unmarked || !cur(p.key)); });
+    var n = attChanges(label).length, tally = {};
+    ppl.forEach(function (p) { var c = cur(p.key) || 'none'; tally[c] = (tally[c] || 0) + 1; });
+    var savedN = Object.keys(saved).length;
+    h += '<section class="card form"><label class="fld"><span>Event</span><input id="attlabel" list="attlist" value="' + esc(label) + '" placeholder="' + esc(def) + '" maxlength="80"></label>' +
+      '<p class="meta">' + (/^Meeting \d{1,2}\/\d{1,2}$/.test(label) ? 'These statuses go on the chapter’s attendance sheet too, in its ' + esc(label.slice(8)) + ' tab.'
+        : '“' + esc(def) + '” would put these statuses on the chapter’s attendance sheet; ' + esc(label || 'this name') + ' stays in the Org System.') +
+      (savedN ? ' ' + plural(savedN, 'person', 'people') + ' already marked for ' + esc(label) + '; change anyone below.' : '') + '</p>' +
       '<datalist id="attlist">' + [def].concat(todays, ml.map(function (m) { return m.label; })).filter(function (x, i, a) { return a.indexOf(x) === i; }).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' +
+      '<div class="atttally">' + ATT_ST.map(function (s) { return '<span class="chip tone-' + s.tone + '">' + esc(s.label) + ' <b>' + (tally[s.c] || 0) + '</b></span>'; }).join('') +
+      '<button class="chip tone-ink' + (ATT.unmarked ? ' on' : '') + '" data-act="attOnly" aria-pressed="' + ATT.unmarked + '">Not marked <b>' + (tally.none || 0) + '</b></button></div>' +
       '<label class="search">' + icon('search') + '<input id="attq" type="search" placeholder="Find a member" value="' + esc(ATT.q) + '"></label>' +
-      '<div class="checkgrid">' + list.map(function (p) {
-        return '<label class="' + (ATT.on[p.key] ? 'on' : '') + '"><input type="checkbox" data-act="attTick" data-key="' + esc(p.key) + '"' + (ATT.on[p.key] ? ' checked' : '') + '><span>' + esc(p.name) + '</span><small>' + esc(p.org || '') + '</small></label>';
-      }).join('') + '</div><div class="attbar"><span class="meta">' + plural(n, 'person', 'people') + ' ticked' + (q ? ' · showing ' + list.length : '') + '</span>' +
-      '<button class="qbtn" data-act="attAll">' + icon('check') + '<span>Tick ' + (q ? 'these ' + list.length : 'everyone') + '</span></button>' +
-      (n ? '<button class="qbtn" data-act="attNone">' + icon('close') + '<span>Clear</span></button>' : '') +
-      '<button class="btn" data-act="attSave"' + (n ? '' : ' disabled') + '>' + icon('check') + 'Check in ' + plural(n, 'person', 'people') + '</button></div></section>';
+      (list.length ? '<ul class="attlist">' + list.map(function (p) {
+        var c = cur(p.key), changed = draft[p.key] !== undefined && draft[p.key] !== (saved[p.key] || '');
+        return '<li class="' + (changed ? 'chg' : '') + '"><span class="an"><b>' + esc(p.name) + '</b><small>' + esc(p.org || '') + (changed ? ' · not saved' : '') + '</small></span>' +
+          '<div class="attseg" role="group" aria-label="' + esc(p.name) + '">' + ATT_ST.map(function (s) {
+            return '<button type="button" class="tone-' + s.tone + (c === s.c ? ' on' : '') + '" data-act="attMark" data-key="' + esc(p.key) + '" data-s="' + s.c + '" aria-pressed="' + (c === s.c) + '" title="' + esc(s.label) + '">' + esc(s.short) + '</button>';
+          }).join('') + '</div>' +
+          '<select class="mini attsel tone-' + (c ? attStOf(c).tone : 'ink') + '" data-act="attPick" data-key="' + esc(p.key) + '" aria-label="Status for ' + esc(p.name) + '"><option value="">Not marked</option>' +
+          ATT_ST.map(function (s) { return '<option value="' + s.c + '"' + (c === s.c ? ' selected' : '') + '>' + esc(s.label) + '</option>'; }).join('') + '</select></li>';
+      }).join('') + '</ul>' : empty(ATT.unmarked ? 'Everyone is marked' : 'Nobody matches', '')) +
+      '<div class="attbar"><span class="meta">' + (n ? plural(n, 'change') + ' not saved' : 'Tap a status for each member') + (q || ATT.unmarked ? ' · showing ' + list.length : '') + '</span>' +
+      '<button class="qbtn" data-act="attRest" data-s="P">' + icon('check') + '<span>Rest present</span></button>' +
+      '<button class="qbtn" data-act="attRest" data-s="UA">' + icon('close') + '<span>Rest absent</span></button>' +
+      (n ? '<button class="qbtn" data-act="attNone"><span>Undo changes</span></button>' : '') +
+      '<button class="btn" data-act="attSave"' + (n ? '' : ' disabled') + '>' + icon('check') + (n ? 'Save ' + plural(n, 'change') : 'Saved') + '</button></div></section>';
     return h;
   }
   h += ticketsCard();
@@ -299,17 +347,22 @@ VIEWS.attendance = function (sub) {
   /* A late check-in (from the attendance sheet) came, so it is not an absence. */
   var lateOf = function (x) { return Object.keys(x.st).filter(function (k) { return /late/i.test(x.st[k]); }); };
   var late = ppl.filter(function (p) { return /late/i.test(m.st[p.key] || ''); }), tk = ticketsAt(m.label);
+  /* An absence marked on Take attendance (or on the sheet) says excused or not; a ticket only hints at it. */
+  var marked = {};
+  (RAW.all.absences || []).forEach(function (r) { if (r.EventLabel === m.label) marked[flat(r.MemberName)] = attCodeOf(r.Status); });
   var tkWord = function (t) { return !t ? '' : ticketOpen(t) ? 'ticket pending' : /^excused/i.test(t.status) ? 'excused' : /^unexcused/i.test(t.status) ? 'unexcused' : ''; };
+  var absWord = function (p) { return marked[p.key] === 'EA' ? 'excused' : marked[p.key] === 'UA' ? 'unexcused' : tkWord(tk[p.key]); };
   h += '<section class="toolbar"><select class="mini" data-act="attMeeting" aria-label="Meeting">' + ml.map(function (x) {
     var nl = lateOf(x).length;
     return '<option value="' + esc(x.label) + '"' + (x.label === m.label ? ' selected' : '') + '>' + esc(x.label) + ' (' + Object.keys(x.n).length + ' came' + (nl ? ', ' + nl + ' late' : '') + ')</option>';
   }).join('') + '</select><span class="grow"></span>' +
     '<button class="btn sm ghost" data-act="copy" data-v="' + esc(absent.map(function (p) { return p.name; }).join(', ')) + '">Copy names</button>' +
+    '<button class="btn sm ghost" data-act="attEdit" data-v="' + esc(m.label) + '">' + icon('edit') + 'Edit statuses</button>' +
     (absent.length ? '<button class="btn sm" data-act="attMsg">' + icon('send') + 'Message the ' + absent.length + '</button>' : '') + '</section>';
   h += '<section class="card"><header><h3>Absent from ' + esc(m.label) + '</h3><span class="count">' + absent.length + ' of ' + ppl.length + '</span></header><div class="chips">' +
     absent.map(function (p) {
-      var w = tkWord(tk[p.key]);
-      return '<button class="chip ' + (w === 'excused' ? 'tone-green' : 'tone-ink') + '" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + (p.absent >= 2 ? ' <b>' + p.absent + '</b>' : '') + (w ? ' <em>' + w + '</em>' : '') + '</button>';
+      var w = absWord(p);
+      return '<button class="chip ' + (w === 'excused' ? 'tone-gold' : w === 'unexcused' ? 'tone-red' : 'tone-ink') + '" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + (p.absent >= 2 ? ' <b>' + p.absent + '</b>' : '') + (w ? ' <em>' + w + '</em>' : '') + '</button>';
     }).join('') + '</div>' +
     (late.length ? '<div class="fg"><p class="fl">Came late</p><div class="chips">' + late.map(function (p) {
       return '<button class="chip tone-gold" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + ' <em>' + esc((TICKET_ST[m.st[p.key]] || m.st[p.key]).toLowerCase()) + '</em></button>';
@@ -349,20 +402,71 @@ ACT_EXT.tkDecide = function (el, d) {
     return Promise.all([loadSync(['tickets', 'status']), reloadClub()]);
   });
 };
-ACT_EXT.attSave = function (el) {
-  var label = clean(($('attlabel') || {}).value || ATT.label, 80).trim();
+/* Saves the unsaved marks for the event named, then calls after(people now there, label):
+   orgs2.js uses that for the commitment points that go with a check-in. */
+function attSaveMarks(el, after) {
+  var label = attLabelNow();
   if (!label) return toast('Name the event first.', true);
-  var rows = Object.keys(ATT.on).filter(function (k) { return ATT.on[k]; }).map(function (k) { var p = M.byKey[k]; return {MemberName: p.name, EventLabel: label, Track: p.track, Org: p.org}; });
+  var saved = attSaved(label), d = attDraft(label), keys = attChanges(label).filter(function (k) { return M.byKey[k]; });
+  if (!keys.length) return;
+  var marks = keys.map(function (k) { return {name: M.byKey[k].name, s: d[k]}; });
+  var came = function (c) { return c === 'P' || c === 'EL' || c === 'UL'; };
+  var done = function () {
+    var t = new Date().toISOString(), drop = {};
+    keys.forEach(function (k) { drop[k] = 1; });
+    var keep = function (r) { return !(r.EventLabel === label && drop[flat(r.MemberName)]); };
+    RAW.all.attendance = (RAW.all.attendance || []).filter(keep);
+    RAW.all.absences = (RAW.all.absences || []).filter(keep);
+    RAW.all.excused = (RAW.all.excused || []).filter(keep);
+    keys.forEach(function (k) {
+      var p = M.byKey[k], c = d[k], row = {MemberName: p.name, EventLabel: label, Status: ATT_TEXT[c] || ''};
+      if (came(c)) RAW.all.attendance.push(Object.assign({Timestamp: t, Track: p.track, Org: p.org}, row));
+      else if (c) RAW.all.absences.push(row);
+      if (c === 'EA') RAW.all.excused.push({MemberName: p.name, EventLabel: label});
+    });
+    ATT.draft = {}; ATT.meeting = label; rebuild(); render();
+    toast(plural(keys.length, 'status', 'statuses') + ' saved for ' + label + '.');
+    if (after) after(keys.filter(function (k) { return came(d[k]) && !came(saved[k]); }).map(function (k) { return M.byKey[k]; }), label);
+  };
   el.disabled = true;
-  call('addAttendanceBulk', rows).then(function (r) {
+  call('attMark', {event: label, marks: marks}).then(function (r) {
+    if (r && r.ok) return done();
+    /* Before the backend has attMark, plain check-ins still save the old way. */
+    var onlyIn = keys.every(function (k) { return d[k] === 'P' && !saved[k]; });
+    if (r && /unknown action/i.test(r.error || '') && onlyIn) {
+      return call('addAttendanceBulk', keys.map(function (k) { var p = M.byKey[k]; return {MemberName: p.name, EventLabel: label, Track: p.track, Org: p.org}; }))
+        .then(function (r2) { if (r2 && r2.ok) return done(); el.disabled = false; toast((r2 && r2.error) || 'Not saved. Try again.', true); });
+    }
     el.disabled = false;
-    if (!(r && r.ok)) return toast((r && r.error) || 'Not saved. Try again.', true);
-    var t = new Date().toISOString();
-    rows.forEach(function (x) { x.Timestamp = t; RAW.all.attendance = (RAW.all.attendance || []).concat([x]); });
-    ATT.on = {}; ATT.meeting = label; rebuild(); render(); toast(plural(rows.length, 'person', 'people') + ' checked in to ' + label + '.');
+    toast(r && /unknown action/i.test(r.error || '') ? 'Late and absent statuses save once the backend update is deployed. Present check-ins work now.' : (r && r.error) || 'Not saved. Try again.', true);
   });
+}
+ACT_EXT.attSave = function (el) { attSaveMarks(el); };
+/* Tapping the status a member already has clears it. */
+ACT_EXT.attMark = function (el, d) {
+  var label = attLabelNow(), dr = attDraft(label), saved = attSaved(label);
+  var cur = dr[d.key] !== undefined ? dr[d.key] : (saved[d.key] || '');
+  dr[d.key] = cur === d.s ? '' : d.s;
+  if (dr[d.key] === (saved[d.key] || '')) delete dr[d.key];
+  render();
 };
-ACT_EXT.attTick = function (el, d) { ATT.label = ($('attlabel') || {}).value || ATT.label; ATT.on[d.key] = el.checked; render(); };
+CHANGE_EXT.attPick = function (el, d) {
+  var label = attLabelNow(), dr = attDraft(label), saved = attSaved(label);
+  dr[d.key] = el.value;
+  if (dr[d.key] === (saved[d.key] || '')) delete dr[d.key];
+  render();
+};
+/* Everyone not marked yet (among those the search shows) gets the same status. */
+ACT_EXT.attRest = function (el, d) {
+  var label = attLabelNow(), dr = attDraft(label), saved = attSaved(label), q = flat(ATT.q);
+  M.people.filter(function (p) { return p.role === 'member' && (!q || p.key.indexOf(q) > -1); }).forEach(function (p) {
+    var cur = dr[p.key] !== undefined ? dr[p.key] : (saved[p.key] || '');
+    if (!cur) dr[p.key] = d.s;
+  });
+  render();
+};
+ACT_EXT.attOnly = function () { ATT.unmarked = !ATT.unmarked; render(); };
+ACT_EXT.attEdit = function (el, d) { ATT.label = d.v; ATT.typed = true; location.hash = '#attendance/take'; };
 CHANGE_EXT.attMeeting = function (el) { ATT.meeting = el.value.replace(/ \(\d+ came\)$/, ''); render(); };
 ACT_EXT.attMsg = function () {
   var m = ATT.meeting, came = {};
@@ -377,6 +481,8 @@ document.addEventListener('input', function (e) {
   }
   if (e.target.id === 'attlabel') { ATT.label = e.target.value; ATT.typed = true; }
 });
+/* Once the event is named (typed, or picked from the list), show what is already saved for it. */
+document.addEventListener('change', function (e) { if (e.target.id === 'attlabel') render(); });
 
 /* ---------------- Profile ---------------- */
 VIEWS.profile = function () {
@@ -502,14 +608,7 @@ ACT_EXT.allGaps = function () {
   openSheet('<header class="sh"><h3>Needs attention</h3></header>' + gapList(gaps()), function () { return '<header class="sh"><h3>Needs attention</h3></header>' + gapList(gaps()); });
 };
 
-/* Most of a meeting is there: tick everyone (or everyone the search shows), then untick who is not. */
-ACT_EXT.attAll = function () {
-  ATT.label = ($('attlabel') || {}).value || ATT.label;
-  var q = flat(ATT.q);
-  M.people.filter(function (p) { return p.role === 'member' && (!q || p.key.indexOf(q) > -1); }).forEach(function (p) { ATT.on[p.key] = true; });
-  render();
-};
-ACT_EXT.attNone = function () { ATT.label = ($('attlabel') || {}).value || ATT.label; ATT.on = {}; render(); };
+ACT_EXT.attNone = function () { ATT.draft = {}; render(); };
 
 /* Under each open assignment: an extension request, or where one stands. */
 function extLine(w, got) {

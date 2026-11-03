@@ -44,7 +44,7 @@ var NEEDS = {
   msgList: 'admin', msgSend: 'admin', msgCancel: 'admin', myInbox: 'member', sfCheck: 'member',
   linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin',
   syncStatus: 'admin', syncNow: 'admin', ticketList: 'admin', ticketDecide: 'admin', discordList: 'admin', discordLink: 'admin',
-  rideList: 'member', rideSave: 'member', rideAssign: 'admin'
+  rideList: 'member', rideSave: 'member', rideAssign: 'admin', attMark: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -1362,7 +1362,10 @@ function clubSnapshot_(aff) {
             attendance: readScoped('attendance', aff).filter(function (r) { return !attAbsent_(r.Status); }),
             /* Excused absences, for officers only: Standing must not count them as missed. */
             excused: readScoped('attendance', aff).filter(function (r) { return attCode_(r.Status) === 'EA'; })
-              .map(function (r) { return {MemberName: r.MemberName, EventLabel: r.EventLabel}; })};
+              .map(function (r) { return {MemberName: r.MemberName, EventLabel: r.EventLabel}; }),
+            /* Every marked absence, excused or not, for officers taking attendance with statuses. */
+            absences: readScoped('attendance', aff).filter(function (r) { return attAbsent_(r.Status); })
+              .map(function (r) { return {MemberName: r.MemberName, EventLabel: r.EventLabel, Status: r.Status}; })};
   });
 }
 
@@ -3556,7 +3559,8 @@ function dispatch(action, payload, email, role, id) {
         teams:      officer ? sh.teams : memberRows_('teams', sh.teams, meRow),
         pointsLog:  officer ? sh.pointsLog : memberRows_('pointsLog', sh.pointsLog, meRow),
         attendance: officer ? sh.attendance : memberRows_('attendance', sh.attendance, meRow),
-        excused:    officer ? (sh.excused || []) : []
+        excused:    officer ? (sh.excused || []) : [],
+        absences:   officer ? (sh.absences || []) : []
       };
     }
 
@@ -3789,6 +3793,46 @@ function dispatch(action, payload, email, role, id) {
       /* A check-in at "Meeting 10/29" goes onto that meeting's tab of the attendance sheet. */
       if ((payload || []).some(function (r) { return meetTab_(r.EventLabel); })) syncAfterOrg_(aff, ['attendance']);
       return {ok: true, wrote: wrote};
+    }
+
+    /* One event's attendance with the statuses the chapter's sheet uses (Present,
+       Excused/Unexcused Late, Excused/Unexcused Abscence), one row per member per
+       event, the shape the sync and Standing already read. A check-in is a row
+       with no Status, so it is Present here too. The Note (business casual) is
+       left as it is. payload: {event, marks: [{name, s: 'P'|'EL'|'UL'|'EA'|'UA'|''}]};
+       '' removes the member's row for the event. */
+    case 'attMark': {
+      var amP = payload || {}, amEv = dashClean_(amP.event, 80).trim(), amMarks = Array.isArray(amP.marks) ? amP.marks.slice(0, 400) : [];
+      if (!amEv) return {ok: false, error: 'Name the event first.'};
+      var amSh = tab('attendance'), amV = amSh.getDataRange().getValues(), amH = amV[0], amC = {};
+      amH.forEach(function (c, i) { amC[c] = i; });
+      if (amC.Status == null) return {ok: false, error: 'The Attendance tab has no Status column yet.'};
+      var amAt = {}, amDrop = {};
+      for (var ai = 1; ai < amV.length; ai++) {
+        if (String(amV[ai][amC.Affiliation] || DEFAULT_AFF).toLowerCase() !== aff || String(amV[ai][amC.EventLabel]) !== amEv) continue;
+        var ak = flatName_(amV[ai][amC.MemberName]);
+        if (amAt[ak] == null) amAt[ak] = ai; else amDrop[ai] = 1;
+      }
+      var amPeople = {};
+      readScoped('teams', aff).forEach(function (r) { amPeople[flatName_(r.MemberName)] = r; });
+      var amAdd = [], amN = 0;
+      amMarks.forEach(function (m) {
+        var nm = dashClean_(m && m.name, 80).trim(), k = flatName_(nm), code = String((m && m.s) || '');
+        if (!k || (code && !ATT_TEXT_[code])) return;
+        amN++;
+        if (!code) { if (amAt[k] != null) amDrop[amAt[k]] = 1; return; }
+        if (amAt[k] != null) { amV[amAt[k]][amC.Status] = ATT_TEXT_[code]; return; }
+        var p = amPeople[k] || {}, row = amH.map(function () { return ''; });
+        row[amC.Timestamp] = new Date(); row[amC.MemberName] = p.MemberName || nm; row[amC.EventLabel] = amEv;
+        row[amC.Track] = p.Track || ''; row[amC.Org] = p.Org || ''; row[amC.Affiliation] = aff; row[amC.Status] = ATT_TEXT_[code];
+        amAdd.push(row);
+      });
+      var amRows = amV.filter(function (r, i) { return !amDrop[i]; }).concat(amAdd);
+      amSh.getRange(1, 1, amRows.length, amH.length).setValues(amRows);
+      if (amV.length > amRows.length) amSh.getRange(amRows.length + 1, 1, amV.length - amRows.length, amH.length).clearContent();
+      /* "Meeting 11/2" goes onto that meeting's tab of the attendance sheet, statuses and all. */
+      var amSync = meetTab_(amEv) ? syncAfterOrg_(aff, ['attendance']) : null;
+      return {ok: true, marked: amN, synced: !!amSync};
     }
 
     case 'listRoles': {

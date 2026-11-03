@@ -1320,3 +1320,27 @@ details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overf
 .connsync{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 0 0;border-top:1px solid var(--hair);margin-top:12px}
 .connsync .meta{margin:0;flex:1;min-width:0}
 @media (max-width:860px){.conn .cn{display:none}}
+
+/* ---- attendance statuses ---- */
+.atttally{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.atttally span.chip{cursor:default}
+.atttally span.chip:hover{border-color:transparent}
+.attlist{list-style:none;margin:0;padding:0;max-height:520px;overflow:auto}
+.attlist li{display:flex;align-items:center;gap:12px;padding:8px 4px;border-top:1px solid var(--hair)}
+.attlist li:first-child{border-top:0}
+.attlist li.chg{background:var(--wash)}
+.attlist .an{flex:1;min-width:0;display:flex;flex-direction:column}
+.attlist .an b{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attlist .an small{color:var(--mute);font-size:11.5px}
+.attseg{display:flex;gap:4px;flex:0 0 auto}
+.attseg button{border:1px solid var(--hair);background:none;color:var(--slate);border-radius:999px;padding:4px 10px;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap}
+.attseg button:hover{border-color:var(--c);color:var(--c)}
+.attseg button.on{background:var(--w);color:var(--c);border-color:var(--c);font-weight:600}
+.attsel{display:none}
+@media (max-width:860px){
+  .attseg{display:none}
+  .attlist{max-height:none;overflow:visible}
+  .attbar .meta{flex-basis:100%}
+  .attsel{display:block;flex:0 0 auto;max-width:52%;background:var(--w);color:var(--c);border-color:var(--c);font-weight:600}
+  .attsel.tone-ink{color:var(--mute);border-color:var(--hair)}
+}

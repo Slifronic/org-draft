@@ -1023,26 +1023,18 @@ VIEWS.attendance = function (sub) {
   if (sub === 'range') return head('People', 'Attendance') + tabs + o2absRange();
   var h = o2swap(o2attBase(sub), old, tabs);
   if (sub === 'take') h = o2before(h, '<div class="attbar">', '<div class="o2attpts"><label class="fld"><span>Commitment points each</span><input id="o2attpts" type="number" min="0" max="20" value="' + O2.attPts + '"></label>' +
-    '<p class="meta">Everyone checked in also gets these in their private commitment log, as the classic page’s Log attendance does. 0 gives none.</p></div>');
+    '<p class="meta">Everyone newly marked present or late also gets these in their private commitment log, as the classic page’s Log attendance does. 0 gives none.</p></div>');
   return h;
 };
 /* The dashboard's check-in, with the points rows the classic page writes beside it. */
+/* Points go only to those newly there (present or late), so re-saving a meeting never pays twice. */
 ACT_EXT.attSave = function (el) {
-  var label = clean(($('attlabel') || {}).value || ATT.label, 80).trim();
-  if (!label) return toast('Name the event first.', true);
-  var ppl = Object.keys(ATT.on).filter(function (k) { return ATT.on[k]; }).map(function (k) { return M.byKey[k]; }).filter(Boolean);
-  var rows = ppl.map(function (p) { return {MemberName: p.name, EventLabel: label, Track: p.track, Org: p.org}; }), pts = Math.max(0, Math.min(20, +O2.attPts || 0));
-  el.disabled = true;
-  call('addAttendanceBulk', rows).then(function (r) {
-    if (!(r && r.ok)) { el.disabled = false; return toast((r && r.error) || 'Not saved. Try again.', true); }
-    var t = new Date().toISOString();
-    rows.forEach(function (x) { x.Timestamp = t; RAW.all.attendance = (RAW.all.attendance || []).concat([x]); });
-    ATT.on = {}; ATT.meeting = label; rebuild(); render();
-    toast(plural(rows.length, 'person', 'people') + ' checked in to ' + label + '.');
-    if (!pts) return;
+  var pts = Math.max(0, Math.min(20, +O2.attPts || 0));
+  attSaveMarks(el, function (ppl, label) {
+    if (!pts || !ppl.length) return;
     /* 'a3' is the classic catalog's "General meeting attendance", so the classic absences view reads these as check-ins. */
     call('addPointsBulk', ppl.map(function (p) { return {MemberName: p.name, ActionId: 'a3', ActionLabel: label, Points: pts, Track: 'x', Org: p.org}; })).then(function (q) {
-      if (!(q && q.ok)) toast('Checked in, but the commitment points did not save: ' + ((q && q.error) || 'no answer') + '.', true);
+      if (!(q && q.ok)) toast('Saved, but the commitment points did not: ' + ((q && q.error) || 'no answer') + '.', true);
     });
   });
 };
@@ -1133,9 +1125,7 @@ document.addEventListener('input', function (e) {
 });
 document.addEventListener('change', function (e) {
   var t = e.target;
-  /* app.js only routes the sel and tick checkboxes, so Take attendance's ticks never registered. Idempotent if that changes. */
-  if (t.matches && t.matches('input[type=checkbox][data-act="attTick"]') && ACT_EXT.attTick) ACT_EXT.attTick(t, t.dataset);
-  else if (t.id === 'o2mbti') DR.mbti = t.checked;
+  if (t.id === 'o2mbti') DR.mbti = t.checked;
   else if (t.id === 'o2abFrom' || t.id === 'o2abTo') { O2.ab[t.id === 'o2abFrom' ? 'from' : 'to'] = t.value; render(); }
   else if (t.id === 'o2file' && t.files && t.files[0]) {
     var f = t.files[0], fr = new FileReader();

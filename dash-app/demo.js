@@ -313,8 +313,7 @@ var Demo = (function () {
         L('tickets', '#' + tk.id + ' · ' + tk.name, 'org → sheet', was, st, 'Decided in the Org System');
         /* The meeting's cell on the sheet changes, and comes back into attendance. */
         var lbl = 'Meeting ' + tk.meeting, row = s.attendance.filter(function (r) { return r.EventLabel === lbl && flat(r.MemberName) === flat(tk.name); })[0], before = row ? row.Status || 'Present' : '';
-        if (/late/i.test(st)) { if (row) row.Status = st; else s.attendance.push({MemberName: tk.name, EventLabel: lbl, Timestamp: (s.attendance.filter(function (r) { return r.EventLabel === lbl; })[0] || {}).Timestamp || now, Status: st, Note: ''}); }
-        else if (/abscence/i.test(st)) s.attendance = s.attendance.filter(function (r) { return r !== row; });
+        if (/late|abscence/i.test(st)) { if (row) row.Status = st; else s.attendance.push({MemberName: tk.name, EventLabel: lbl, Timestamp: (s.attendance.filter(function (r) { return r.EventLabel === lbl; })[0] || {}).Timestamp || now, Status: st, Note: ''}); }
         else if (row && /late/i.test(row.Status)) row.Status = 'Present';
         var after = (s.attendance.filter(function (r) { return r.EventLabel === lbl && flat(r.MemberName) === flat(tk.name); })[0] || {}).Status || '';
         if (before !== after) L('attendance', tk.meeting + ' · ' + tk.name, 'org → sheet', before, after, 'Ticket decided');
@@ -348,7 +347,10 @@ var Demo = (function () {
         if (!officer) cfg.rooms = (cfg.rooms || []).filter(function (r) { return (r.members || []).some(function (n) { return flat(n) === me; }); });
         return {ok: true, role: officer ? 'admin' : 'member', name: s.me, email: officer ? 'deanzacapbl@gmail.com' : (mePerson || {}).email,
                 affName: 'De Anza PBL (demo)', config: cfg, teams: rows,
-                attendance: officer ? s.attendance : s.attendance.filter(function (r) { return flat(r.MemberName) === me; }),
+                /* As Code.gs: absences are kept with the rows but never count as check-ins. */
+                attendance: s.attendance.filter(function (r) { return !/abs/i.test(r.Status || '') && (officer || flat(r.MemberName) === me); }),
+                absences: officer ? s.attendance.filter(function (r) { return /abs/i.test(r.Status || ''); }) : [],
+                excused: officer ? s.attendance.filter(function (r) { return /^excused abs/i.test(r.Status || ''); }) : [],
                 memberNames: s.people.map(function (p) { return p.name; }),
                 me: {formSent: true, prefs: mePerson && mePerson.prefs ? JSON.stringify(mePerson.prefs) : ''},
                 aff: 'demo', calFeedKey: '', gcal: {events: s.gcal.filter(function (e) { return officer || !e.hidden; }), syncedAt: Date.now() - 18 * 6e4},
@@ -365,6 +367,20 @@ var Demo = (function () {
         if (had) { had.at = now; had.revision++; } else s.subs.push({workId: pl.workId, name: s.me, org: (mePerson || {}).org, at: now, first: now, revision: 1, status: 'submitted'});
         store();
         return {ok: true, revision: had ? had.revision : 1, replaced: !!had};
+      }
+      /* One row per member per event with the sheet's statuses; '' removes it (Code.gs attMark). */
+      case 'attMark': {
+        var amEv = clean(pl.event, 80).trim(), amText = {P: 'Present', EL: 'Excused Late', UL: 'Unexcused Late', EA: 'Excused Abscence', UA: 'Unexcused Abscence'};
+        if (!amEv) return {ok: false, error: 'Name the event first.'};
+        (pl.marks || []).forEach(function (m) {
+          var k = flat(m.name), row = s.attendance.filter(function (r) { return r.EventLabel === amEv && flat(r.MemberName) === k; })[0];
+          if (!m.s) { s.attendance = s.attendance.filter(function (r) { return r !== row; }); return; }
+          if (row) row.Status = amText[m.s];
+          else s.attendance.push({MemberName: m.name, EventLabel: amEv, Timestamp: new Date().toISOString(), Status: amText[m.s], Note: ''});
+        });
+        if (/^Meeting \d{1,2}\/\d{1,2}$/.test(amEv)) s.sync.dirty++;
+        store();
+        return {ok: true, marked: (pl.marks || []).length, synced: true};
       }
       case 'addAttendanceBulk':
         (pl || []).forEach(function (r) {
