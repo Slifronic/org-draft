@@ -22,12 +22,18 @@ var SUBNAV = {
     teams: [['team', 'Your team'], ['choices', 'Your choices']]
   }
 };
-var NAVSUB = {seen: {}, open: null};
+var NAVSUB = {seen: {}, raw: {}, open: null};
 var NAVSUB_KEY = 'orgsystem.dash.navsub';
 
 /* Learn the live list (labels and counts) from whichever screen just drew it. */
 var navsubBase = subtabs;
 subtabs = function (cur, list, base) {
+  /* Officers' tab order and tab names (pageedit.js); the names as written are kept for the editor. */
+  if (base && M) {
+    var raw = NAVSUB.raw[base] = {};
+    list.forEach(function (x) { raw[x[0]] = x[1]; });
+    list = pageSubOrder(base, list);
+  }
   if (base && M) NAVSUB.seen[(M.officer ? 'o:' : 'm:') + base] = list.map(function (x) { return [x[0], x[1], x[2] || '']; });
   return navsubBase(cur, list, base);
 };

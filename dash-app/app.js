@@ -117,6 +117,7 @@ function parseHash() {
 function route() {
   if (!M) return;
   ROUTE = parseHash();
+  if (!ROUTE.sub) ROUTE.sub = pageFirstSub(ROUTE.view);
   if (!$('drawer').hidden) closeSheet();
   if (ROUTE.view === 'members' && ROUTE.q.tag) { MEM.tags = [ROUTE.q.tag]; MEM.open = false; }
   render(true);
@@ -132,6 +133,7 @@ function render(fresh) {
   document.title = (title.label === 'Overview' ? '' : title.label + ' · ') + 'Dashboard · ' + M.club;
   var view = $('view'), keep = keepFields(view);
   view.innerHTML = body;
+  pageApply(view);
   keep();
   drawNav();
   tickStats();
@@ -142,12 +144,13 @@ function keepFields(view) {
   var a = document.activeElement, focus = a && view.contains(a) ? a.getAttribute('data-fk') : null, dirty = [];
   var sel = focus && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null;
   Array.prototype.forEach.call(view.querySelectorAll('[data-fk]'), function (el) {
-    if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked !== el.defaultChecked) dirty.push([el.getAttribute('data-fk'), null, el.checked]); }
+    if (el.isContentEditable) { if (el.textContent.trim() !== el.getAttribute('data-was')) dirty.push([el.getAttribute('data-fk'), null, null, el.textContent]); }
+    else if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked !== el.defaultChecked) dirty.push([el.getAttribute('data-fk'), null, el.checked]); }
     else if (el.tagName !== 'SELECT' && el.value !== el.defaultValue) dirty.push([el.getAttribute('data-fk'), el.value]);
   });
   var find = function (fk) { return view.querySelector('[data-fk="' + (window.CSS && CSS.escape ? CSS.escape(fk) : fk) + '"]'); };
   return function () {
-    dirty.forEach(function (d) { var el = find(d[0]); if (el) { if (d[1] === null) el.checked = d[2]; else el.value = d[1]; } });
+    dirty.forEach(function (d) { var el = find(d[0]); if (el) { if (d[3] != null) el.textContent = d[3]; else if (d[1] === null) el.checked = d[2]; else el.value = d[1]; } });
     var el = focus && find(focus);
     if (el) { el.focus({preventScroll: true}); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} }
   };

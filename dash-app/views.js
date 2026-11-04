@@ -352,12 +352,12 @@ function allCustom() {
 }
 
 /* ---------------- SFBLC ---------------- */
-var SFV = {mine: null, edit: false};
+var SFV = {mine: null};
 /* The page's sections, in the order officers put them in (cfg.sfOrder). */
 var SF_SECTIONS = [['schedule', 'Schedule'], ['coaching', 'Coaching'], ['checklist', 'Checklist'], ['rides', 'Carpools'], ['about', 'About'], ['season', 'Season']];
 function sfOrder() {
   var ids = SF_SECTIONS.map(function (x) { return x[0]; });
-  var saved = ((M && M.cfg.sfOrder) || []).filter(function (k, i, a) { return ids.indexOf(k) > -1 && a.indexOf(k) === i; });
+  var saved = ((M && ((M.cfg.subOrder || {}).sfblc || M.cfg.sfOrder)) || []).filter(function (k, i, a) { return ids.indexOf(k) > -1 && a.indexOf(k) === i; });
   return saved.concat(ids.filter(function (k) { return saved.indexOf(k) < 0; }));
 }
 function sfLabel(k) { return SF_SECTIONS.filter(function (x) { return x[0] === k; })[0][1]; }
@@ -367,7 +367,6 @@ function renderSfblc(sub) {
   var counts = {coaching: sf('sfCoaching').filter(function (c) { return c.date && (M.officer || isForMe(c)) && at(c.date, c.end || c.start || '23:59') >= new Date(); }).length || '',
                 rides: M.officer && RIDES.ready ? rideWaiting().length || '' : ''};
   var h = subtabs(sub, order.map(function (k) { return [k, sfLabel(k), counts[k] || '']; }), 'sfblc');
-  if (M.officer) h = h.replace(/<\/div>$/, sfEditBtn() + '</div>') + sfOrderCard(order);
   if (sub === 'schedule') h += sfSchedule();
   else if (sub === 'rides') h += ridesView();
   else if (sub === 'coaching') h += sfCoachingView();
@@ -381,25 +380,12 @@ function renderSfblc(sub) {
    "Edit page" turns the About and Season text and links into fields, and
    shows the section order. Schedule and coaching rows are always editable
    where they are shown. A field saves when it loses focus. */
-function sfEditBtn() {
-  return '<button class="btn sm sfedit' + (SFV.edit ? '' : ' ghost') + '" data-act="sfEditMode" aria-pressed="' + SFV.edit + '">' + icon(SFV.edit ? 'check' : 'edit') + (SFV.edit ? 'Done editing' : 'Edit page') + '</button>';
-}
-function sfOrderCard(order) {
-  if (!SFV.edit) return '';
-  return '<section class="card sforder"><header><h3>Section order</h3><span class="hint">Members see the sections in this order, and the first one opens first. Text and links on About and Season are fields now; each saves as you leave it.</span></header><ol class="ordlist">' +
-    order.map(function (k, i) { return '<li><span class="on">' + (i + 1) + '</span><b>' + esc(sfLabel(k)) + '</b>' + moveBtns('sfMoveSec', 'data-k="' + k + '"', i, order.length, sfLabel(k)) + '</li>'; }).join('') + '</ol></section>';
-}
 function moveBtns(act, attrs, i, n, name) {
   return '<span class="stopacts">' + (i ? '<button class="qbtn" data-act="' + act + '" ' + attrs + ' data-dir="-1" aria-label="Move ' + esc(name) + ' up">' + icon('back', 'up') + '</button>' : '<span class="qsp"></span>') +
     (i < n - 1 ? '<button class="qbtn" data-act="' + act + '" ' + attrs + ' data-dir="1" aria-label="Move ' + esc(name) + ' down">' + icon('back', 'down') + '</button>' : '<span class="qsp"></span>') + '</span>';
 }
-ACT_EXT.sfEditMode = function () { SFV.edit = !SFV.edit; render(); };
-ACT_EXT.sfMoveSec = function (el, d) {
-  var o = sfOrder(), i = o.indexOf(d.k), j = i + (+d.dir);
-  if (i < 0 || j < 0 || j >= o.length) return;
-  o.splice(j, 0, o.splice(i, 1)[0]);
-  saveCfg({sfOrder: o}, 'Section order saved.');
-};
+/* The About and Season fields are part of the page editor (pageedit.js). */
+ACT_EXT.sfEditMode = function () { PE.on = true; render(); };
 /* A field edited where it is shown. data-sfk names the record key; with data-id
    it is a field of that list item, otherwise data-f (and data-sub) of an object. */
 function sfAttrs(k, id, f, sub) {
@@ -600,7 +586,7 @@ function sfChecklistOfficer() {
 /* ---------- about ---------- */
 function sfVenueQ(i) { return [i.venue, i.city].filter(Boolean).join(', '); }
 function sfAbout() {
-  var i = sfInfo(), ed = M.officer && SFV.edit, links = sf('sfLinks'), mapUrl = safeUrl(i.mapUrl) || rideMap(sfVenueQ(i));
+  var i = sfInfo(), ed = M.officer && PE.on, links = sf('sfLinks'), mapUrl = safeUrl(i.mapUrl) || rideMap(sfVenueQ(i));
   var h = '<section class="card"><header><h3>' + esc(i.name) + '</h3></header>';
   if (ed) {
     var row = function (label, html) { return '<dt>' + esc(label) + '</dt><dd>' + html + '</dd>'; };

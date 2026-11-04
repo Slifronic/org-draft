@@ -254,7 +254,7 @@ function sfSeason() {
 }
 function seasonStrip() {
   var list = sfSeason();
-  if (M.officer && SFV.edit) return '<section class="card season"><header><h3>The competition season</h3></header><ol class="seasoned">' + list.map(function (c) {
+  if (M.officer && PE.on) return '<section class="card season"><header><h3>The competition season</h3></header><ol class="seasoned">' + list.map(function (c) {
     var k = 'sfSeason', id = c.id;
     return '<li>' + sfIn(k, id, 'name', c.name, {max: 40, label: 'Name', cls: 'b'}) + sfIn(k, id, 'full', c.full, {max: 100, label: 'Full name'}) + sfIn(k, id, 'when', c.when, {max: 60, label: 'When'}) +
       sfIn(k, id, 'where', c.where, {max: 60, label: 'Where'}) + sfTa(k, id, 'note', c.note, {max: 160, rows: 2, label: 'Note', ph: 'Note (optional)'}) +

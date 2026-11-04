@@ -1449,6 +1449,23 @@ table.answers{width:100%;border-collapse:collapse;font-size:13.5px}
   .lkedit li input[data-f=url]{grid-column:1}
 }
 
+/* ---- the page editor (pageedit.js) ---- */
+.pebtn.on{background:var(--fill);color:var(--onfill);border-color:var(--fill)}
+.pe-t{outline:1px dashed color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px;border-radius:3px;cursor:text;min-width:1ch;display:inline-block}
+.pe-t:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.pe-t:focus{outline:2px solid var(--accent);background:var(--raise)}
+.pe-lk{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-left:4px;padding:0;border:1px dashed var(--accent);border-radius:6px;background:transparent;color:var(--accent);cursor:pointer;vertical-align:middle}
+.pe-lk .ic{width:13px;height:13px}
+.pe-mv{display:inline-flex;margin-left:auto}
+.card>header .pe-mv~*,.card>header .count~.pe-mv{margin-left:0}
+.pe-bar{margin-bottom:16px;border-color:var(--accent)}
+.pe-bar>header{flex-wrap:wrap}
+.pe-bar>header h3{flex:0 0 auto}
+.pe-bar .hint{flex:1 1 320px}
+.pe-bar .ordlist{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.pe-bar .ordlist input.inl{width:13ch}
+@media (max-width:860px){.pebtn span{display:none}}
+
 /* ---- connectors ---- */
 details.card.conn{padding-top:10px;padding-bottom:10px}
 details.card.conn>summary{gap:8px}
