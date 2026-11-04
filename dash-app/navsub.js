@@ -33,7 +33,11 @@ subtabs = function (cur, list, base) {
 };
 function navSubs(id) {
   if (!M) return [];
-  return NAVSUB.seen[(M.officer ? 'o:' : 'm:') + id] || (M.officer ? SUBNAV.officer : SUBNAV.member)[id] || [];
+  var seen = NAVSUB.seen[(M.officer ? 'o:' : 'm:') + id];
+  if (seen) return seen;
+  /* SFBLC's sections come in the order officers set. */
+  if (id === 'sfblc') return sfOrder().map(function (k) { return [k, sfLabel(k)]; });
+  return (M.officer ? SUBNAV.officer : SUBNAV.member)[id] || [];
 }
 function navOpen() {
   if (!NAVSUB.open) { try { NAVSUB.open = JSON.parse(lsGet(NAVSUB_KEY) || '{}') || {}; } catch (e) { NAVSUB.open = {}; } }

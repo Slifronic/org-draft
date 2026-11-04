@@ -3,6 +3,9 @@
    through esc() on the way in. */
 'use strict';
 
+/* Handlers feature code registers by name (data-act); app.js looks here after its own. */
+var ACT_EXT = {}, CHANGE_EXT = {}, SUBMIT_EXT = {};
+
 var ICONS = {
   overview: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM14 4v4h6V4zM4 20h6v-4H4z"/>',
   members: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.4.2 4.2 1.8 4.8 4.8"/>',
@@ -349,11 +352,22 @@ function allCustom() {
 }
 
 /* ---------------- SFBLC ---------------- */
-var SFV = {mine: null};
+var SFV = {mine: null, edit: false};
+/* The page's sections, in the order officers put them in (cfg.sfOrder). */
+var SF_SECTIONS = [['schedule', 'Schedule'], ['coaching', 'Coaching'], ['checklist', 'Checklist'], ['rides', 'Carpools'], ['about', 'About'], ['season', 'Season']];
+function sfOrder() {
+  var ids = SF_SECTIONS.map(function (x) { return x[0]; });
+  var saved = ((M && M.cfg.sfOrder) || []).filter(function (k, i, a) { return ids.indexOf(k) > -1 && a.indexOf(k) === i; });
+  return saved.concat(ids.filter(function (k) { return saved.indexOf(k) < 0; }));
+}
+function sfLabel(k) { return SF_SECTIONS.filter(function (x) { return x[0] === k; })[0][1]; }
 function renderSfblc(sub) {
-  sub = sub || 'schedule';
-  var h = subtabs(sub, [['schedule', 'Schedule'], ['coaching', 'Coaching', sf('sfCoaching').filter(function (c) { return (M.officer || isForMe(c)) && at(c.date, c.end || c.start || '23:59') >= new Date(); }).length || ''],
-                        ['checklist', 'Checklist'], ['rides', 'Carpools', M.officer && RIDES.ready ? rideWaiting().length || '' : ''], ['about', 'About'], ['season', 'Season']], 'sfblc');
+  var order = sfOrder();
+  sub = order.indexOf(sub) > -1 ? sub : order[0];
+  var counts = {coaching: sf('sfCoaching').filter(function (c) { return c.date && (M.officer || isForMe(c)) && at(c.date, c.end || c.start || '23:59') >= new Date(); }).length || '',
+                rides: M.officer && RIDES.ready ? rideWaiting().length || '' : ''};
+  var h = subtabs(sub, order.map(function (k) { return [k, sfLabel(k), counts[k] || '']; }), 'sfblc');
+  if (M.officer) h = h.replace(/<\/div>$/, sfEditBtn() + '</div>') + sfOrderCard(order);
   if (sub === 'schedule') h += sfSchedule();
   else if (sub === 'rides') h += ridesView();
   else if (sub === 'coaching') h += sfCoachingView();
@@ -362,44 +376,211 @@ function renderSfblc(sub) {
   else h += sfAbout();
   return h;
 }
+
+/* ---------- editing the page in place (officers) ----------
+   "Edit page" turns the About and Season text and links into fields, and
+   shows the section order. Schedule and coaching rows are always editable
+   where they are shown. A field saves when it loses focus. */
+function sfEditBtn() {
+  return '<button class="btn sm sfedit' + (SFV.edit ? '' : ' ghost') + '" data-act="sfEditMode" aria-pressed="' + SFV.edit + '">' + icon(SFV.edit ? 'check' : 'edit') + (SFV.edit ? 'Done editing' : 'Edit page') + '</button>';
+}
+function sfOrderCard(order) {
+  if (!SFV.edit) return '';
+  return '<section class="card sforder"><header><h3>Section order</h3><span class="hint">Members see the sections in this order, and the first one opens first. Text and links on About and Season are fields now; each saves as you leave it.</span></header><ol class="ordlist">' +
+    order.map(function (k, i) { return '<li><span class="on">' + (i + 1) + '</span><b>' + esc(sfLabel(k)) + '</b>' + moveBtns('sfMoveSec', 'data-k="' + k + '"', i, order.length, sfLabel(k)) + '</li>'; }).join('') + '</ol></section>';
+}
+function moveBtns(act, attrs, i, n, name) {
+  return '<span class="stopacts">' + (i ? '<button class="qbtn" data-act="' + act + '" ' + attrs + ' data-dir="-1" aria-label="Move ' + esc(name) + ' up">' + icon('back', 'up') + '</button>' : '<span class="qsp"></span>') +
+    (i < n - 1 ? '<button class="qbtn" data-act="' + act + '" ' + attrs + ' data-dir="1" aria-label="Move ' + esc(name) + ' down">' + icon('back', 'down') + '</button>' : '<span class="qsp"></span>') + '</span>';
+}
+ACT_EXT.sfEditMode = function () { SFV.edit = !SFV.edit; render(); };
+ACT_EXT.sfMoveSec = function (el, d) {
+  var o = sfOrder(), i = o.indexOf(d.k), j = i + (+d.dir);
+  if (i < 0 || j < 0 || j >= o.length) return;
+  o.splice(j, 0, o.splice(i, 1)[0]);
+  saveCfg({sfOrder: o}, 'Section order saved.');
+};
+/* A field edited where it is shown. data-sfk names the record key; with data-id
+   it is a field of that list item, otherwise data-f (and data-sub) of an object. */
+function sfAttrs(k, id, f, sub) {
+  return 'data-sfin data-sfk="' + k + '"' + (id ? ' data-id="' + esc(id) + '"' : '') + ' data-f="' + f + '"' + (sub != null ? ' data-sub="' + esc(sub) + '"' : '') +
+    ' data-fk="' + esc([k, id || '', f, sub == null ? '' : sub].join('|')) + '"';
+}
+function sfIn(k, id, f, val, o) {
+  o = o || {};
+  return '<input class="inl' + (o.cls ? ' ' + o.cls : '') + '" ' + sfAttrs(k, id, f, o.sub) + ' type="' + (o.type || 'text') + '"' + (o.url ? ' data-url inputmode="url"' : '') +
+    ' value="' + esc(val == null ? '' : val) + '" maxlength="' + (o.max || 120) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') +
+    ' aria-label="' + esc(o.label || f) + '"' + (o.list ? ' list="' + o.list + '"' : '') + '>';
+}
+function sfTa(k, id, f, val, o) {
+  o = o || {};
+  return '<textarea class="inl" ' + sfAttrs(k, id, f, o.sub) + ' rows="' + (o.rows || 2) + '" maxlength="' + (o.max || 300) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') +
+    ' aria-label="' + esc(o.label || f) + '">' + esc(val || '') + '</textarea>';
+}
+/* After a field changes, what else on its item follows from it. */
+var SF_FIX = {
+  sfCoaching: function (it, f) {
+    if (f !== 'event') return;
+    it['for'] = {tags: it.event ? ['ev:' + it.event] : ['sfblc'], names: []};
+    it.topic = (it.event || 'SFBLC') + ' coaching';
+  }
+};
+function sfList(k) { return k === 'sfSeason' ? sfSeason() : sf(k); }
+function sfField(el) {
+  var k = el.getAttribute('data-sfk'), id = el.getAttribute('data-id'), f = el.getAttribute('data-f'), sub = el.getAttribute('data-sub');
+  var raw = el.type === 'checkbox' ? el.checked : String(el.value).trim(), v = raw;
+  if (el.hasAttribute('data-url')) {
+    v = safeUrl(raw);
+    if (raw && !v) return toast('A link starts with https://', true);
+  } else if (typeof raw === 'string') v = clean(raw, +(el.getAttribute('maxlength') || 200));
+  var ch = {};
+  if (id) {
+    var list = JSON.parse(JSON.stringify(sfList(k))), it = list.filter(function (x) { return x.id === id; })[0];
+    if (!it || it[f] === v || (f === 'event' && !v)) return;
+    it[f] = v;
+    if (SF_FIX[k]) SF_FIX[k](it, f);
+    ch[k] = list;
+  } else {
+    var o = JSON.parse(JSON.stringify(M.cfg[k] || {}));
+    if (sub != null) { o[f] = o[f] || {}; if (o[f][sub] === v) return; o[f][sub] = v; } else { if (o[f] === v) return; o[f] = v; }
+    ch[k] = o;
+  }
+  saveCfg(ch, 'Saved.');
+}
+/* Saved a beat later, so the field Tab moved to is the one that keeps focus through the redraw. */
+document.addEventListener('change', function (e) {
+  var el = e.target;
+  if (!el.hasAttribute || !el.hasAttribute('data-sfin') || !M || !M.officer) return;
+  setTimeout(function () { sfField(el); }, 0);
+});
+/* A new row or link, its first field ready to type in. */
+function sfAddItem(k, item, fk) {
+  var ch = {}; ch[k] = sfList(k).concat([item]);
+  saveCfg(ch, 'Added.');
+  var el = document.querySelector('[data-fk="' + (window.CSS && CSS.escape ? CSS.escape(fk) : fk) + '"]');
+  if (el) { el.focus(); if (el.select) el.select(); }
+}
+ACT_EXT.sfDelRow = function (el, d) {
+  confirmSheet('Delete this?', 'It disappears for everyone, and no reminders go out for it.', 'Delete', function () {
+    var ch = {}; ch[d.k] = sfList(d.k).filter(function (x) { return x.id !== d.id; });
+    saveCfg(ch, 'Deleted.');
+  });
+};
+
+/* ---------- schedule: the cue sheet ----------
+   One full-width card a day, a row per item in time order: time, task, who
+   runs it, where, notes. Officers type into the rows directly; the pencil
+   opens the rest (day, kind, who it is for, reminders). */
 function mineToggle() {
   if (SFV.mine === null) SFV.mine = !M.officer;
   return '<div class="seg" role="group" aria-label="Show"><button class="' + (SFV.mine ? 'on' : '') + '" data-act="mine" data-v="1">' + (M.officer ? 'As a member' : 'Mine') + '</button>' +
     '<button class="' + (!SFV.mine ? 'on' : '') + '" data-act="mine" data-v="0">Everything</button></div>';
 }
 function sfSchedule() {
-  var list = sf('sfSchedule').slice().sort(function (a, b) { return (a.date + (a.start || '99')).localeCompare(b.date + (b.start || '99')); });
+  var all = sf('sfSchedule'), pos = {};
+  all.forEach(function (x, i) { pos[x.id] = i; });
+  /* Like the cue sheet, a time after midnight (curfew at 12) ends its day rather than starting it. */
+  var key = function (x) { var t = x.start || '99'; return x.date + (t < '04:00' ? '3' + t : t); };
+  var list = all.slice().sort(function (a, b) { return key(a).localeCompare(key(b)) || pos[a.id] - pos[b.id]; });
   if (SFV.mine === null) SFV.mine = !M.officer;
   var shown = SFV.mine && !M.officer ? list.filter(isForMe) : list;
   var h = '<section class="toolbar">' + (M.officer ? '' : mineToggle()) + '<span class="grow"></span>' +
-    (M.officer ? '<button class="btn sm" data-act="new" data-kind="sfSchedule">' + icon('plus') + 'Add item</button>' : '') + '</section>';
+    (M.officer ? '<button class="btn sm ghost" data-act="new" data-kind="sfSchedule">' + icon('plus') + 'Add on another day</button>' : '') + '</section>';
   if (!list.length) return h + empty('No schedule yet', 'CAPBL has not sent the programs packet. Start from the three known days and add times as they come.',
     M.officer ? '<button class="btn" data-act="run" data-run="starter">Load SFBLC 2026 starter</button>' : '');
   var days = {};
   shown.forEach(function (it) { (days[it.date] = days[it.date] || []).push(it); });
-  h += '<div class="daygrid">' + Object.keys(days).sort().map(function (d) {
-    return '<section class="card day"><header><h3>' + esc(fmtDay(d, true)) + '</h3><span class="count">' + days[d].length + '</span></header><ul class="items">' +
-      days[d].map(function (it) { return itemRow({it: it, kind: 'schedule'}, true, true); }).join('') + '</ul></section>';
+  if (M.officer) h += '<datalist id="ebodlist">' + ebod().map(function (x) { return '<option value="' + esc(x.name) + '">'; }).join('') + '</datalist>';
+  h += '<div class="cuedays">' + Object.keys(days).sort().map(function (d) {
+    return '<section class="card cueday"><header><h3>' + esc(fmtDay(d, true)) + '</h3><span class="count">' + days[d].length + '</span>' +
+      (M.officer ? '<button class="qbtn" data-act="sfAddCue" data-date="' + esc(d) + '">' + icon('plus') + '<span>Add a row</span></button>' : '') + '</header>' +
+      '<div class="cue' + (M.officer ? ' ed' : '') + '" role="table" aria-label="' + esc(fmtDay(d, true)) + '"><div class="cuehd" role="row"><span role="columnheader">Time</span><span role="columnheader">Task</span>' +
+      '<span role="columnheader">Who</span><span role="columnheader">Where</span><span role="columnheader">Notes</span>' + (M.officer ? '<span></span>' : '') + '</div>' +
+      days[d].map(cueRow).join('') + '</div></section>';
   }).join('') + '</div>';
   if (!shown.length) h += empty('Nothing on the schedule is for you yet', '');
   return h;
 }
+function sfMapLink(q) { return q ? ' <a class="maplk" href="' + esc(rideMap(q)) + '" target="_blank" rel="noopener" aria-label="Open ' + esc(q) + ' in Maps">Map</a>' : ''; }
+function cueRow(it) {
+  var cls = 'cuerow k-' + esc(it.kind || 'general') + (it.tentative ? ' tent' : '');
+  if (!M.officer) return '<div class="' + cls + '" role="row"><span class="ct" role="cell">' + esc(fmtSpan(it)) + '</span>' +
+    '<span class="cw" role="cell"><b>' + esc(it.title) + '</b>' + (it.tentative ? ' <span class="badge">Tentative</span>' : '') + '</span>' +
+    '<span class="cp" role="cell">' + esc(it.who || '') + '</span><span class="cl" role="cell">' + esc(it.where || '') + sfMapLink(it.where) + '</span>' +
+    '<span class="cn" role="cell">' + esc(it.note || '') + '</span></div>';
+  var k = 'sfSchedule', id = it.id;
+  return '<div class="' + cls + '" role="row"><span class="ct" role="cell">' + sfIn(k, id, 'start', it.start, {type: 'time', label: 'Starts', max: 5}) + '<i>–</i>' + sfIn(k, id, 'end', it.end, {type: 'time', label: 'Ends', max: 5}) + '</span>' +
+    '<span class="cw" role="cell">' + sfIn(k, id, 'title', it.title, {max: 80, label: 'Task', ph: 'What happens', cls: 'b'}) + '</span>' +
+    '<span class="cp" role="cell">' + sfIn(k, id, 'who', it.who, {max: 80, label: 'Who runs it', ph: 'Who', list: 'ebodlist'}) + '</span>' +
+    '<span class="cl" role="cell">' + sfIn(k, id, 'where', it.where, {max: 80, label: 'Where', ph: 'Where'}) + '</span>' +
+    '<span class="cn" role="cell">' + sfIn(k, id, 'note', it.note, {max: 240, label: 'Notes', ph: 'Notes'}) + '</span>' +
+    '<span class="ca" role="cell"><button class="qbtn" data-act="edit" data-kind="sfSchedule" data-id="' + esc(id) + '" aria-label="More for ' + esc(it.title) + '">' + icon('more') + '</button>' +
+    '<button class="qbtn" data-act="sfDelRow" data-k="sfSchedule" data-id="' + esc(id) + '" aria-label="Delete ' + esc(it.title) + '">' + icon('close') + '</button></span></div>';
+}
+ACT_EXT.sfAddCue = function (el, d) {
+  var id = uid('s');
+  sfAddItem('sfSchedule', {id: id, date: d.date, start: '', end: '', title: 'New item', who: '', where: '', note: '', kind: 'general', 'for': {tags: ['sfblc'], names: []}}, 'sfSchedule|' + id + '|title|');
+};
+
+/* ---------- coaching: a section per event ----------
+   Every SFBLC event has its own section, empty until officers add a slot:
+   when, where, and the EBOD member running it. Slots move up and down, or
+   to another event; members see their own events' sections. */
+function sfCoachEvents() {
+  var evs = boardEvents().filter(function (e) { return SFBLC.events.indexOf(e) > -1 || sf('sfCoaching').some(function (c) { return c.event === e; }); });
+  if (!M.officer && M.me.events && M.me.events.length) evs = evs.filter(function (e) { return M.me.events.indexOf(e) > -1; });
+  return evs;
+}
 function sfCoachingView() {
-  var list = sf('sfCoaching').slice().sort(function (a, b) { return (a.date + (a.start || '')).localeCompare(b.date + (b.start || '')); });
-  if (!M.officer) list = list.filter(isForMe);
-  var now = new Date(), next = list.filter(function (c) { return at(c.date, c.end || c.start || '23:59') >= now; }), past = list.filter(function (c) { return next.indexOf(c) < 0; });
-  var h = '<section class="toolbar"><span class="grow"></span>' + (M.officer ? '<button class="btn sm" data-act="new" data-kind="sfCoaching">' + icon('plus') + 'Add session</button>' : '') + '</section>';
-  if (M.officer) {
-    var bare = boardEvents().filter(function (e) {
-      return M.teams.some(function (t) { return t.kind === 'flc' && t.event === e; }) && !sf('sfCoaching').some(function (c) { return c.event === e || ((c['for'] || {}).tags || []).indexOf('ev:' + e) > -1; });
-    });
-    if (bare.length) h += '<div class="note warn">No coaching yet for ' + bare.map(function (e) { return '<button class="link" data-act="run" data-run="addCoaching:' + esc(e) + '">' + esc(e) + '</button>'; }).join(', ') + '.</div>';
-  }
-  if (!list.length) return h + empty(M.officer ? 'No coaching sessions yet' : 'No coaching sessions for you yet', M.officer ? 'Add one per event, and members on those teams are reminded the day before and an hour before.' : 'Your coaches will add them here.');
-  h += '<section class="card"><header><h3>Coming up</h3><span class="count">' + next.length + '</span></header>' + (next.length ? '<ul class="items">' + next.map(function (c) { return itemRow({it: c, kind: 'coaching'}, true); }).join('') + '</ul>' : empty('None coming up', '')) + '</section>';
-  if (past.length) h += '<details class="card"><summary><h3>Earlier</h3><span class="count">' + past.length + '</span></summary><ul class="items">' + past.reverse().map(function (c) { return itemRow({it: c, kind: 'coaching'}, true); }).join('') + '</ul></details>';
+  var all = sf('sfCoaching'), evs = sfCoachEvents(), now = new Date();
+  var loose = all.filter(function (c) { return !c.event || evs.indexOf(c.event) < 0 && M.officer; }).filter(function (c) { return M.officer || isForMe(c); });
+  var h = '<p class="lede">' + (M.officer ? 'One section per event. Add a slot with the time, the place and the EBOD member running it; members on that event’s teams are reminded the day before and an hour before.'
+    : M.me.events && M.me.events.length ? 'Coaching for your event' + (M.me.events.length > 1 ? 's' : '') + ': when, where, and who on the board is running it.' : 'Coaching for each event: when, where, and who on the board is running it.') + '</p>';
+  if (M.officer) h += '<datalist id="ebodlist">' + ebod().map(function (x) { return '<option value="' + esc(x.name) + '">'; }).join('') + '</datalist>';
+  var section = function (e, list, title) {
+    var teams = M.teams.filter(function (t) { return t.kind === 'flc' && t.event === e; }).length;
+    return '<section class="card coachev"><header><h3>' + esc(title || e) + '</h3>' + (e ? '<span class="hint">' + plural(teams, 'team') + '</span>' : '') + '<span class="count">' + list.length + '</span>' +
+      (M.officer && e ? '<button class="qbtn" data-act="sfAddCoach" data-ev="' + esc(e) + '">' + icon('plus') + '<span>Add a slot</span></button>' : '') + '</header>' +
+      (list.length ? '<div class="cue coach' + (M.officer ? ' ed' : '') + '" role="table" aria-label="' + esc(title || e) + ' coaching"><div class="cuehd" role="row"><span role="columnheader">When</span><span role="columnheader">Where</span><span role="columnheader">EBOD member</span>' +
+        (M.officer ? '<span></span>' : '') + '</div>' + list.map(function (c, i) { return coachRow(c, i, list.length, now); }).join('') + '</div>'
+        : '<p class="meta cueempty">' + (M.officer ? 'No slots yet.' : 'Nothing yet. The time and place show here once the board sets them.') + '</p>') + '</section>';
+  };
+  h += '<div class="cuedays">' + evs.map(function (e) { return section(e, all.filter(function (c) { return c.event === e; })); }).join('') +
+    (loose.length ? section('', loose, 'Other sessions') : '') + '</div>';
+  if (!evs.length && !loose.length) h += empty('No events yet', 'Events come from the SFBLC teams.');
   return h;
 }
+function coachRow(c, i, n, now) {
+  var past = c.date && at(c.date, c.end || c.start || '23:59') < now, cls = 'cuerow' + (past ? ' past' : '');
+  if (!M.officer) return '<div class="' + cls + '" role="row"><span class="ct" role="cell"><b>' + esc(c.date ? fmtDay(c.date, true) : 'Day to be set') + '</b><small>' + esc(fmtSpan(c)) + '</small></span>' +
+    '<span class="cl" role="cell">' + esc(c.where || 'Place to be set') + sfMapLink(c.where) + (safeUrl(c.link) ? ' · <a href="' + esc(safeUrl(c.link)) + '" target="_blank" rel="noopener">Join link</a>' : '') + '</span>' +
+    '<span class="cp" role="cell">' + esc(c.coach || 'To be named') + '</span></div>';
+  var k = 'sfCoaching', id = c.id;
+  return '<div class="' + cls + '" role="row"><span class="ct" role="cell">' + sfIn(k, id, 'date', c.date, {type: 'date', label: 'Day', max: 10}) +
+    '<span class="tt2">' + sfIn(k, id, 'start', c.start, {type: 'time', label: 'Starts', max: 5}) + '<i>–</i>' + sfIn(k, id, 'end', c.end, {type: 'time', label: 'Ends', max: 5}) + '</span></span>' +
+    '<span class="cl" role="cell">' + sfIn(k, id, 'where', c.where, {max: 80, label: 'Where', ph: 'Room, building or call link'}) + '</span>' +
+    '<span class="cp" role="cell">' + sfIn(k, id, 'coach', c.coach, {max: 60, label: 'EBOD member', ph: 'EBOD member', list: 'ebodlist'}) + '</span>' +
+    '<span class="ca" role="cell">' + moveBtns('sfMoveCoach', 'data-id="' + esc(id) + '"', i, n, 'this slot') +
+    '<select class="mini" ' + sfAttrs(k, id, 'event') + ' aria-label="Move to another event"><option value="">Move to…</option>' +
+      sfCoachEvents().filter(function (e) { return e !== c.event; }).map(function (e) { return '<option>' + esc(e) + '</option>'; }).join('') + '</select>' +
+    '<button class="qbtn" data-act="edit" data-kind="sfCoaching" data-id="' + esc(id) + '" aria-label="More for this slot">' + icon('more') + '</button>' +
+    '<button class="qbtn" data-act="sfDelRow" data-k="sfCoaching" data-id="' + esc(id) + '" aria-label="Delete this slot">' + icon('close') + '</button></span></div>';
+}
+ACT_EXT.sfAddCoach = function (el, d) {
+  var id = uid('k');
+  sfAddItem('sfCoaching', {id: id, event: d.ev, topic: d.ev + ' coaching', date: '', start: '', end: '', where: '', coach: '', 'for': {tags: ['ev:' + d.ev], names: []}}, 'sfCoaching|' + id + '|date|');
+};
+/* Up or down among the same event's slots; the list keeps the rest where they were. */
+ACT_EXT.sfMoveCoach = function (el, d) {
+  var list = sf('sfCoaching').slice(), me = list.filter(function (x) { return x.id === d.id; })[0];
+  if (!me) return;
+  var same = list.filter(function (x) { return x.event === me.event; }), i = same.indexOf(me), other = same[i + (+d.dir)];
+  if (!other) return;
+  var a = list.indexOf(me), b = list.indexOf(other);
+  list[a] = other; list[b] = me;
+  saveCfg({sfCoaching: list}, 'Moved.');
+};
+
 function sfChecklistOfficer() {
   var list = sf('sfChecklist');
   var h = '<section class="toolbar"><span class="grow"></span><button class="btn sm" data-act="new" data-kind="sfChecklist">' + icon('plus') + 'Add item</button></section>';
@@ -415,19 +596,47 @@ function sfChecklistOfficer() {
       '<button class="qbtn" data-act="edit" data-kind="sfChecklist" data-id="' + esc(c.id) + '">' + icon('edit') + '<span>Edit</span></button></div></li>';
   }).join('') + '</ul></section>' + (M.msgsReady ? '' : '<p class="note">Ticks are saved once the backend update is deployed.</p>');
 }
+
+/* ---------- about ---------- */
+function sfVenueQ(i) { return [i.venue, i.city].filter(Boolean).join(', '); }
 function sfAbout() {
-  var i = sfInfo();
-  var h = '<section class="card"><header><h3>' + esc(i.name) + '</h3></header><dl class="facts">' +
-    '<dt>What</dt><dd>' + esc(i.full) + '</dd><dt>When</dt><dd>' + esc(fmtDay(i.start, true)) + ' – ' + esc(fmtDay(i.end, true)) + '</dd>' +
-    '<dt>Where</dt><dd>' + esc(i.venue) + ', ' + esc(i.city) + '</dd><dt>Fees</dt><dd>' + esc(SFBLC.fees) + '</dd>' +
-    '<dt>Updates</dt><dd><a href="' + esc(safeUrl(i.site)) + '" target="_blank" rel="noopener">capbl.org</a></dd></dl>' + (i.note ? '<p class="note">' + esc(i.note) + '</p>' : '') + '</section>';
-  h += '<section class="card"><header><h3>Events</h3>' + (M.officer ? '<span class="hint">Team sizes are editable</span>' : '') + '</header><ul class="evlist">' + boardEvents().map(function (e) {
-    var c = capFor(M.cfg, e), n = M.teams.filter(function (t) { return t.kind === 'flc' && t.event === e; }).length;
-    return '<li><div><p class="tt">' + esc(e) + (SFBLC.events.indexOf(e) < 0 ? ' <span class="badge bad">Not offered in 2026</span>' : '') + '</p><p class="meta">' + esc(SFBLC.eventNote[e] || 'Case competition') + ' · ' + plural(n, 'team') + '</p></div>' +
-      (M.officer ? '<label class="cap">Up to <input type="number" min="1" max="6" value="' + c.max + '" data-act="cap" data-ev="' + esc(e) + '"></label>' : '<span class="meta">Up to ' + c.max + '</span>') + '</li>';
-  }).join('') + '</ul></section>';
+  var i = sfInfo(), ed = M.officer && SFV.edit, links = sf('sfLinks'), mapUrl = safeUrl(i.mapUrl) || rideMap(sfVenueQ(i));
+  var h = '<section class="card"><header><h3>' + esc(i.name) + '</h3></header>';
+  if (ed) {
+    var row = function (label, html) { return '<dt>' + esc(label) + '</dt><dd>' + html + '</dd>'; };
+    h += '<dl class="facts ed">' + row('Name', sfIn('sfInfo', '', 'name', i.name, {max: 60, label: 'Name'})) + row('What', sfIn('sfInfo', '', 'full', i.full, {max: 120, label: 'What'})) +
+      row('When', '<span class="two">' + sfIn('sfInfo', '', 'start', i.start, {type: 'date', label: 'First day', max: 10}) + sfIn('sfInfo', '', 'end', i.end, {type: 'date', label: 'Last day', max: 10}) + '</span>') +
+      row('Where', sfIn('sfInfo', '', 'venue', i.venue, {max: 120, label: 'Venue'}) + sfIn('sfInfo', '', 'city', i.city, {max: 60, label: 'City'})) +
+      row('Maps link', sfIn('sfInfo', '', 'mapUrl', i.mapUrl, {url: 1, max: 400, label: 'Maps link', ph: 'Leave empty to search Maps for the venue'})) +
+      row('Updates', sfIn('sfInfo', '', 'site', i.site, {url: 1, max: 400, label: 'Updates link'})) +
+      row('Note', sfTa('sfInfo', '', 'note', i.note, {max: 400, rows: 3, label: 'Note'})) + '</dl>';
+  } else {
+    h += '<dl class="facts"><dt>What</dt><dd>' + esc(i.full) + '</dd><dt>When</dt><dd>' + esc(fmtDay(i.start, true)) + ' – ' + esc(fmtDay(i.end, true)) + '</dd>' +
+      '<dt>Where</dt><dd>' + esc(sfVenueQ(i)) + (mapUrl ? ' · <a href="' + esc(mapUrl) + '" target="_blank" rel="noopener">Open in Maps</a>' : '') + '</dd>' +
+      (safeUrl(i.site) ? '<dt>Updates</dt><dd><a href="' + esc(safeUrl(i.site)) + '" target="_blank" rel="noopener">' + esc(safeUrl(i.site).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')) + '</a></dd>' : '') + '</dl>' +
+      (i.note ? '<p class="note">' + esc(i.note) + '</p>' : '');
+  }
+  /* Extra links officers add: the master sheet, the liability form, a packing list. */
+  if (links.length || ed) h += '<div class="fg"><p class="fl">Links</p>' + (ed ? '<ul class="lkedit">' + links.map(function (l) {
+      return '<li>' + sfIn('sfLinks', l.id, 'label', l.label, {max: 60, label: 'Link name', ph: 'Name'}) + sfIn('sfLinks', l.id, 'url', l.url, {url: 1, max: 400, label: 'Link address', ph: 'https://'}) +
+        '<button class="qbtn" data-act="sfDelRow" data-k="sfLinks" data-id="' + esc(l.id) + '" aria-label="Remove ' + esc(l.label) + '">' + icon('close') + '</button></li>';
+    }).join('') + '</ul><div class="rowacts"><button class="qbtn" data-act="sfAddLink">' + icon('plus') + '<span>Add a link</span></button></div>'
+    : '<div class="rowacts">' + links.filter(function (l) { return safeUrl(l.url); }).map(function (l) {
+      return '<a class="qbtn" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener">' + icon('link') + '<span>' + esc(l.label || 'Link') + '</span></a>';
+    }).join('') + '</div>') + '</div>';
+  h += '</section>';
+  var rub = Object.assign({}, SFBLC.rubrics, i.rubrics || {}), notes = Object.assign({}, SFBLC.eventNote, i.notes || {});
+  h += '<section class="card"><header><h3>Events</h3>' + (M.officer && !ed ? '<span class="hint">Team sizes are editable</span>' : '') + '</header><ul class="evlist">' + boardEvents().map(function (e) {
+    var c = capFor(M.cfg, e), n = M.teams.filter(function (t) { return t.kind === 'flc' && t.event === e; }).length, r = safeUrl(rub[e]);
+    var cap = M.officer ? '<label class="cap">Up to <input type="number" min="1" max="6" value="' + c.max + '" data-act="cap" data-ev="' + esc(e) + '"></label>' : '<span class="meta">Up to ' + c.max + '</span>';
+    if (ed) return '<li class="ed"><div><p class="tt">' + esc(e) + '</p>' + sfIn('sfInfo', '', 'notes', notes[e], {sub: e, max: 120, label: e + ' description', ph: 'Case competition'}) +
+      sfIn('sfInfo', '', 'rubrics', rub[e], {sub: e, url: 1, max: 400, label: e + ' rubric link', ph: 'Rubric link (https://)'}) + '</div>' + cap + '</li>';
+    return '<li><div><p class="tt">' + esc(e) + (SFBLC.events.indexOf(e) < 0 ? ' <span class="badge bad">Not offered in 2026</span>' : '') + '</p><p class="meta">' + esc(notes[e] || 'Case competition') + ' · ' + plural(n, 'team') + '</p></div>' +
+      '<div class="evr">' + (r ? '<a class="qbtn" href="' + esc(r) + '" target="_blank" rel="noopener">' + icon('link') + '<span>Rubric</span></a>' : M.officer && SFBLC.events.indexOf(e) > -1 ? '<button class="qbtn" data-act="sfEditMode">' + icon('plus') + '<span>Add rubric</span></button>' : '') + cap + '</div></li>';
+  }).join('') + '</ul>' + (ed ? '<p class="meta">Each event’s rubric is the rating sheet in CAPBL’s guidelines for it.</p>' : '') + '</section>';
   return h;
 }
+ACT_EXT.sfAddLink = function () { var id = uid('l'); sfAddItem('sfLinks', {id: id, label: 'New link', url: ''}, 'sfLinks|' + id + '|label|'); };
 
 /* ---------------- teams ---------------- */
 function boardEvents() {
@@ -617,6 +826,7 @@ function editorSheet() {
     h += k === 'sfCoaching' ? f('topic', 'Topic', 'text', ' maxlength="80" required') : f('title', 'What', 'text', ' maxlength="80" required');
     h += '<div class="row3">' + f('date', 'Date', 'date', ' required') + f('start', 'Starts', 'time') + f('end', 'Ends', 'time') + '</div>';
     h += f('where', 'Where', 'text', ' maxlength="80"');
+    if (k === 'sfSchedule') h += f('who', 'Who runs it', 'text', ' maxlength="80"') + f('note', 'Notes', 'text', ' maxlength="240"');
     if (k === 'sfCoaching') h += f('coach', 'Coach', 'text', ' maxlength="60" list="namelist2"') + f('link', 'Video link (optional)', 'url', ' placeholder="https://"') +
       '<label class="fld"><span>Event</span><select name="event"><option value="">Any</option>' + boardEvents().map(function (x) { return '<option' + (it.event === x ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></label>' +
       '<datalist id="namelist2">' + (M.cfg.ebod || []).map(function (x) { return '<option value="' + esc(x.name) + '">'; }).join('') + '</datalist>';
@@ -631,7 +841,6 @@ function editorSheet() {
 
 /* Every screen, by the id in the address (#homework). more.js adds the rest. */
 var VIEWS = {overview: renderOverview, members: renderMembers, sfblc: renderSfblc, teams: renderTeams, messages: renderMessages};
-var ACT_EXT = {}, CHANGE_EXT = {}, SUBMIT_EXT = {};
 /* Feature files (auth, onboard, teams2, orgs2, admin) answer demo calls here and hook boot and sign-out. */
 var DEMO_EXT = {}, BOOT_EXT = [];
 

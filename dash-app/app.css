@@ -1342,6 +1342,113 @@ body.out #view{margin:0 auto;width:100%;max-width:520px}
 }
 @media (max-width:560px){.tiles{grid-template-columns:1fr}.rideform .two{grid-template-columns:1fr}}
 
+/* ---- SFBLC page: editing in place, cue sheet, coaching, cars ---- */
+.subtabs .sfedit{margin-left:auto;align-self:center}
+.sforder{margin-bottom:16px}
+.sforder .ordlist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.ordlist li{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 10px;border:1px solid var(--rule);border-radius:10px;background:var(--raise);font-size:14px}
+.ordlist li .on{font-family:var(--mono);font-size:12px;color:var(--mute)}
+.qsp{display:inline-block;width:30px}
+/* A field that reads as text until it is pointed at or typed in. */
+input.inl:not([type=checkbox]),textarea.inl,select.inl{min-height:32px;padding:5px 8px;border-radius:7px;border-color:transparent;background:transparent;font:inherit;color:var(--ink)}
+input.inl:hover,textarea.inl:hover{border-color:var(--rule)}
+input.inl:focus,textarea.inl:focus{border-color:var(--accent);background:var(--raise)}
+input.inl.b{font-weight:600}
+textarea.inl{min-height:60px}
+.facts.ed{grid-template-columns:110px 1fr;align-items:center}
+.facts.ed dd{display:flex;flex-direction:column;gap:4px}
+.facts.ed .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.evlist li.ed>div{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.evr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.lkedit{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.lkedit li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:6px;align-items:center}
+.seasoned{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.seasoned li{display:flex;flex-direction:column;gap:2px;border-top:3px solid var(--rule);padding-top:8px}
+.cuedays{display:flex;flex-direction:column;gap:16px}
+.cue{display:grid;grid-template-columns:150px minmax(0,1.4fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,1.6fr);font-size:14px}
+.cue.ed{grid-template-columns:226px minmax(0,2fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.6fr) auto}
+.cue.coach{grid-template-columns:190px minmax(0,1.4fr) minmax(0,1fr)}
+.cue.coach.ed{grid-template-columns:376px minmax(0,1.4fr) minmax(0,1fr) auto}
+.cuehd,.cuerow{display:contents}
+.cuehd>span{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);padding:0 8px 8px;border-bottom:1px solid var(--rule)}
+.cuerow>span{padding:9px 8px;border-bottom:1px solid var(--hair);min-width:0;overflow-wrap:anywhere}
+.cue.ed .cuerow>span{padding:4px 2px}
+.cuerow:last-child>span{border-bottom:0}
+.cuerow .ct{font-family:var(--mono);font-size:13px;color:var(--ink);display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.cuerow .ct i{font-style:normal;color:var(--mute)}
+.cuerow .ct small{font-family:var(--mono);color:var(--mute);width:100%}
+.cuerow .ct .tt2{display:flex;align-items:center;gap:2px}
+.cuerow .ct input[type=time]{width:104px;font-family:var(--mono);font-size:13px;padding:5px 6px}
+.inl::-webkit-calendar-picker-indicator{display:none}
+.cuerow .ct input[type=date]{width:150px;font-size:13px;padding:5px 6px}
+.cuerow .cn{color:var(--slate)}
+.cuerow .cp{color:var(--slate)}
+.cuerow .ca{display:flex;align-items:center;gap:2px;justify-content:flex-end}
+.cuerow .ca select.mini{max-width:120px;min-height:30px!important}
+.cuerow.k-comp .ct{box-shadow:inset 3px 0 0 var(--compete);padding-left:10px}
+.cuerow.k-travel .ct{box-shadow:inset 3px 0 0 var(--ok);padding-left:10px}
+.cuerow.k-social .ct{box-shadow:inset 3px 0 0 var(--plum);padding-left:10px}
+.cuerow.past>span{opacity:.55}
+.cuerow.tent .cw b{color:var(--slate)}
+.maplk{font-size:12.5px;color:var(--slate)}
+.cueday>header .qbtn,.coachev>header .qbtn{margin-left:auto}
+.cueempty{padding:4px 0 2px}
+.bento .span3{grid-column:1/-1}
+/* carpool answers: the Google Form's questions, numbered like the Form */
+.rideans{margin-bottom:16px}
+.rqs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px;row-gap:0}
+.rq.wide,.rqs .sheetacts{grid-column:1/-1}
+.rq{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:12px 0;border-top:1px solid var(--hair)}
+.rq:first-of-type,.rq:first-of-type+.rq:not(.wide){border-top:0}
+.rqn{font-family:var(--mono);font-size:12px;color:var(--mute);padding-top:2px}
+.rqb{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rqt{font-weight:600;font-size:14.5px}
+.rqv{font-size:15px}
+.rq input:not([type=radio]):not([type=checkbox]),.rq textarea{max-width:520px}
+.rq textarea{min-height:64px}
+.rqs .sheetacts{padding-top:12px}
+.rideform .rf-ride{display:contents}
+.rideform[data-role=own] .rf-ride{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.seg.yn label{display:flex;cursor:pointer}
+.seg.yn input{position:absolute;opacity:0;pointer-events:none}
+.seg.yn span{padding:6px 16px;border-radius:7px;font-size:13.5px;color:var(--slate)}
+.seg.yn input:checked+span{background:var(--fill);color:var(--onfill)}
+.seg.yn input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
+.carsect{margin:16px 0}
+.carshd{display:flex;align-items:center;gap:10px;margin:0 2px 10px}
+.carshd h3{font-size:15px;font-weight:700}
+.cars{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.car{display:flex;flex-direction:column;gap:8px}
+.car.mine{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.car.full{opacity:.8}
+.carhd{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.carhd .meta{margin:0}
+.car .rowacts{margin-top:auto;padding-top:4px;align-items:center}
+.seatrow{display:flex;align-items:center;gap:10px}
+.seats{display:flex;gap:5px}
+.seats i{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--rule);background:transparent}
+.seats i.on{background:var(--accent);border-color:var(--accent)}
+.tablewrap{overflow-x:auto;margin:0 -4px}
+table.answers{width:100%;border-collapse:collapse;font-size:13.5px}
+.answers th{text-align:left;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);padding:6px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
+.answers td{padding:8px;border-bottom:1px solid var(--hair);vertical-align:top}
+.answers tr:last-child td{border-bottom:0}
+@media (max-width:860px){
+  .cue,.cue.ed,.cue.coach,.cue.coach.ed{display:flex;flex-direction:column}
+  .cuehd{display:none}
+  .cuerow{display:grid;grid-template-columns:minmax(0,1fr) auto;padding:10px 0;border-bottom:1px solid var(--hair)}
+  .cuerow:last-child{border-bottom:0}
+  .cuerow>span{border-bottom:0;padding:2px 0;grid-column:1/-1}
+  .cue.ed .cuerow>span{padding:1px 0}
+  .cuerow .ca{grid-column:2;grid-row:1;justify-content:flex-end}
+  .cuerow .ct{grid-column:1;grid-row:1}
+  .seasoned{grid-template-columns:1fr}
+  .rqs{grid-template-columns:1fr}
+  .lkedit li{grid-template-columns:1fr auto}
+  .lkedit li input[data-f=url]{grid-column:1}
+}
+
 /* ---- connectors ---- */
 details.card.conn{padding-top:10px;padding-bottom:10px}
 details.card.conn>summary{gap:8px}

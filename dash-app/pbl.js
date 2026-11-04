@@ -248,11 +248,19 @@ var SEASON_COMP = [
   {key: 'sblc', name: 'SBLC 2027', full: 'State Business Leadership Conference', when: 'Spring 2027 · date from CAPBL', where: 'California', note: 'Includes the State Consulting Competition. Top places qualify for nationals.'},
   {key: 'nlc', name: 'NLC 2027', full: 'National Leadership Conference', when: 'Summer 2027 · date from FBLA', where: 'TBA', note: 'For SBLC qualifiers.'}
 ];
-var LAST_SEASON = ['SFBLC 2025 (La Jolla): Greatest Membership Award, Gold in Entrepreneurship Pitch',
-  'SBLC 2026 (Emeryville): Sweepstakes Award, 6 Gold placements, Largest Chapter Award',
-  'State Consulting Competition 2026: Gold and Silver (Azalea Jewelry)'];
+/* The season as officers keep it (cfg.sfSeason), starting from the list above. */
+function sfSeason() {
+  return (M.cfg.sfSeason && M.cfg.sfSeason.length) ? M.cfg.sfSeason : SEASON_COMP.map(function (c) { return Object.assign({id: c.key}, c); });
+}
 function seasonStrip() {
-  return '<section class="card season"><header><h3>The competition season</h3></header><ol class="steps big3">' + SEASON_COMP.map(function (c) {
-    return '<li class="' + (c.now ? 'now' : '') + '"><b>' + esc(c.name) + '</b><span>' + esc(c.full) + '</span><span>' + esc(c.when) + '</span>' + (c.note ? '<small>' + esc(c.note) + '</small>' : '') + '</li>';
-  }).join('') + '</ol><details class="brief"><summary>Last season</summary><ul class="rules">' + LAST_SEASON.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details></section>';
+  var list = sfSeason();
+  if (M.officer && SFV.edit) return '<section class="card season"><header><h3>The competition season</h3></header><ol class="seasoned">' + list.map(function (c) {
+    var k = 'sfSeason', id = c.id;
+    return '<li>' + sfIn(k, id, 'name', c.name, {max: 40, label: 'Name', cls: 'b'}) + sfIn(k, id, 'full', c.full, {max: 100, label: 'Full name'}) + sfIn(k, id, 'when', c.when, {max: 60, label: 'When'}) +
+      sfIn(k, id, 'where', c.where, {max: 60, label: 'Where'}) + sfTa(k, id, 'note', c.note, {max: 160, rows: 2, label: 'Note', ph: 'Note (optional)'}) +
+      '<label class="tick"><input type="checkbox" ' + sfAttrs(k, id, 'now') + (c.now ? ' checked' : '') + '> Happening now</label></li>';
+  }).join('') + '</ol></section>';
+  return '<section class="card season"><header><h3>The competition season</h3></header><ol class="steps big3">' + list.map(function (c) {
+    return '<li class="' + (c.now ? 'now' : '') + '"><b>' + esc(c.name) + '</b><span>' + esc(c.full) + '</span><span>' + esc(c.when) + (c.where ? ' · ' + esc(c.where) : '') + '</span>' + (c.note ? '<small>' + esc(c.note) + '</small>' : '') + '</li>';
+  }).join('') + '</ol></section>';
 }

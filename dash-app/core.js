@@ -64,7 +64,7 @@ function today() { return isoDay(new Date()); }
 var SFBLC = {
   info: {name: 'SFBLC 2026', full: 'State Fall Business Leadership Conference', start: '2026-11-13', end: '2026-11-15',
          venue: 'Hilton Garden Inn San Francisco/Oakland Bay Bridge', city: 'Emeryville, CA', site: 'https://capbl.org',
-         note: 'CAPBL has not released the programs packet (tentative schedule, workshops, socials), the competition agenda or the case prompts and rubrics yet. Check capbl.org.'},
+         note: 'Each event’s guidelines and rating sheet are linked under Events. For anything CAPBL changes, check capbl.org.'},
   /* Event names as the classic page's FLC preferences already use them, so
      members' ranked choices keep matching. "Marketing" is Marketing, Sales &
      Communication. Accounting and Business Ethics are not offered this year. */
@@ -73,7 +73,12 @@ var SFBLC = {
          'Impromptu Speaking': [1, 1], 'STRIIVE': [1, 2]},
   eventNote: {'Marketing': 'Marketing, Sales & Communication case', 'STRIIVE': 'TEDx-style talk, 8–10 min, solo or duo',
               'Impromptu Speaking': 'Individual', 'Entrepreneurship Pitch': 'Presentation event'},
-  fees: 'Conference only: $90 early (10/16), $115 regular (10/21), $140 late (10/30). With rooming, one night $140–$345 and two nights $195–$555 depending on room type and deadline.',
+  /* Each event's guidelines from CAPBL (Oct 9), which end with the rating sheet judges use; kept in the club's Drive. */
+  rubrics: {'Finance': 'https://drive.google.com/file/d/1T241fHZgMAQ1ze6Q_P-Do0UDlK_Z1-_d/view',
+            'Marketing': 'https://drive.google.com/file/d/1Hg7QXq-8PjTcdGTWszziCV0IL1Uh17_R/view',
+            'Management': 'https://drive.google.com/file/d/1aucGjgs6Gd5zohRDUwKLd7WKoO7rtGW6/view',
+            'Entrepreneurship Pitch': 'https://drive.google.com/file/d/1oXcLTv6tKqWERk2RXQ35KZQQRARICcT0/view',
+            'Impromptu Speaking': 'https://drive.google.com/file/d/1wPGNWLejpfmfa2uCpeVuqmtOdr3488_8/view'},
   starter: function () {
     var all = {tags: ['sfblc']};
     return {

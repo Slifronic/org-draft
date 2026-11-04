@@ -9,7 +9,6 @@
 
 var RIDES = {list: [], ready: null, err: ''};
 var RIDE_FROM = {deanza: 'De Anza College', addr: 'An address', hotel: 'Meet at the hotel'};
-var RIDE_ROLE = {driver: ['I can drive', 'Offer seats in your car'], rider: ['I need a ride', 'Join a car with an open seat'], own: ['I have my own way', 'Parents, train, already there']};
 var DEANZA_Q = 'De Anza College, 21250 Stevens Creek Blvd, Cupertino, CA';
 
 function ridesLoad(pre) {
@@ -95,7 +94,7 @@ function ridesView() {
   if (RIDES.ready === false) return '<p class="note warn">' + icon('clock') + '<span>Carpools work once the backend update is deployed.</span></p>';
   if (RIDES.ready === null) return RIDES.err ? empty('Carpools did not load', RIDES.err, '<button class="btn sm" data-act="rideReload">Try again</button>')
     : '<div class="loading"><span></span><span></span><span></span></div>';
-  var h = '';
+  var h = rideAnswersCard();
   if (M.officer) {
     var cars = rideCars(), open = 0, seats = 0, wait = rideWaiting(), miss = rideMissing(), going = M.people.filter(function (p) { return p.going; }).length;
     cars.forEach(function (d) { seats += d.seats || 0; open += rideOpen(d); });
@@ -105,27 +104,79 @@ function ridesView() {
       kpi('Waiting for a car', wait.length, wait.length ? '<b>Put them in a car</b>' : 'None', '#sfblc/rides', wait.length ? 'warn' : '') +
       kpi('No answer yet', miss.length, 'of ' + going + ' going to SFBLC', '#sfblc/rides', miss.length ? 'warn' : 'good', going ? (going - miss.length) / going * 100 : 0) + '</section>';
   }
-  h += '<div class="bento">' + rideMineCard() + rideCarsCard();
-  if (M.officer) h += rideFormCard() + rideWaitingCard() + rideMissingCard();
+  h += rideCarsCard();
+  h += '<div class="bento">' + rideMineCard();
+  if (M.officer) h += rideFormCard() + rideWaitingCard() + rideMissingCard() + rideAllCard();
   return h + '</div>';
 }
 
+/* ---------- your answers, as the Google Form asks them ----------
+   The same questions in the same words as the carpool Form, filled in with
+   what you last said, here or on the Form. Saving here writes the sheet's
+   Carpools tab straight away; an edit there or a new Form answer comes back
+   on the next sync (about a minute). */
+function rideAnswersCard() {
+  var me = rideMe(), x = me || {}, role = me ? me.role : '', from = rideFrom(x), rf = M.cfg.rideForm || {};
+  if (role === 'driver' && from === 'hotel') from = 'deanza';
+  var fk = function (n, v) { return ' data-fk="ra|' + n + (v ? '|' + v : '') + '"'; };
+  var tile = function (name, val, on, title, sub, cls) {
+    return '<label class="tile' + (cls ? ' ' + cls : '') + '"><input type="radio" name="' + name + '" value="' + val + '"' + (on ? ' checked' : '') + fk(name, val) + '><b>' + esc(title) + '</b>' + (sub ? '<span>' + esc(sub) + '</span>' : '') + '</label>';
+  };
+  var q = function (n, title, help, field, cls) {
+    if (n === 2 || n === 4 || n === 10) cls = (cls ? cls + ' ' : '') + 'wide';
+    return '<div class="rq' + (cls ? ' ' + cls : '') + '"><p class="rqn">' + n + '</p><div class="rqb"><p class="rqt">' + esc(title) + '</p>' + (help ? '<p class="meta">' + esc(help) + '</p>' : '') + field + '</div></div>';
+  };
+  var seatOpts = [1, 2, 3, 4, 5, 6, 7].map(function (n) { return '<option' + (+(x.seats || 3) === n ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+  var h = '<section class="card rideans"><header><h3>Your carpool form</h3>' +
+    (me ? '<span class="badge ok">Answered ' + esc(ago(me.at)) + '</span>' : '<span class="badge gold">Not answered yet</span>') + '</header>' +
+    '<p class="mb sm">The same questions as the carpool Google Form, with what you answered. Change an answer here or on the Form and the other one follows within about a minute.' +
+    (safeUrl(rf.formUrl) ? ' <a href="' + esc(safeUrl(rf.formUrl)) + '" target="_blank" rel="noopener">Open the Form</a>' : '') + '</p>' +
+    '<form class="form rideform rqs" data-act="rideAnsSave" data-role="' + (role || 'rider') + '" data-from="' + from + '">' +
+    q(1, 'Your full name', '', '<p class="rqv">' + esc(M.me.name) + '</p>') +
+    q(2, 'How are you getting there?', '', '<fieldset class="tiles"><legend class="sr">How are you getting there?</legend>' +
+      tile('role', 'driver', role === 'driver', 'I can drive') + tile('role', 'rider', role === 'rider' || !role, 'I need a ride') + tile('role', 'own', role === 'own', 'I have my own way there') + '</fieldset>') +
+    '<div class="rf-ride">' +
+    q(3, 'Drivers: seats for riders', 'Not counting yourself.', '<select name="seats" class="mini"' + fk('seats') + '>' + seatOpts + '</select>', 'rf-driver') +
+    q(4, 'Where should the carpool start or pick you up?', 'The hotel is the ' + sfInfo().venue + '. Drivers start from De Anza or an address.',
+      '<fieldset class="tiles small"><legend class="sr">Where should the carpool start or pick you up?</legend>' + tile('from', 'deanza', from === 'deanza', 'De Anza College') +
+      tile('from', 'addr', from === 'addr', 'At my address') + tile('from', 'hotel', from === 'hotel', 'Meet at the hotel', '', 'rf-rider') + '</fieldset>') +
+    q(5, 'Pickup address or cross streets', 'Only officers and your car see it.', '<input name="addr" maxlength="140" autocomplete="street-address" value="' + esc(x.addr || '') + '"' + fk('addr') + ' placeholder="Stevens Creek Blvd and De Anza Blvd">' +
+      ' <a class="rf-map" href="' + esc(x.addr ? rideMap(x.addr) : '#') + '" target="_blank" rel="noopener"' + (x.addr ? '' : ' hidden') + '>Check it on the map</a>', 'rf-addr') +
+    q(6, 'City or neighborhood', 'Shown to everyone, so riders can find a car near them.', '<input name="area" maxlength="40" autocomplete="address-level2" value="' + esc(x.area || '') + '"' + fk('area') + ' placeholder="Cupertino">') +
+    q(7, 'Drivers: leaving Friday at', 'Hotel check-in starts at 4 PM.', '<input name="leave" type="time" value="' + esc(x.leave || '') + '"' + fk('leave') + '>', 'rf-driver') +
+    q(8, 'Riding or driving back on Sunday too?', '', '<div class="seg yn"><label><input type="radio" name="back" value="1"' + (x.back || !me ? ' checked' : '') + fk('back', '1') + '><span>Yes</span></label>' +
+      '<label><input type="radio" name="back" value="0"' + (me && !x.back ? ' checked' : '') + fk('back', '0') + '><span>No</span></label></div>') +
+    q(9, 'Phone number', 'So your car can reach you on the day.', '<input name="phone" type="tel" maxlength="30" autocomplete="tel" value="' + esc(x.phone || '') + '"' + fk('phone') + ' placeholder="(408) 555-0123">') +
+    '</div>' +
+    q(10, 'Anything else', '', '<textarea name="note" rows="2" maxlength="200"' + fk('note') + ' placeholder="Room for one suitcase each">' + esc(x.note || '') + '</textarea>') +
+    '<div class="sheetacts"><button class="btn">' + (me ? 'Save my answers' : 'Send my answers') + '</button>' + (me ? '<button type="button" class="btn ghost" data-act="rideDrop">Remove my entry</button>' : '') + '</div></form></section>';
+  return h;
+}
+SUBMIT_EXT.rideAnsSave = function (f) {
+  rideFormSync(f);
+  var role = f.getAttribute('data-role'), p = {role: role, note: f.note.value};
+  if (role !== 'own') {
+    p.from = f.getAttribute('data-from'); p.addr = p.from === 'addr' ? f.addr.value : ''; p.area = f.area.value;
+    p.phone = f.phone.value; p.back = (f.querySelector('input[name=back]:checked') || {}).value !== '0';
+  }
+  if (role === 'driver') { p.seats = +f.seats.value; p.leave = f.leave.value; }
+  rideSend(p, role === 'driver' ? 'Saved. Riders can pick your car now.' : role === 'rider' ? 'Saved. Pick a car below.' : 'Saved. Have a safe trip.');
+};
+
+/* ---------- where you stand ---------- */
 function rideMineCard() {
-  var me = rideMe(), h = '<section class="card"><header><h3>Your ride</h3>' + (me ? '<button class="qbtn" data-act="rideForm" data-role="' + esc(me.role) + '">' + icon('edit') + '<span>Change</span></button>' : '') + '</header>';
-  if (!me) return h + '<p class="mb">How are you getting to SFBLC? Carpools leave Friday, Nov 13. Hotel check-in starts at 4 PM.</p>' +
-    '<div class="ridepick">' + ['driver', 'rider', 'own'].map(function (r) {
-      return '<button class="ridechoice" data-act="rideForm" data-role="' + r + '"><b>' + esc(RIDE_ROLE[r][0]) + '</b><span>' + esc(RIDE_ROLE[r][1]) + '</span></button>';
-    }).join('') + '</div></section>';
+  var me = rideMe(), h = '<section class="card"><header><h3>Your ride</h3></header>';
+  if (!me) return h + '<p class="mb">Answer the form above, or pick a car with an open seat. Carpools leave Friday, Nov 13; hotel check-in starts at 4 PM.</p></section>';
   if (me.role === 'own') return h + '<p class="mb">You are getting there on your own.</p>' + (me.note ? '<p class="meta">' + esc(me.note) + '</p>' : '') + '</section>';
   if (me.role === 'driver') {
     var rs = rideStops(me), route = rideRoute(me);
-    return h + '<p class="mb">You are driving · <b>' + rs.length + ' of ' + (me.seats || 0) + '</b> seats taken</p>' + rideLine(me, true) +
+    return h + '<p class="mb">You are driving · <b>' + rs.length + ' of ' + (me.seats || 0) + '</b> seats taken</p>' +
       (rs.length ? '<p class="fl">Pickups, in order</p><ol class="inbox rides stops">' + rs.map(function (x, i) {
         return '<li><div class="mh"><p class="mt">' + esc(x.name) + '</p><span class="stopacts">' +
           (i ? '<button class="qbtn" data-act="rideStop" data-who="' + esc(x.who) + '" data-dir="-1" aria-label="Pick up ' + esc(x.name) + ' earlier">' + icon('back', 'up') + '</button>' : '') +
           (i < rs.length - 1 ? '<button class="qbtn" data-act="rideStop" data-who="' + esc(x.who) + '" data-dir="1" aria-label="Pick up ' + esc(x.name) + ' later">' + icon('back', 'down') + '</button>' : '') +
           '</span></div>' + rideLine(x, false) + '</li>';
-      }).join('') + '</ol>' : empty('No riders yet', 'Riders who need a ride can join your car from this page.')) +
+      }).join('') + '</ol>' : empty('No riders yet', 'Riders pick your car from the cars above.')) +
       (route ? '<div class="rowacts"><a class="qbtn" href="' + esc(route) + '" target="_blank" rel="noopener">' + icon('arrow') + '<span>Route with every pickup</span></a></div>' : '') + '</section>';
   }
   var car = me.car && rideCars().filter(function (d) { return d.who === me.car; })[0];
@@ -137,26 +188,54 @@ function rideMineCard() {
       '<div class="rowacts">' + (rideFrom(me) === 'deanza' ? '<a class="qbtn" href="' + esc(rideDir('', DEANZA_Q)) + '" target="_blank" rel="noopener">' + icon('arrow') + '<span>Directions to De Anza</span></a>' : '') +
       '<button class="qbtn" data-act="rideJoin" data-car="">' + icon('close') + '<span>Leave this car</span></button></div></section>';
   }
-  var open = rideCars().filter(function (d) { return rideOpen(d) > 0; });
-  return h + '<p class="mb">You need a ride. ' + (open.length ? 'Pick a car with an open seat; the area shows where each one starts.' : 'No car has a seat yet; officers will put you in one.') + '</p>' + rideLine(me, false) +
-    (open.length ? '<ul class="inbox rides">' + open.map(function (d) {
-      return '<li><div class="mh"><p class="mt">' + esc(d.name) + '</p><span class="badge ok">' + plural(rideOpen(d), 'seat') + ' open</span></div>' + rideLine(d, true) +
-        '<div class="rowacts"><button class="qbtn" data-act="rideJoin" data-car="' + esc(d.who) + '">' + icon('plus') + '<span>Join this car</span></button></div></li>';
-    }).join('') + '</ul>' : '') + '</section>';
+  return h + '<p class="mb">You need a ride. ' + (rideCars().some(function (d) { return rideOpen(d) > 0; }) ? 'Pick a car with an open seat above; each card says where it starts.' : 'No car has a seat yet; officers will put you in one.') + '</p>' + rideLine(me, false) + '</section>';
 }
 
+/* ---------- the cars, a card each ----------
+   A card per driver: where it starts, when it leaves, a seat for each place
+   (filled ones are taken), who is in it, and one button to take a seat. */
 function rideCarsCard() {
-  var cars = rideCars().slice().sort(function (a, b) { return (a.leave || '99').localeCompare(b.leave || '99') || a.name.localeCompare(b.name); });
-  var h = '<section class="card' + (M.officer ? ' span2' : '') + '"><header><h3>Cars</h3><span class="count">' + cars.length + '</span></header>';
-  if (!cars.length) return h + empty('No drivers yet', 'Anyone with a car and a license can offer seats from Your ride.') + '</section>';
-  return h + '<ul class="inbox rides">' + cars.map(function (d) {
-    var rs = rideStops(d), left = rideOpen(d), route = M.officer ? rideRoute(d) : '';
-    return '<li><div class="mh"><p class="mt">' + esc(d.name) + '</p><span class="badge ' + (left ? 'ok' : '') + '">' + (left ? plural(left, 'seat') + ' open' : 'Full') + '</span></div>' + rideLine(d, true) +
-      (rs.length ? '<p class="meta">Riders: ' + rs.map(function (x) {
-        return esc(x.name) + (M.officer ? ' <button class="link" data-act="rideOut" data-who="' + esc(x.who) + '" aria-label="Take ' + esc(x.name) + ' out of this car">(take out)</button>' : '');
-      }).join(', ') + '</p>' : '') +
-      (route && rs.length ? '<p class="meta"><a href="' + esc(route) + '" target="_blank" rel="noopener">Route with pickups</a></p>' : '') + '</li>';
-  }).join('') + '</ul></section>';
+  var cars = rideCars().slice().sort(function (a, b) { return (rideOpen(b) > 0) - (rideOpen(a) > 0) || (a.leave || '99').localeCompare(b.leave || '99') || a.name.localeCompare(b.name); });
+  var open = 0; cars.forEach(function (d) { open += rideOpen(d); });
+  var h = '<section class="carsect"><header class="carshd"><h3>Cars</h3><span class="count">' + cars.length + '</span><span class="hint">' + plural(open, 'open seat') + '</span></header>';
+  if (!cars.length) return h + '<div class="card">' + empty('No drivers yet', 'Anyone with a car and a license can offer seats: answer “I can drive” on the form above.') + '</div></section>';
+  return h + '<ul class="cars">' + cars.map(rideCarCard).join('') + '</ul></section>';
+}
+function rideCarCard(d) {
+  var me = rideMe(), rs = rideStops(d), left = rideOpen(d), seats = d.seats || 0, route = M.officer ? rideRoute(d) : '';
+  var mineDrive = me && me.role === 'driver' && me.who === d.who, mineRide = me && me.role === 'rider' && me.car === d.who;
+  var dots = '';
+  for (var i = 0; i < seats; i++) dots += '<i class="' + (i < rs.length ? 'on' : '') + '"></i>';
+  var act = mineDrive ? '<span class="badge">Your car</span>'
+    : mineRide ? '<span class="badge ok">You are in this car</span><button class="qbtn" data-act="rideJoin" data-car="">' + icon('close') + '<span>Leave</span></button>'
+    : me && me.role !== 'rider' ? ''
+    : left ? '<button class="btn sm" data-act="rideJoin" data-car="' + esc(d.who) + '">' + icon('plus') + 'Take a seat</button>'
+    : '<button class="btn sm ghost" disabled>Full</button>';
+  return '<li class="car card' + (mineDrive || mineRide ? ' mine' : '') + (left ? '' : ' full') + '"><div class="carhd">' + avatar({name: d.name}) + '<div><p class="tt">' + esc(d.name) + '</p>' +
+      '<p class="meta">' + (d.leave ? 'Leaves Fri ' + esc(fmtTime(d.leave)) : 'Leaving time to be set') + (d.back ? ' · back Sunday' : ' · one way') + '</p></div>' +
+      '<span class="badge ' + (left ? 'ok' : '') + '">' + (left ? plural(left, 'seat') + ' open' : 'Full') + '</span></div>' +
+    '<p class="meta">' + rideWhere(d) + '</p>' +
+    (d.note ? '<p class="mb sm">' + esc(d.note) + '</p>' : '') +
+    '<div class="seatrow"><span class="seats" role="img" aria-label="' + rs.length + ' of ' + seats + ' seats taken">' + dots + '</span><span class="meta">' + rs.length + ' of ' + seats + ' taken</span></div>' +
+    (rs.length ? '<p class="meta">' + rs.map(function (x) {
+      return esc(x.name) + (M.officer ? ' <button class="link" data-act="rideOut" data-who="' + esc(x.who) + '" aria-label="Take ' + esc(x.name) + ' out of this car">(take out)</button>' : '');
+    }).join(', ') + '</p>' : '<p class="meta">No riders yet</p>') +
+    '<div class="rowacts">' + act + (route && rs.length ? '<a class="qbtn" href="' + esc(route) + '" target="_blank" rel="noopener">' + icon('arrow') + '<span>Route</span></a>' : '') + '</div></li>';
+}
+
+/* Every answer as the sheet's Carpools tab lays it out, for officers. */
+function rideAllCard() {
+  var list = RIDES.list.slice().sort(function (a, b) { return a.role.localeCompare(b.role) || a.name.localeCompare(b.name); }), rf = M.cfg.rideForm || {};
+  var carOf = function (x) { var d = x.car && rideCars().filter(function (c) { return c.who === x.car; })[0]; return d ? d.name : ''; };
+  var h = '<section class="card span3"><header><h3>Everyone’s answers</h3><span class="count">' + list.length + '</span>' +
+    (safeUrl(rf.sheetUrl) ? '<a href="' + esc(safeUrl(rf.sheetUrl)) + '" target="_blank" rel="noopener">Open the sheet</a>' : '') + '</header>';
+  if (!list.length) return h + empty('No answers yet', '') + '</section>';
+  return h + '<div class="tablewrap"><table class="answers"><thead><tr><th>Name</th><th>Role</th><th>Seats</th><th>Pickup</th><th>Area</th><th>Leaves Fri</th><th>Back Sun</th><th>Phone</th><th>Car</th><th>Note</th></tr></thead><tbody>' +
+    list.map(function (x) {
+      return '<tr><td><b>' + esc(x.name) + '</b></td><td>' + esc({driver: 'Driving', rider: 'Riding', own: 'Own way'}[x.role] || x.role) + '</td><td>' + esc(x.role === 'driver' ? x.seats || '' : '') + '</td>' +
+        '<td>' + esc(x.role === 'own' ? '' : rideFrom(x) === 'addr' ? x.addr || 'An address' : RIDE_FROM[rideFrom(x)]) + '</td><td>' + esc(x.area || '') + '</td><td>' + esc(x.leave ? fmtTime(x.leave) : '') + '</td>' +
+        '<td>' + (x.role === 'own' ? '' : x.back ? 'Yes' : 'No') + '</td><td>' + ridePhone(x) + '</td><td>' + esc(x.role === 'rider' ? carOf(x) || 'Waiting' : '') + '</td><td>' + esc(x.note || '') + '</td></tr>';
+    }).join('') + '</tbody></table></div><p class="meta">Change an answer on the sheet’s Carpools tab and it shows here after the next sync.</p></section>';
 }
 
 function rideWaitingCard() {
@@ -224,39 +303,9 @@ ACT_EXT.rideSync = function () {
   });
 };
 
-/* ---------- the sign-up form ----------
-   One sheet: pick how you are getting there, and only that choice's questions
-   show (data-role / data-from on the form drive the CSS). */
-function rideForm(role) {
-  var me = rideMe() || {}, x = me.role === role ? me : {from: me.from, addr: me.addr, area: me.area, fromNote: me.fromNote, phone: me.phone, back: me.back};
-  var from = rideFrom(x);
-  if (role === 'driver' && from === 'hotel') from = 'deanza';
-  var tile = function (name, val, on, title, sub, cls) {
-    return '<label class="tile' + (cls ? ' ' + cls : '') + '"><input type="radio" name="' + name + '" value="' + val + '"' + (on ? ' checked' : '') + '><b>' + esc(title) + '</b>' + (sub ? '<span>' + esc(sub) + '</span>' : '') + '</label>';
-  };
-  var q = x.addr ? rideMap(x.addr) : '';
-  return '<form class="form rideform" data-act="rideSave" data-role="' + role + '" data-from="' + from + '"><header class="sh"><h3>Carpool to ' + esc(sfInfo().name) + '</h3></header>' +
-    '<fieldset class="tiles"><legend>How are you getting there?</legend>' +
-    ['driver', 'rider', 'own'].map(function (r) { return tile('role', r, r === role, RIDE_ROLE[r][0], RIDE_ROLE[r][1]); }).join('') + '</fieldset>' +
-    '<div class="rf-ride">' +
-      '<div class="rf-driver two"><label class="fld"><span>Seats for riders</span><input name="seats" type="number" min="1" max="7" inputmode="numeric" value="' + esc(x.seats || 3) + '"></label>' +
-      '<label class="fld"><span>Leaving Friday at</span><input name="leave" type="time" value="' + esc(x.leave || '') + '"></label></div>' +
-      '<p class="meta rf-driver">Hotel check-in starts at 4 PM. The board proposed arriving by 3.</p>' +
-      '<fieldset class="tiles small"><legend><span class="rf-driver">Where does your car start?</span><span class="rf-rider">Where should the car pick you up?</span></legend>' +
-        tile('from', 'deanza', from === 'deanza', 'De Anza College') + tile('from', 'addr', from === 'addr', 'An address', 'Home or nearby') +
-        tile('from', 'hotel', from === 'hotel', 'Meet at the hotel', '', 'rf-rider') + '</fieldset>' +
-      '<div class="rf-addr"><label class="fld"><span>Address or cross streets</span><input name="addr" maxlength="140" autocomplete="street-address" value="' + esc(x.addr || '') + '" placeholder="Stevens Creek Blvd and De Anza Blvd"></label>' +
-        '<p class="meta">Only officers and your car see it. <a class="rf-map" href="' + esc(q || '#') + '" target="_blank" rel="noopener"' + (q ? '' : ' hidden') + '>Check it on the map</a></p></div>' +
-      '<div class="two"><label class="fld"><span>City or neighborhood</span><input name="area" maxlength="40" autocomplete="address-level2" value="' + esc(x.area || '') + '" placeholder="Cupertino"></label>' +
-      '<label class="fld"><span>Details (optional)</span><input name="fromNote" maxlength="80" value="' + esc(x.fromNote || '') + '" placeholder="Parking Lot B"></label></div>' +
-      '<p class="meta">The area is shown to everyone, so riders can find a car near them.</p>' +
-      '<label class="tick"><input type="checkbox" name="back"' + (x.back || !me.who ? ' checked' : '') + '><span class="rf-driver">Driving back Sunday too</span><span class="rf-rider">I need a ride back Sunday too</span></label>' +
-      '<label class="fld"><span>Phone</span><input name="phone" type="tel" maxlength="30" autocomplete="tel" value="' + esc(x.phone || '') + '" placeholder="(408) 555-0123"></label>' +
-      '<p class="meta">So your car can reach you on the day. Only officers and your car see it.</p>' +
-    '</div>' +
-    '<label class="fld"><span>Note (optional)</span><input name="note" maxlength="200" value="' + esc(x.note || '') + '" placeholder="Room for one suitcase each"></label>' +
-    '<div class="sheetacts"><button class="btn">Save</button>' + (me.who ? '<button type="button" class="btn ghost" data-act="rideDrop">Remove my entry</button>' : '') + '</div></form>';
-}
+/* ---------- the answers form ----------
+   Pick how you are getting there, and only that choice's questions show
+   (data-role / data-from on the form drive the CSS). */
 /* Keeps the form's visible questions and required fields in step with the choices. */
 function rideFormSync(f) {
   var role = (f.querySelector('input[name=role]:checked') || {}).value || 'rider', from = (f.querySelector('input[name=from]:checked') || {}).value || 'deanza';
@@ -284,22 +333,6 @@ function rideSend(payload, ok) {
     closeSheet(); render(); toast(ok);
   });
 }
-ACT_EXT.rideForm = function (el, d) {
-  if (RIDES.ready === false) return toast('Carpools work once the backend update is deployed.', true);
-  openSheet(rideForm(d.role));
-  var f = document.querySelector('#sheetbody form.rideform');
-  if (f) rideFormSync(f);
-};
-SUBMIT_EXT.rideSave = function (f) {
-  rideFormSync(f);
-  var role = f.getAttribute('data-role'), p = {role: role, note: f.note.value};
-  if (role !== 'own') {
-    p.from = f.getAttribute('data-from'); p.addr = p.from === 'addr' ? f.addr.value : ''; p.area = f.area.value; p.fromNote = f.fromNote.value;
-    p.phone = f.phone.value; p.back = f.back.checked;
-  }
-  if (role === 'driver') { p.seats = +f.seats.value; p.leave = f.leave.value; }
-  rideSend(p, role === 'driver' ? 'Saved. Riders can join your car now.' : role === 'rider' ? 'Saved.' : 'Saved. Have a safe trip.');
-};
 ACT_EXT.rideDrop = function () {
   var me = rideMe(), n = me && me.role === 'driver' ? rideRiders(me.who).length : 0;
   confirmSheet('Remove your carpool entry?', n ? 'Your ' + plural(n, 'rider') + ' go back to waiting for a car.' : 'You can add it again any time.', 'Remove', function () {

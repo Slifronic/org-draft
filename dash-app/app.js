@@ -130,11 +130,27 @@ function render(fresh) {
   $('vtitle').textContent = !M.officer && title.member ? title.member : title.label;
   $('veyebrow').textContent = String(navFor().indexOf(title) + 1).padStart(2, '0') + ' / ' + title.group;
   document.title = (title.label === 'Overview' ? '' : title.label + ' · ') + 'Dashboard · ' + M.club;
-  var view = $('view');
+  var view = $('view'), keep = keepFields(view);
   view.innerHTML = body;
+  keep();
   drawNav();
   tickStats();
   if (fresh) { window.scrollTo(0, 0); revealCards(); }
+}
+/* Fields edited in place (data-fk) keep what is being typed, and the focus, across a redraw. */
+function keepFields(view) {
+  var a = document.activeElement, focus = a && view.contains(a) ? a.getAttribute('data-fk') : null, dirty = [];
+  var sel = focus && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null;
+  Array.prototype.forEach.call(view.querySelectorAll('[data-fk]'), function (el) {
+    if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked !== el.defaultChecked) dirty.push([el.getAttribute('data-fk'), null, el.checked]); }
+    else if (el.tagName !== 'SELECT' && el.value !== el.defaultValue) dirty.push([el.getAttribute('data-fk'), el.value]);
+  });
+  var find = function (fk) { return view.querySelector('[data-fk="' + (window.CSS && CSS.escape ? CSS.escape(fk) : fk) + '"]'); };
+  return function () {
+    dirty.forEach(function (d) { var el = find(d[0]); if (el) { if (d[1] === null) el.checked = d[2]; else el.value = d[1]; } });
+    var el = focus && find(focus);
+    if (el) { el.focus({preventScroll: true}); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} }
+  };
 }
 function drawNav() {
   var unread = unreadCount(), sched = M.officer ? M.msgs.filter(function (m) { return m.status === 'scheduled'; }).length : 0;
@@ -306,7 +322,7 @@ function compose(o) {
 }
 function syncEdit() {
   var f = document.querySelector('#sheetbody form[data-act="saveItem"]'); if (!f || !EDIT) return;
-  ['title', 'topic', 'label', 'date', 'start', 'end', 'where', 'coach', 'link', 'due', 'detail', 'kind', 'event'].forEach(function (k) { if (f[k]) EDIT.item[k] = f[k].value; });
+  ['title', 'topic', 'label', 'date', 'start', 'end', 'where', 'who', 'note', 'coach', 'link', 'due', 'detail', 'kind', 'event'].forEach(function (k) { if (f[k]) EDIT.item[k] = f[k].value; });
   ['tentative', 'remind'].forEach(function (k) { if (f[k]) EDIT.item[k] = f[k].checked; });
 }
 function openEditor(kind, item, isNew) {
@@ -553,7 +569,7 @@ function submit(form, e) {
   if (a === 'saveItem') {
     syncEdit();
     var it = EDIT.item, k = EDIT.kind;
-    ['title', 'topic', 'label', 'where', 'coach', 'detail'].forEach(function (f) { if (it[f] != null) it[f] = clean(it[f], f === 'detail' ? 240 : 80); });
+    ['title', 'topic', 'label', 'where', 'who', 'note', 'coach', 'detail'].forEach(function (f) { if (it[f] != null) it[f] = clean(it[f], f === 'detail' || f === 'note' ? 240 : 80); });
     if (it.link) it.link = safeUrl(it.link);
     var list = sf(k).slice(), i = list.map(function (x) { return x.id; }).indexOf(it.id);
     if (i > -1) list[i] = it; else list.push(it);
