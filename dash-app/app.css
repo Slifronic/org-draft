@@ -1310,6 +1310,37 @@ body.out #view{margin:0 auto;width:100%;max-width:520px}
 .rides li .rowacts{margin-top:4px}
 .rides .fld{margin-top:6px}
 .rides .meta a{color:var(--slate)}
+.ridepick{display:grid;gap:8px;margin-top:10px}
+.ridechoice{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px 14px;border:1px solid var(--rule);border-radius:10px;background:var(--raise);color:var(--ink);cursor:pointer;font:inherit}
+.ridechoice span,.tile span{font-size:13px;color:var(--mute)}
+.ridechoice:hover,.ridechoice:focus-visible{border-color:var(--accent)}
+.rideform fieldset{border:0;margin:0;padding:0;display:grid;gap:8px}
+.rideform legend{font-size:13px;font-weight:600;color:var(--slate);margin-bottom:6px}
+.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tile{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--raise);cursor:pointer;font-size:14px;min-width:0}
+.tile input{position:absolute;opacity:0;pointer-events:none}
+.tile:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tile:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.rideform .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.rideform[data-role=own] .rf-ride{display:none}
+.rideform:not([data-role=driver]) .rf-driver{display:none}
+.rideform[data-role=driver] .rf-rider{display:none}
+.rideform:not([data-from=addr]) .rf-addr{display:none}
+.stops .mh{align-items:center}
+.stopacts{display:flex;gap:2px}
+.ic.up{transform:rotate(90deg)}
+.ic.down{transform:rotate(-90deg)}
+.qrbox{display:flex;justify-content:center;padding:6px 0}
+.qrbox .qr{width:176px;height:176px;border-radius:8px}
+.qrurl{justify-content:center;overflow-wrap:anywhere}
+#qrprint{display:none}
+@media print{
+  body.qrprinting>*:not(#qrprint){display:none!important}
+  body.qrprinting #qrprint{display:block;text-align:center;color:#000;background:#fff;padding-top:40px}
+  #qrprint svg{width:420px;height:420px}
+  #qrprint .u{font-size:14px;word-break:break-all}
+}
+@media (max-width:560px){.tiles{grid-template-columns:1fr}.rideform .two{grid-template-columns:1fr}}
 
 /* ---- connectors ---- */
 details.card.conn{padding-top:10px;padding-bottom:10px}

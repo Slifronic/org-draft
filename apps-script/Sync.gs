@@ -12,6 +12,8 @@
      itinerary   SFBLC Master Sheet · Itinerary <-> the schedule items it made
      discord     PBL Verify Records · Verified members -> the Discord tab here,
                  each profile linked to a member (officers can fix a link)
+     rides       the carpool sheet's Carpools tab <-> the club's carpools; the
+                 carpool form's new answers are copied onto that tab first
    The sign-up, track interest and re-enrollment sheets are Google Form
    responses and stay read-only (they become tags through linkedRead).
 
@@ -39,9 +41,18 @@ var SYNC_ = {
 };
 /* Order matters: a ticket decided here writes the meeting cell, which the
    attendance pass then carries back into this club's Attendance rows. */
-var SYNC_DOMAINS_ = ['discord', 'tickets', 'attendance', 'teams', 'rooms', 'itinerary'];
+var SYNC_DOMAINS_ = ['discord', 'tickets', 'attendance', 'teams', 'rooms', 'itinerary', 'rides'];
 var SYNC_SHEETS_ = {discord: ['records'], tickets: ['attendance', 'records'], attendance: ['attendance'],
-                    teams: ['master'], rooms: ['master'], itinerary: ['master']};
+                    teams: ['master'], rooms: ['master'], itinerary: ['master'], rides: ['rides']};
+/* A club's sheets: the fixed ones above, plus the carpool sheet once an officer
+   makes it from the Carpools tab (its id is kept on the club record). */
+function syncIds_(aff) {
+  var base = SYNC_[aff], rf = (clubCfg_(aff) || {}).rideForm, out = {};
+  if (!base && !(rf && rf.sheetId)) return null;
+  Object.keys(base || {}).forEach(function (k) { out[k] = base[k]; });
+  if (rf && rf.sheetId) out.rides = rf.sheetId;
+  return out;
+}
 var SYNC_TRIGGER_V_ = '1';
 
 /* ---- small helpers ---- */
@@ -165,8 +176,9 @@ function syncCfgSave_(aff, cfg) {
    An adapter gives each side as {key: {v: comparable value, ...meta}} and
    writes a set of changes {key: value ('' removes)} to one side. */
 function syncDomain_(aff, domain, why) {
-  var ids = SYNC_[aff];
+  var ids = syncIds_(aff);
   if (!ids) return null;
+  if ((SYNC_SHEETS_[domain] || []).some(function (k) { return !ids[k]; })) return null;
   if (domain === 'discord') return syncDiscord_(aff);
   var A = SYNC_ADAPT_[domain];
   if (!A) return null;
@@ -246,7 +258,7 @@ function syncRun_(aff, domains, why) {
 /* After an edit here: stamp it as the latest, then copy it out now. A sync
    problem never fails the edit itself; keepWarm retries. */
 function syncAfterOrg_(aff, domains, why) {
-  if (!SYNC_[aff]) return null;
+  if (!syncIds_(aff)) return null;
   domains.forEach(function (d) { syncStampOrg_(aff, d); });
   try { return syncRun_(aff, domains, why || 'edited in the Org System'); }
   catch (e) { Logger.log('syncAfterOrg_: ' + (e && e.stack || e)); return null; }
@@ -272,7 +284,7 @@ function syncDue() {
    keepWarm calls it, so a redeploy is all it takes. */
 function syncInstall_() {
   var want = {};
-  Object.keys(SYNC_).forEach(function (aff) { Object.keys(SYNC_[aff]).forEach(function (k) { want[SYNC_[aff][k]] = 1; }); });
+  Object.keys(SYNC_).forEach(function (aff) { var ids = syncIds_(aff) || {}; Object.keys(ids).forEach(function (k) { want[ids[k]] = 1; }); });
   var sig = SYNC_TRIGGER_V_ + ':' + Object.keys(want).sort().join(',');
   var p = syncProps_();
   if (p.getProperty('syncTriggers') === sig) return;
@@ -285,7 +297,7 @@ function syncInstall_() {
 function syncKeepWarm_() {
   syncInstall_();
   Object.keys(SYNC_).forEach(function (aff) {
-    var p = syncProps_(), last = Number(p.getProperty('syncRunAt:' + aff) || 0), ids = SYNC_[aff], moved = false;
+    var p = syncProps_(), last = Number(p.getProperty('syncRunAt:' + aff) || 0), ids = syncIds_(aff), moved = false;
     Object.keys(ids).forEach(function (k) {
       try { if (DriveApp.getFileById(ids[k]).getLastUpdated().getTime() > last) moved = true; } catch (e) { moved = true; }
     });
@@ -972,7 +984,7 @@ function syncAction_(action, payload, aff, id, email) {
   var p = payload || {};
   switch (action) {
     case 'syncStatus': {
-      var props = syncProps_(), ids = SYNC_[aff] || null;
+      var props = syncProps_(), ids = syncIds_(aff);
       var log = readScoped('syncLog', aff).slice(-60).reverse().map(function (r) {
         return {at: r.At, domain: r.Domain, key: r.Key, dir: r.Direction, from: r.From, to: r.To, why: r.Why};
       });
@@ -1031,3 +1043,179 @@ function syncAction_(action, payload, aff, id, email) {
   }
   return {ok: false, error: 'Unknown action.'};
 }
+
+/* Carpools: key a person (their name, flattened), value their entry as one
+   line ("rider||addr|12 Elm St|Cupertino||||y|408 555 0101|...|annlee").
+   The form's answers are never written back to; each new answer is first
+   copied onto the Carpools tab as if someone had typed it there, and from
+   then on that tab is the sheet side, edited by hand like any other. */
+var RIDE_ROLE_TXT_ = {driver: 'Driving', rider: 'Needs a ride', own: 'Own way'};
+var RIDE_FROM_TXT_ = {deanza: 'De Anza', addr: 'Address', hotel: 'Hotel'};
+function rideCanon_(e) {
+  var d = e.role === 'driver';
+  return [e.role, d ? e.seats || '' : '', rideFrom_(e.from), e.addr || '', e.area || '', e.fromNote || '',
+          d ? e.leave || '' : '', e.role !== 'own' && e.back ? 'y' : '', e.phone || '', e.note || '',
+          e.role === 'rider' ? e.car || '' : ''].map(sclean_).join('|');
+}
+function rideRoleOf_(t) {
+  var s = sn_(t);
+  return !s ? '' : /own/.test(s) ? 'own' : /need|rid/.test(s) ? 'rider' : /driv/.test(s) ? 'driver' : '';
+}
+function rideFromOf_(t, addr) {
+  var s = sn_(t);
+  return /hotel/.test(s) ? 'hotel' : /addr|home|my /.test(s) ? 'addr' : /de ?anza/.test(s) ? 'deanza' : addr ? 'addr' : 'deanza';
+}
+/* "13:30" from a time cell, "1:30 PM", "1:30:00 PM" or "13:30". */
+function rideTime_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'HH:mm');
+  var m = String(v || '').trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])?\.?m?\.?$/i);
+  if (!m) return '';
+  var h = +m[1] % 12 + (m[3] && /p/i.test(m[3]) ? 12 : 0);
+  if (!m[3]) h = +m[1];
+  return h > 23 || +m[2] > 59 ? '' : ('0' + h).slice(-2) + ':' + m[2];
+}
+function rideTimeTxt_(hm) {
+  var m = String(hm || '').match(/^(\d{2}):(\d{2})$/);
+  return m ? ((+m[1] % 12) || 12) + ':' + m[2] + (+m[1] < 12 ? ' AM' : ' PM') : '';
+}
+function rideTab_(ctx) { return sbook_(ctx.ids.rides).getSheetByName('Carpools'); }
+function rideCols_(head) {
+  var c = {};
+  RIDE_FORM_.sheetHead.forEach(function (t) { c[t] = head.indexOf(sn_(t)); });
+  return c;
+}
+/* One Carpools row as an entry, or null when it names nobody or no way of getting there. */
+function rideFromRow_(row, c, roster) {
+  var raw = sclean_(row[c.Name]), role = rideRoleOf_(row[c.Role]);
+  if (!raw || !role) return null;
+  var name = syncMatchName_(raw, roster), addr = sclean_(row[c.Address]).slice(0, 140);
+  var e = {role: role, from: rideFromOf_(row[c.Pickup], addr), addr: '', area: sclean_(row[c.Area]).slice(0, 40),
+           fromNote: sclean_(row[c.Details]).slice(0, 80), leave: '', back: role !== 'own' && /^(y|yes|true|x)/i.test(sclean_(row[c['Back Sunday']])),
+           phone: sclean_(row[c.Phone]).slice(0, 30), note: sclean_(row[c.Note]).slice(0, 200)};
+  if (e.from === 'addr') e.addr = addr;
+  if (role === 'own') { e.from = 'deanza'; e.addr = ''; }
+  if (role === 'driver') { e.seats = Math.max(1, Math.min(7, parseInt(row[c.Seats], 10) || 1)); e.leave = rideTime_(row[c['Leave Friday']]); if (e.from === 'hotel') e.from = 'deanza'; }
+  if (role === 'rider') { var car = sclean_(row[c.Car]); e.car = car ? flatName_(syncMatchName_(car, roster)) : ''; }
+  return {name: name, e: e};
+}
+function rideRow_(e, carName, width, c) {
+  var out = []; for (var i = 0; i < width; i++) out.push('');
+  var put = function (k, v) { if (c[k] > -1) out[c[k]] = v; };
+  put('Name', e.name); put('Role', RIDE_ROLE_TXT_[e.role] || ''); put('Seats', e.role === 'driver' ? String(e.seats || '') : '');
+  put('Pickup', e.role === 'own' ? '' : RIDE_FROM_TXT_[rideFrom_(e.from)]); put('Address', e.addr || ''); put('Area', e.area || '');
+  put('Details', e.fromNote || ''); put('Leave Friday', e.role === 'driver' ? rideTimeTxt_(e.leave) : '');
+  put('Back Sunday', e.role === 'own' ? '' : e.back ? 'Yes' : 'No'); put('Phone', e.phone || ''); put('Note', e.note || '');
+  put('Car', carName || ''); put('Updated', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMM d, h:mm a'));
+  return out;
+}
+/* New answers on the form's responses tab, copied onto the Carpools tab.
+   Who answered is the account with that email, else the roster's spelling of
+   the name typed; someone who answers twice has their row updated. */
+function rideFormIngest_(ctx) {
+  var book = sbook_(ctx.ids.rides), resp = null;
+  book.getSheets().forEach(function (sh) { if (!resp && /form responses/i.test(sh.getName())) resp = sh; });
+  var tabSh = rideTab_(ctx);
+  if (!resp || !tabSh) return 0;
+  var key = 'rideFormRow:' + ctx.aff + ':' + ctx.ids.rides, done = Number(syncProps_().getProperty(key) || 1);
+  var v = resp.getDataRange().getValues();
+  if (v.length <= done) return 0;
+  var head = v[0].map(sn_), col = function (re) { for (var i = 0; i < head.length; i++) if (re.test(head[i])) return i; return -1; };
+  var Q = {email: col(/^email/), name: col(/full name|^name$/), role: col(/getting there/), seats: col(/seats/), from: col(/start or pick|pick you up/),
+           addr: col(/address or cross/), area: col(/city|neighborhood/), leave: col(/leaving/), back: col(/sunday/), phone: col(/phone/), note: col(/anything else/)};
+  var roster = SYNC_ROSTER_ || syncRoster_(ctx.aff), byEmail = {};
+  try { accountsFor(ctx.aff).forEach(function (a) { var n = sclean_([a.first, a.last].join(' ')); if (a.email && n) byEmail[String(a.email).toLowerCase()] = n; }); } catch (e) {}
+  var tv = tabSh.getDataRange().getValues(), th = tv[0].map(sn_), c = rideCols_(th), width = th.length, n = 0;
+  var rowOf = {};
+  for (var r = 1; r < tv.length; r++) { var nm = sclean_(tv[r][c.Name]); if (nm) rowOf[flatName_(syncMatchName_(nm, roster))] = r + 1; }
+  var next = tv.length + 1;
+  var cell = function (row, i) { return i < 0 ? '' : row[i]; };
+  for (var i = done; i < v.length; i++) {
+    var row = v[i], em = sclean_(cell(row, Q.email)).toLowerCase();
+    var name = byEmail[em] || syncMatchName_(cell(row, Q.name), roster);
+    var role = rideRoleOf_(cell(row, Q.role));
+    if (!name || !role) continue;
+    var k = flatName_(name), at = rowOf[k], car = '';
+    /* A rider who answers again keeps the car an officer already put them in. */
+    var was = at && tv[at - 1];
+    if (was && role === 'rider' && rideRoleOf_(was[c.Role]) === 'rider') car = sclean_(was[c.Car]);
+    var addr = sclean_(cell(row, Q.addr)).slice(0, 140);
+    var e = {name: name, role: role, seats: parseInt(cell(row, Q.seats), 10) || 1, from: rideFromOf_(cell(row, Q.from), addr), addr: addr,
+             area: sclean_(cell(row, Q.area)).slice(0, 40), fromNote: '', leave: rideTime_(cell(row, Q.leave)),
+             back: /^y/i.test(sclean_(cell(row, Q.back))), phone: sclean_(cell(row, Q.phone)).slice(0, 30), note: sclean_(cell(row, Q.note)).slice(0, 200)};
+    if (e.from !== 'addr') e.addr = '';
+    if (!at) { at = next++; rowOf[k] = at; }
+    tabSh.getRange(at, 1, 1, width).setValues([rideRow_(e, car, width, c)]);
+    n++;
+  }
+  syncProps_().setProperty(key, String(v.length));
+  if (n) syncStampSheet_(ctx.ids.rides);
+  return n;
+}
+SYNC_ADAPT_.rides = {
+  sheet: function (ctx) {
+    rideFormIngest_(ctx);
+    var sh = rideTab_(ctx), out = {};
+    if (!sh) return out;
+    var v = sh.getDataRange().getValues(), c = rideCols_((v[0] || []).map(sn_)), roster = SYNC_ROSTER_ || syncRoster_(ctx.aff);
+    if (c.Name < 0 || c.Role < 0) return out;
+    for (var r = 1; r < v.length; r++) {
+      var got = rideFromRow_(v[r], c, roster);
+      if (got) out[flatName_(got.name)] = {v: rideCanon_(got.e), ref: r + 1, e: got.e, name: got.name};
+    }
+    return out;
+  },
+  org: function (ctx) {
+    var out = {};
+    dashRow_('rides:' + ctx.aff, []).forEach(function (x) { if (x && x.who) out[x.who] = {v: rideCanon_(x), e: x}; });
+    return out;
+  },
+  writeOrg: function (ctx, ch, S) {
+    var list = dashRow_('rides:' + ctx.aff, []), now = new Date().toISOString();
+    Object.keys(ch).forEach(function (k) {
+      var i = -1;
+      list.forEach(function (x, j) { if (x.who === k) i = j; });
+      var old = i > -1 ? list[i] : null;
+      if (!ch[k]) { if (i > -1) list.splice(i, 1); rideFreeCar_(list, k); return; }
+      var e = {}, src = S[k].e;
+      if (old) for (var a in old) if (Object.prototype.hasOwnProperty.call(old, a)) e[a] = old[a];
+      for (var b in src) if (Object.prototype.hasOwnProperty.call(src, b)) e[b] = src[b];
+      e.who = k; e.name = S[k].name; e.at = now; e.by = 'sheet';
+      if (e.role !== 'driver') { delete e.seats; delete e.stops; e.leave = ''; if (old && old.role === 'driver') rideFreeCar_(list, k); }
+      if (e.role !== 'rider') delete e.car;
+      if (i > -1) list[i] = e; else list.push(e);
+    });
+    /* A rider whose car stopped being offered on the sheet goes back to waiting. */
+    var drivers = {}, freed = [];
+    list.forEach(function (x) { if (x.role === 'driver') drivers[x.who] = 1; });
+    list.forEach(function (x) { if (x.role === 'rider' && x.car && !drivers[x.car]) x.car = ''; });
+    dashWrite_('rides:' + ctx.aff, list.slice(-400));
+    /* Riders freed that way still name the old car on the sheet: clear it there
+       now, and note it on S so this run's base already agrees. */
+    list.forEach(function (x) { if (x.role === 'rider' && !x.car && S[x.who] && S[x.who].e.car) freed.push(x.who); });
+    if (freed.length) {
+      var sh = rideTab_(ctx), c = rideCols_((sh.getDataRange().getValues()[0] || []).map(sn_));
+      freed.forEach(function (w) {
+        if (c.Car > -1 && S[w].ref) sh.getRange(S[w].ref, c.Car + 1).setValue('');
+        S[w].e.car = ''; S[w].v = rideCanon_(S[w].e);
+      });
+    }
+  },
+  writeSheet: function (ctx, ch, S, O) {
+    var sh = rideTab_(ctx), refs = {};
+    if (!sh) return refs;
+    var v = sh.getDataRange().getValues(), c = rideCols_((v[0] || []).map(sn_)), width = (v[0] || []).length;
+    var next = v.length + 1;
+    for (var r = v.length - 1; r > 0; r--) { if (v[r].join('')) break; next = r + 1; }
+    var names = {};
+    Object.keys(O).forEach(function (k) { names[k] = O[k].e.name; });
+    Object.keys(ch).forEach(function (k) {
+      var row = S[k] ? S[k].ref : null;
+      if (!ch[k]) { if (row) sh.getRange(row, 1, 1, width).clearContent(); return; }
+      var e = O[k].e;
+      if (!row) row = next++;
+      sh.getRange(row, 1, 1, width).setValues([rideRow_(e, e.role === 'rider' && e.car ? names[e.car] || '' : '', width, c)]);
+      refs[k] = row;
+    });
+    return refs;
+  }
+};

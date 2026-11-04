@@ -44,7 +44,7 @@ var NEEDS = {
   msgList: 'admin', msgSend: 'admin', msgCancel: 'admin', myInbox: 'member', sfCheck: 'member',
   linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin',
   syncStatus: 'admin', syncNow: 'admin', ticketList: 'admin', ticketDecide: 'admin', discordList: 'admin', discordLink: 'admin',
-  rideList: 'member', rideSave: 'member', rideAssign: 'admin', attMark: 'admin'
+  rideList: 'member', rideSave: 'member', rideAssign: 'admin', attMark: 'admin', rideFormSetup: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -1204,6 +1204,8 @@ function memberCfg_(cfg, meName) {
   for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) c[k] = cfg[k];
   MEMBER_HIDDEN_CFG_.forEach(function (k) { delete c[k]; });
   if (cfg.events) c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
+  /* Members may pass the carpool form's link around; the sheet behind it stays with officers. */
+  if (cfg.rideForm) c.rideForm = {formUrl: cfg.rideForm.formUrl};
   if (cfg.rooms) {
     var me = flatName_(meName);
     c.rooms = me ? cfg.rooms.filter(function (r) {
@@ -3466,7 +3468,8 @@ function dispatch(action, payload, email, role, id) {
     /* Carpools for the trip (SFBLC first). Each person keeps their own entry --
        driving with seats, riding, or getting there on their own -- in its own
        row (rides:<club>), because a member cannot write the club record. A
-       phone number goes only to officers and to the people in the same car. */
+       phone number and a pickup address go only to officers and to the people
+       in the same car; everyone sees the area (a city or neighborhood). */
     case 'rideList':
       return {ok: true, rides: ridesFor_(dashRow_('rides:' + aff, []), flatName_(id.name || email), RANK[role] >= RANK.admin)};
     case 'rideSave': {
@@ -3480,16 +3483,23 @@ function dispatch(action, payload, email, role, id) {
         if (['driver', 'rider', 'own'].indexOf(rsRole) < 0) return {ok: false, error: 'Choose driving, riding or your own way.'};
         /* "Join this car" sends only the car, so whatever is left out keeps what was saved before. */
         var rsGet = function (k, n) { return dashClean_(k in rsP ? rsP[k] : (rsOld || {})[k], n); };
-        var rsFrom = rsGet('from', 10), rsLeave = rsGet('leave', 5);
+        var rsFrom = rideFrom_(rsGet('from', 10)), rsLeave = rsGet('leave', 5);
         var rsE = {who: rsMe, name: dashClean_(id.name || email, 80), role: rsRole,
-                   from: ['deanza', 'hotel', 'other'].indexOf(rsFrom) > -1 ? rsFrom : 'deanza', fromNote: rsGet('fromNote', 80),
+                   from: rsFrom, addr: rsFrom === 'addr' ? rsGet('addr', 140) : '', area: rsGet('area', 40), fromNote: rsGet('fromNote', 80),
                    leave: /^\d{2}:\d{2}$/.test(rsLeave) ? rsLeave : '', back: 'back' in rsP ? !!rsP.back : !!(rsOld && rsOld.back),
                    phone: rsGet('phone', 30), note: rsGet('note', 200), at: new Date().toISOString()};
+        if (rsFrom === 'addr' && !rsE.addr) return {ok: false, error: 'Add the pickup address or cross streets.'};
+        if (rsRole === 'own') { rsE.from = 'deanza'; rsE.addr = ''; }
         if (rsRole === 'driver') {
           var rsSeats = Math.floor(+('seats' in rsP ? rsP.seats : (rsOld || {}).seats)) || 0, rsTaken = rideRiders_(rsL, rsMe, '').length;
           if (rsSeats < 1 || rsSeats > 7) return {ok: false, error: 'Seats for riders go from 1 to 7.'};
           if (rsSeats < rsTaken) return {ok: false, error: 'You have ' + rsTaken + ' riders. Ask an officer to move someone before cutting seats.'};
+          if (rsFrom === 'hotel') return {ok: false, error: 'Drivers start from De Anza or an address.'};
           rsE.seats = rsSeats;
+          /* The order the driver picks riders up in; anyone not listed goes last, in the order they joined. */
+          var rsMine = rideRiders_(rsL, rsMe, '').map(function (x) { return x.who; });
+          rsE.stops = (Array.isArray(rsP.stops) ? rsP.stops : (rsOld && rsOld.stops) || [])
+            .map(function (w) { return dashClean_(w, 80); }).filter(function (w, i, a) { return rsMine.indexOf(w) > -1 && a.indexOf(w) === i; });
         } else { rsE.leave = ''; rideFreeCar_(rsL, rsMe); }
         if (rsRole === 'rider') {
           var rsCar = 'car' in rsP ? dashClean_(rsP.car, 80) : String((rsOld && rsOld.role === 'rider' && rsOld.car) || '');
@@ -3501,6 +3511,7 @@ function dispatch(action, payload, email, role, id) {
         rsL.push(rsE);
       }
       dashWrite_('rides:' + aff, rsL.slice(-400));
+      rideSynced_(aff);
       return {ok: true, rides: ridesFor_(rsL, rsMe, RANK[role] >= RANK.admin)};
     }
     case 'rideAssign': {
@@ -3517,7 +3528,29 @@ function dispatch(action, payload, email, role, id) {
         raE.car = raCar; raE.by = id.name || email;
       }
       dashWrite_('rides:' + aff, raL);
+      rideSynced_(aff);
       return {ok: true, rides: raL};
+    }
+    /* The carpool sign-up for people who would rather scan a QR code: a Google
+       Form whose answers land in a spreadsheet with a Carpools tab, which the
+       sync keeps in step with the rides here both ways (Sync.gs, domain
+       "rides"). Made once per club and shared like the sign-up form. */
+    case 'rideFormSetup': {
+      var rfCfg = clubCfg_(aff);
+      if (rfCfg.rideForm && rfCfg.rideForm.formId && !(payload || {}).replace) return {ok: true, rideForm: rfCfg.rideForm, existed: true};
+      var rfMade;
+      try { rfMade = rideFormMake_(((findAff(aff) || {}).name || aff) + ' · SFBLC carpools', (clubCfg_(aff).sfInfo || {}).venue || 'Hilton Garden Inn in Emeryville'); }
+      catch (e) { return {ok: false, error: 'Could not make the form: ' + (e && e.message || e)}; }
+      var rfShared = shareWithOfficers([rfMade.formId, rfMade.sheetId], email);
+      var rfOwner = handOwnership([rfMade.formId, rfMade.sheetId], rfCfg.ownerEmail);
+      rfCfg = clubCfg_(aff);
+      rfCfg.rideForm = rfMade;
+      syncCfgSave_(aff, rfCfg);
+      bumpShared_(aff);
+      var rfSync = null;
+      try { syncInstall_(); rfSync = syncRun_(aff, ['rides'], 'carpool sheet made'); } catch (e) {}
+      return {ok: true, rideForm: rfMade, sharedWith: email, shareFailed: rfShared.failed, ownerFailed: rfOwner.failed,
+              synced: !!(rfSync && rfSync.ok)};
     }
 
     case 'getAll': {
@@ -4534,10 +4567,54 @@ function ridesFor_(list, me, officer) {
   return list.map(function (x) {
     var c = {}; for (var k in x) if (Object.prototype.hasOwnProperty.call(x, k)) c[k] = x[k];
     var same = x.who === me || (car && (x.who === car || (x.role === 'rider' && x.car === car)));
-    if (!same) delete c.phone;
+    /* A home address is as private as a phone number; its details line can name the house too. */
+    if (!same) { delete c.phone; delete c.addr; if (rideFrom_(x.from) === 'addr') delete c.fromNote; }
     delete c.by;
     return c;
   });
+}
+/* Where someone starts: De Anza, an address (older entries said "other"), or the hotel. */
+function rideFrom_(v) { v = String(v || ''); return v === 'other' ? 'addr' : ['deanza', 'addr', 'hotel'].indexOf(v) > -1 ? v : 'deanza'; }
+/* An edit here is copied to the carpool sheet straight away, once the club has one. */
+function rideSynced_(aff) {
+  var rf = (clubCfg_(aff) || {}).rideForm;
+  if (rf && rf.sheetId && typeof syncAfterOrg_ === 'function') syncAfterOrg_(aff, ['rides'], 'edited in the Org System');
+}
+/* The questions are matched by these words when the answers are read (rideFormRead_ in Sync.gs). */
+var RIDE_FORM_ = {
+  role: ['I can drive', 'I need a ride', 'I have my own way there'],
+  from: ['De Anza College', 'At my address (fill it in below)', 'Meet at the hotel'],
+  sheetHead: ['Name', 'Role', 'Seats', 'Pickup', 'Address', 'Area', 'Details', 'Leave Friday', 'Back Sunday', 'Phone', 'Note', 'Car', 'Updated']
+};
+function rideFormMake_(title, venue) {
+  var form = FormApp.create(title);
+  form.setDescription('Tell the officers how you are getting to SFBLC. Your phone number and pickup address are only shared with officers and the people in your car.');
+  form.setCollectEmail(true);
+  form.addTextItem().setTitle('Your full name').setRequired(true);
+  form.addMultipleChoiceItem().setTitle('How are you getting there?').setChoiceValues(RIDE_FORM_.role).setRequired(true);
+  form.addListItem().setTitle('Drivers: seats for riders').setChoiceValues(['1', '2', '3', '4', '5', '6', '7'])
+    .setHelpText('Not counting yourself.');
+  form.addMultipleChoiceItem().setTitle('Where should the carpool start or pick you up?')
+    .setChoiceValues(RIDE_FORM_.from).setHelpText('The hotel is the ' + (venue || 'conference hotel') + '. Drivers start from De Anza or an address.');
+  form.addTextItem().setTitle('Pickup address or cross streets').setHelpText('Only officers and your car see it.');
+  form.addTextItem().setTitle('City or neighborhood').setHelpText('Shown to everyone, so riders can find a car near them.');
+  form.addTimeItem().setTitle('Drivers: leaving Friday at');
+  form.addMultipleChoiceItem().setTitle('Riding or driving back on Sunday too?').setChoiceValues(['Yes', 'No']);
+  form.addTextItem().setTitle('Phone number').setHelpText('So your car can reach you on the day.');
+  form.addParagraphTextItem().setTitle('Anything else');
+  var ss = SpreadsheetApp.create(title + ' (sheet)');
+  form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  publishForm(form);
+  /* The tab the sync reads and writes. Plain text throughout, so times and
+     phone numbers stay as typed instead of turning into dates and numbers. */
+  var first = ss.getSheetByName('Sheet1') || ss.insertSheet('Carpools', 0);
+  first.setName('Carpools');
+  first.getRange(1, 1, 400, RIDE_FORM_.sheetHead.length).setNumberFormat('@');
+  first.getRange(1, 1, 1, RIDE_FORM_.sheetHead.length).setValues([RIDE_FORM_.sheetHead]).setFontWeight('bold');
+  first.setFrozenRows(1);
+  var url = form.getPublishedUrl();
+  try { url = form.shortenFormUrl(url); } catch (e) {}
+  return {formId: form.getId(), formUrl: url, formEditUrl: form.getEditUrl(), sheetId: ss.getId(), sheetUrl: ss.getUrl()};
 }
 function readMsgs_(aff) { return dashRow_('msgs:' + aff, []); }
 function writeMsgs_(aff, list) {
