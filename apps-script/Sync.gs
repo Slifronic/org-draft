@@ -39,6 +39,9 @@ var SYNC_ = {
     records: '19xazg1JCkQl-JJADMmgZqKfx0l35u1uNPct33MPcq8E'      // PBL Verify Records (the bot's)
   }
 };
+/* Each club's member master: one row per person and, on its Aliases tab, every other spelling the
+   chapter's sheets have used for them. Read only, to resolve names; never synced. */
+var SYNC_MEMBERS_ = {'deanza-pbl': '1qovgO_lam_eFknHpWH9lQWRL1m1YVtL8DrbTlmwM5DE'};   // PBL Member Master
 /* Order matters: a ticket decided here writes the meeting cell, which the
    attendance pass then carries back into this club's Attendance rows. */
 var SYNC_DOMAINS_ = ['discord', 'tickets', 'attendance', 'teams', 'rooms', 'itinerary', 'rides'];
@@ -109,6 +112,10 @@ function attName_(first, last) {
   return f.replace(/,/g, ' ').split(' ').filter(String).length > 1 ? f : f + ' ' + l;
 }
 function attPerson_(first, last, roster) {
+  /* First and last as written, when the roster knows that name: "Yen Nhi" | "Britcher" is Yen Nhi Britcher,
+     not "Yen Nhi" with a nickname beside it. */
+  var both = sclean_(sclean_(first).replace(/,/g, ' ') + ' ' + sclean_(last));
+  if (sclean_(last) && roster[flatName_(both)]) return roster[flatName_(both)];
   var raw = attName_(first, last), name = syncMatchName_(raw, roster);
   if (roster[flatName_(name)]) return name;
   var f = sclean_(first).replace(/,/g, ' ').split(' ').filter(String), nick = sclean_(last);
@@ -329,7 +336,37 @@ function syncRoster_(aff) {
       if (n) names[flatName_(n)] = names[flatName_(n)] || n;
     });
   } catch (e) {}
+  /* A nickname in brackets is not part of the name the sheets use ("Yufeng Li (Felix)" is "Yufeng Li"). */
+  Object.keys(names).forEach(function (k) {
+    var bare = sclean_(names[k].replace(/\s*\([^)]*\)\s*/g, ' '));
+    if (bare && !names[flatName_(bare)]) names[flatName_(bare)] = names[k];
+  });
+  /* Every other spelling the member master knows, for a member the roster has. */
+  syncAliases_(aff).forEach(function (a) {
+    var k = flatName_(a.alias), to = names[flatName_(a.name)];
+    if (k && to && !names[k]) names[k] = to;
+  });
   return names;
+}
+/* The member master's Aliases tab (As Written -> Canonical Name), once per run. A spelling the
+   master gives to two different members is dropped: it cannot say who is meant. */
+var SYNC_ALIASES_ = {};
+function syncAliases_(aff) {
+  if (SYNC_ALIASES_[aff]) return SYNC_ALIASES_[aff];
+  var out = [], id = SYNC_MEMBERS_[aff];
+  try {
+    var sh = id && sbook_(id).getSheetByName('Aliases');
+    if (sh) {
+      var v = sh.getDataRange().getValues(), h = (v[0] || []).map(sn_), a = h.indexOf('as written'), c = h.indexOf('canonical name'), to = {};
+      for (var r = 1; a >= 0 && c >= 0 && r < v.length; r++) {
+        var k = flatName_(v[r][a]), n = sclean_(v[r][c]);
+        if (!k || !n) continue;
+        to[k] = to[k] === undefined || to[k] === n ? n : null;
+      }
+      Object.keys(to).forEach(function (k) { if (to[k]) out.push({alias: k, name: to[k]}); });
+    }
+  } catch (e) { Logger.log('syncAliases_: ' + (e && e.message || e)); }
+  return (SYNC_ALIASES_[aff] = out);
 }
 /* A sheet name to a roster name: exact, "Last, First", or first and last
    word (middle names dropped). Unknown names come back as typed. */
@@ -388,7 +425,10 @@ function syncFuzzy_(s, roster) {
     if (f === 2 && !l && Math.min(me[1].length, o[1].length) >= 6 && dist(me[1], o[1]) <= 2) l = 1;
     return f && l && f + l >= 3;
   });
-  return hits.length === 1 ? roster[hits[0]] : '';
+  /* Several spellings of one member (aliases, a bracketed nickname) are still one person. */
+  var who = {};
+  hits.forEach(function (k) { who[roster[k]] = 1; });
+  return Object.keys(who).length === 1 ? Object.keys(who)[0] : '';
 }
 
 /* ---- adapters ---- */
