@@ -107,7 +107,7 @@ function load(w) {
     LockService: {getScriptLock: () => ({hasLock: () => lockHeld, tryLock: () => (lockHeld = true), waitLock: () => { lockHeld = true; }, releaseLock: () => { lockHeld = false; }})},
     PropertiesService: {getScriptProperties: () => ({getProperty: (k) => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: (k) => { delete props[k]; }})},
     ScriptApp: {getProjectTriggers: () => triggers.slice(), deleteTrigger: (t) => triggers.splice(triggers.indexOf(t), 1),
-      newTrigger: (fn) => { const t = {fn, getHandlerFunction: () => fn}; const b = {forSpreadsheet: () => b, onChange: () => b, timeBased: () => b, after: () => b, create: () => { triggers.push(t); return t; }}; return b; }},
+      newTrigger: (fn) => { const t = {fn, getHandlerFunction: () => fn}; const b = {forSpreadsheet: (id) => { t.src = id; return b; }, onChange: () => { t.kind = 'change'; return b; }, onFormSubmit: () => { t.kind = 'submit'; return b; }, timeBased: () => b, after: () => b, create: () => { triggers.push(t); return t; }}; return b; }},
     DriveApp: {getFileById: () => ({getLastUpdated: () => new Date(clock), addEditor() {}, setOwner() {}})},
     Session: {getScriptTimeZone: () => 'America/Los_Angeles'},
     Utilities: {formatDate: fmt, getUuid: () => require('crypto').randomUUID()},
@@ -178,6 +178,22 @@ test('an officer makes the form and sheet once; existing rides go onto the Carpo
   const memberCfg = ann('getAll').config.rideForm;
   assert.deepEqual(memberCfg, {formUrl: 'https://forms.gle/carpool1'});
   assert.equal(off('getAll').config.rideForm.sheetId, 'SHEET1');
+});
+
+test('a form answer wakes the sync: the carpool sheet gets an onFormSubmit trigger', () => {
+  const on = (kind) => g.triggers.filter((t) => t.fn === 'syncOnChange' && t.kind === kind).map((t) => t.src);
+  assert.deepEqual(on('submit'), ['SHEET1'], 'form answers never fire onChange, so this is what notices them');
+  assert.ok(on('change').includes('SHEET1'), 'typing on the Carpools tab still does');
+  const before = g.triggers.length;
+  g.as(() => g.syncInstall_());
+  assert.equal(g.triggers.length, before, 'installed once, not again on every keep-warm');
+  /* The submit event names its sheet through e.range, not e.source. */
+  delete g.props['syncDueAt'];
+  g.as(() => g.syncOnChange({range: {getSheet: () => ({getParent: () => ({getId: () => 'SHEET1'})})}}));
+  assert.ok(g.props['syncSheetAt:SHEET1'], 'the carpool sheet is stamped as edited');
+  assert.ok(g.triggers.some((t) => t.fn === 'syncDue'), 'and one sync is booked');
+  g.triggers.filter((t) => t.fn === 'syncDue').forEach((t) => g.triggers.splice(g.triggers.indexOf(t), 1));
+  delete g.props['syncDueAt'];
 });
 
 test('an edit here reaches the sheet in the same request', () => {

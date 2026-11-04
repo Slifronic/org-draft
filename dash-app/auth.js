@@ -45,7 +45,8 @@ function gtokRaw() {
   try { var v = JSON.parse(lsGet(KEYS.gtok) || 'null'); return v && v.t && v.exp ? v : null; } catch (e) { return null; }
 }
 function storeWho(w) { lsSet('orgsystem.who', w ? JSON.stringify(w) : null); }
-function clearCreds() { lsSet(KEYS.session, null); lsSet(KEYS.gtok, null); storeWho(null); }
+/* The copies of the club kept for a fast start (app.js, sources.js) go with the account. */
+function clearCreds() { lsSet(KEYS.session, null); lsSet(KEYS.gtok, null); lsSet(KEYS.boot, null); lsSet(KEYS.linked, null); storeWho(null); }
 function launchedFromHome() {
   try { return !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)); } catch (e) { return false; }
 }

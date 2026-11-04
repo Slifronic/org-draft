@@ -53,7 +53,7 @@ function syncIds_(aff) {
   if (rf && rf.sheetId) out.rides = rf.sheetId;
   return out;
 }
-var SYNC_TRIGGER_V_ = '1';
+var SYNC_TRIGGER_V_ = '2';
 
 /* ---- small helpers ---- */
 function sn_(x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase(); }
@@ -266,9 +266,13 @@ function syncAfterOrg_(aff, domains, why) {
 
 /* ---- triggers ----
    onChange on every linked spreadsheet stamps the edit and books one sync
-   about 30 seconds out, so a burst of typing costs one run, not fifty. */
+   about 30 seconds out, so a burst of typing costs one run, not fifty.
+   A Google Form answer never fires onChange on its sheet, so the carpool
+   sheet also gets an onFormSubmit trigger here; that event names its sheet
+   through e.range, not e.source. */
 function syncOnChange(e) {
-  var id = e && e.source ? e.source.getId() : '';
+  var id = '';
+  try { id = e && e.source ? e.source.getId() : e && e.range ? e.range.getSheet().getParent().getId() : ''; } catch (err) {}
   if (id) syncStampSheet_(id);
   var p = syncProps_();
   if (Number(p.getProperty('syncDueAt') || 0) > Date.now()) return;
@@ -283,13 +287,18 @@ function syncDue() {
 /* Installs the onChange triggers once (and again if SYNC_ gains a sheet).
    keepWarm calls it, so a redeploy is all it takes. */
 function syncInstall_() {
-  var want = {};
-  Object.keys(SYNC_).forEach(function (aff) { var ids = syncIds_(aff) || {}; Object.keys(ids).forEach(function (k) { want[ids[k]] = 1; }); });
-  var sig = SYNC_TRIGGER_V_ + ':' + Object.keys(want).sort().join(',');
+  var want = {}, forms = {};
+  Object.keys(SYNC_).forEach(function (aff) {
+    var ids = syncIds_(aff) || {};
+    Object.keys(ids).forEach(function (k) { want[ids[k]] = 1; });
+    if (ids.rides) forms[ids.rides] = 1;
+  });
+  var sig = SYNC_TRIGGER_V_ + ':' + Object.keys(want).sort().join(',') + '|' + Object.keys(forms).sort().join(',');
   var p = syncProps_();
   if (p.getProperty('syncTriggers') === sig) return;
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'syncOnChange') ScriptApp.deleteTrigger(t); });
   Object.keys(want).forEach(function (id) { ScriptApp.newTrigger('syncOnChange').forSpreadsheet(id).onChange().create(); });
+  Object.keys(forms).forEach(function (id) { ScriptApp.newTrigger('syncOnChange').forSpreadsheet(id).onFormSubmit().create(); });
   p.setProperty('syncTriggers', sig);
 }
 /* From keepWarm: a club whose sheets and record have not moved since its

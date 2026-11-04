@@ -4,6 +4,7 @@
 // of it on every visit. The source files stay as they are -- edit those, never
 // dist/. Run `node build.mjs` to check a build locally.
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { transform } from 'esbuild';
 
@@ -82,4 +83,27 @@ for (const f of fs.readdirSync(path.join(out, 'dash-app'))) {
   const r = await transform(src, ext === '.css' ? { loader: 'css', minify: true }
     : { loader: 'js', minify: true, target: 'es2019', charset: 'utf8', legalComments: 'none' });
   fs.writeFileSync(file, r.code);
+}
+
+// One script and one stylesheet for the dashboard, named by their content. The
+// browser used to re-check twenty files on every visit; now it downloads two
+// once and keeps them (vercel.json marks /dash-app/b-* immutable), and a new
+// build gets new names, so nobody runs an old copy.
+{
+  const page = path.join(out, 'index.html');
+  let html = fs.readFileSync(page, 'utf8');
+  const tags = [...html.matchAll(/<script src="\/dash-app\/([\w-]+\.js)"><\/script>\s*/g)];
+  if (!tags.length) throw new Error('index.html: no dashboard scripts found to bundle');
+  const js = tags.map((m) => fs.readFileSync(path.join(out, 'dash-app', m[1]), 'utf8')).join(';\n');
+  const jh = crypto.createHash('sha256').update(js).digest('hex').slice(0, 10);
+  fs.writeFileSync(path.join(out, 'dash-app', `b-${jh}.js`), js);
+  html = html.replace(tags[0][0], `<script src="/dash-app/b-${jh}.js"></script>`);
+  tags.slice(1).forEach((m) => { html = html.replace(m[0], ''); });
+  const css = fs.readFileSync(path.join(out, 'dash-app', 'app.css'), 'utf8');
+  const ch = crypto.createHash('sha256').update(css).digest('hex').slice(0, 10);
+  fs.writeFileSync(path.join(out, 'dash-app', `b-${ch}.css`), css);
+  if (html.indexOf('href="/dash-app/app.css"') < 0) throw new Error('index.html: dashboard stylesheet not found');
+  html = html.replace('href="/dash-app/app.css"', `href="/dash-app/b-${ch}.css"`);
+  fs.writeFileSync(page, html);
+  console.log(`dashboard: ${tags.length} scripts -> b-${jh}.js (${(js.length / 1024).toFixed(0)} KB), app.css -> b-${ch}.css`);
 }

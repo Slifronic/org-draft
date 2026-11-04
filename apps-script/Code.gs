@@ -44,7 +44,7 @@ var NEEDS = {
   msgList: 'admin', msgSend: 'admin', msgCancel: 'admin', myInbox: 'member', sfCheck: 'member',
   linkedRead: 'admin', extRequest: 'member', extList: 'admin', extDecide: 'admin',
   syncStatus: 'admin', syncNow: 'admin', ticketList: 'admin', ticketDecide: 'admin', discordList: 'admin', discordLink: 'admin',
-  rideList: 'member', rideSave: 'member', rideAssign: 'admin', attMark: 'admin', rideFormSetup: 'admin'
+  rideList: 'member', rideSave: 'member', rideAssign: 'admin', attMark: 'admin', batch: 'member', rideFormSetup: 'admin'
 };
 /* The script runs as its owner, so anything it creates is owned by the master
    account and the officer who asked for it cannot open the form or read a
@@ -988,6 +988,22 @@ function doPost(e) {
       return out({ok: false, error: 'Join your club first.', needsAff: true});
     }
 
+    /* Several reads in one request. Every call to the web app costs two to
+       three seconds before it does any work, and an officer's page load used
+       to make about twenty. Only read-only actions may ride along, each checked
+       against NEEDS exactly as if it had been sent on its own. */
+    if (action === 'batch') {
+      var calls = Array.isArray(body.payload) ? body.payload.slice(0, 20) : [];
+      var results = calls.map(function (c) {
+        var a = String((c && c.action) || '');
+        if (!NEEDS[a] || !READ_ONLY[a] || a === 'batch') return {ok: false, error: 'Unknown action.'};
+        if (RANK[role] < RANK[NEEDS[a]]) return {ok: false, error: 'Your account is ' + role + '. That action needs ' + NEEDS[a] + '.', role: role};
+        try { return dispatch(a, c.payload, email, role, id); } catch (err) { return failRef_('batch:' + a, err); }
+      });
+      runAfter_();
+      return out({ok: true, results: results});
+    }
+
     /* Reads do not queue behind the write lock. At a meeting, forty members
        opening the page at once were served one at a time, each waiting on
        whoever was ahead -- a read cannot corrupt anything, so it skips the
@@ -1037,7 +1053,7 @@ function failRef_(where, err) {
 var READ_ONLY = {getAll: 1, whoami: 1, myProfile: 1, listUsers: 1, listRoles: 1,
                  listSignups: 1, listSubmissions: 1, getProfile: 1, memberCard: 1,
                  clubRoster: 1, formSchema: 1, formItems: 1, msgList: 1, myInbox: 1, linkedRead: 1, extList: 1,
-                 syncStatus: 1, ticketList: 1, discordList: 1, rideList: 1};
+                 syncStatus: 1, ticketList: 1, discordList: 1, rideList: 1, batch: 1};
 
 /* ---- homework tracks (Fall 2026) ----
    Every member's homework is curated toward consulting ('c') or case
@@ -4907,11 +4923,33 @@ var LINKED_SHEETS_ = {
 
 /* payload: {sheetId, tabs: ['Teams'] | ['*'] (every tab) | ['#first'], cols: ['Person', 'Major', '#1' (a column by position)]}
    The header row is the first of the top six rows that names any wanted column. */
+/* Opening a spreadsheet is the slow part (a second or more each), and an
+   officer's page reads about nine of them on every load. The answer is kept
+   in the script cache under the file's last-edited time, so it is reused
+   only until someone changes that sheet. */
 function linkedRead_(payload, aff) {
   var p = payload || {}, id = String(p.sheetId || '');
   if (!/^[A-Za-z0-9_-]{20,80}$/.test(id)) return {ok: false, error: 'That is not a Google Sheets id.'};
   if ((LINKED_SHEETS_[aff] || []).indexOf(id) < 0)
     return {ok: false, error: 'That sheet is not linked to this club. Add it to LINKED_SHEETS_ in Code.gs.'};
+  var key = null, cache = null;
+  try {
+    var edited = DriveApp.getFileById(id).getLastUpdated().getTime();
+    key = 'lr:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
+      [id, edited, JSON.stringify(p.tabs || []), JSON.stringify(p.cols || [])].join('|')));
+    cache = CacheService.getScriptCache();
+    var hit = cache.get(key);
+    if (hit) return JSON.parse(hit);
+  } catch (e) { key = null; }
+  var res = linkedReadFresh_(p, id);
+  if (key && res.ok) {
+    var j = JSON.stringify(res);
+    /* The cache holds up to 100 KB a key; a bigger sheet is simply read each time. */
+    if (j.length < 95000) try { cache.put(key, j, 21600); } catch (e) {}
+  }
+  return res;
+}
+function linkedReadFresh_(p, id) {
   var want = (p.cols || []).slice(0, 20).map(function (c) { return String(c).toLowerCase().trim(); }).filter(String);
   if (!want.length) return {ok: false, error: 'Name the columns to read.'};
   var ss;

@@ -7,7 +7,8 @@
 
 var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby1mYJ3PlDt2YlCnGGRLZqQSrW5o1sBvB4xjpjJBgyo4Rhmk7VegwAiSw2WRKBpcDyfXQ/exec';
 var KEYS = {session: 'orgsystem.session', gtok: 'orgsystem.gtok', aff: 'orgsystem.aff', theme: 'orgsystem.theme',
-            seen: 'orgsystem.dash.seen', nav: 'orgsystem.dash.nav', dtheme: 'orgsystem.dash.theme', size: 'orgsystem.dash.size', motion: 'orgsystem.dash.motion'};
+            seen: 'orgsystem.dash.seen', nav: 'orgsystem.dash.nav', dtheme: 'orgsystem.dash.theme', size: 'orgsystem.dash.size', motion: 'orgsystem.dash.motion',
+            boot: 'orgsystem.dash.boot', linked: 'orgsystem.dash.linked'};
 var RANK = {none: 0, member: 1, admin: 2, master: 3};
 var DEMO = /(^|[?&])demo(=|&|$)/.test(location.search) || /^\/demo\/?$/.test(location.pathname);
 
@@ -121,6 +122,29 @@ function call(action, payload, tries) {
         return new Promise(function (res) { setTimeout(res, 700 + Math.random() * 900); }).then(function () { return call(action, payload, (tries || 0) + 1); });
       return v;
     });
+}
+/* Several read-only actions in one request (Code.gs batch): each web-app call
+   costs two to three seconds before it does anything. Resolves to one answer
+   per call, in order. A backend without batch gets them sent one by one. */
+var BATCH_OFF = false;
+function callBatch(list) {
+  var each = function () { return Promise.all(list.map(function (c) { return call(c.action, c.payload); })); };
+  if (DEMO || BATCH_OFF) return each();
+  return call('batch', list).then(function (r) {
+    if (r && r.ok && Array.isArray(r.results)) return r.results;
+    if (r && /unknown action/i.test(String(r.error || ''))) BATCH_OFF = true;
+    return null;
+  });
+}
+/* A short fingerprint of who is signed in on this device, so a copy kept for
+   one account is never shown to another. */
+function whoKey() {
+  var s = lsGet(KEYS.session) || '', g = '';
+  if (!s) try { var v = JSON.parse(lsGet(KEYS.gtok) || 'null'); g = v && v.t && typeof jwtPeek === 'function' ? String(jwtPeek(v.t).email || '') : ''; } catch (e) {}
+  var t = (s ? 's:' + s : g ? 'g:' + g : '') + '|' + (lsGet(KEYS.aff) || ''), h = 5381;
+  if (t.length < 3) return '';
+  for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return String(h >>> 0);
 }
 
 /* The same item-by-item save the classic page sends, so two officers editing

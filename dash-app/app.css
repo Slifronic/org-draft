@@ -1415,3 +1415,22 @@ details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overf
   .tdb{grid-column:1}
 }
 .tkf dd .meta{display:inline;margin:0 0 0 6px}
+
+/* ---- nav sub-sections ---- */
+.navi{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:2px}
+.navi>a{grid-column:1;min-width:0}
+.navx{grid-column:2;width:30px;height:30px;border:0;background:none;color:var(--mute);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.navx:hover,.navx:focus-visible{background:var(--card);color:var(--ink)}
+.navx .ic{width:16px;height:16px;transition:transform .15s}
+.navi.open .navx .ic{transform:rotate(180deg)}
+.navsubs{grid-column:1/-1;display:flex;flex-direction:column;gap:1px;margin:1px 0 6px 21px;padding-left:10px;border-left:1px solid var(--hair)}
+.sidenav .navsubs a,[data-theme^="phi"] .sidenav .navsubs a{padding:6px 10px;font-size:13.5px;gap:8px;box-shadow:none}
+.sidenav .navsubs a.on,[data-theme^="phi"] .sidenav .navsubs a.on{background:var(--card);color:var(--ink);box-shadow:none;font-weight:600}
+[data-theme^="phi"] .sidenav .navsubs a.on{background:var(--wash)}
+.morenav .mcell{background:var(--paper);display:flex;flex-direction:column;min-width:0}
+.morenav .mcell.on{background:var(--wash)}
+.morenav .mcell>a{background:none}
+.moresubs{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px 12px}
+.morenav .moresubs a{min-height:0;padding:3px 9px;font-size:12px;border:1px solid var(--hair);border-radius:999px;background:var(--card);flex-direction:row;gap:0;color:var(--slate)}
+.morenav .moresubs a.on{border-color:currentColor;color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.navx .ic{transition:none}}

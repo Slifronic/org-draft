@@ -37,7 +37,7 @@ var SOURCES = [
    about: 'The latest sheet with a dues column (Winter 2026)'}
 ];
 
-var LINKED = {tags: {}, emails: {}, status: {}, data: {}, loading: false};
+var LINKED = {tags: {}, emails: {}, status: {}, data: {}, errs: {}, loading: false};
 function sourceOn(s) { var o = (M.cfg.tagSources || {})[s.id]; return o === undefined ? !s.off : !!o; }
 
 /* Which person a name in someone else's sheet means. */
@@ -101,20 +101,41 @@ function deriveTags(src, res) {
   return {tags: out, matched: Object.keys(matched).length, missed: Object.keys(missed)};
 }
 
+/* Tags and statuses from whatever has been read so far (fresh, or the copy kept from last time). */
+function linkedApply(on) {
+  LINKED.tags = {};
+  on.forEach(function (s) {
+    var r = LINKED.data[s.id];
+    if (!r) { if (LINKED.errs[s.id]) LINKED.status[s.id] = {error: LINKED.errs[s.id]}; return; }
+    var d = deriveTags(s, r);
+    LINKED.status[s.id] = {rows: r.tabs.reduce(function (a, t) { return a + t.rows.length; }, 0), tabs: r.tabs.length, matched: d.matched, missed: d.missed, title: r.title, at: r.readAt || Date.now()};
+    Object.keys(d.tags).forEach(function (k) { LINKED.tags[k] = (LINKED.tags[k] || []).concat(d.tags[k]); });
+  });
+}
+/* The sheets' last answers are kept on this device for the same account, so
+   tags show at once while the sheets are read again in the background. */
 function loadLinked() {
   if (!M || !M.officer) return Promise.resolve();
-  var on = SOURCES.filter(sourceOn);
+  var on = SOURCES.filter(sourceOn), w = whoKey();
   if (!on.length) { LINKED.tags = {}; return Promise.resolve(); }
+  LINKED.errs = {};
+  if (!DEMO && w && !Object.keys(LINKED.data).length) try {
+    var kept = JSON.parse(lsGet(KEYS.linked) || 'null');
+    if (kept && kept.who === w && Date.now() - kept.at < 7 * 864e5) { LINKED.data = kept.data || {}; linkedApply(on); rebuild(); softRender(); }
+  } catch (e) {}
   LINKED.loading = true;
   return Promise.all(on.map(function (s) {
     return call('linkedRead', {sheetId: s.sheet, tabs: s.tabs, cols: s.cols}).then(function (r) {
-      if (!(r && r.ok)) { LINKED.status[s.id] = {error: (r && r.error) || (M.msgsReady ? 'The backend did not answer.' : 'Needs the backend update.')}; return; }
+      if (!(r && r.ok)) { LINKED.errs[s.id] = (r && r.error) || (M.msgsReady ? 'The backend did not answer.' : 'Needs the backend update.'); return; }
+      r.readAt = Date.now();
       LINKED.data[s.id] = r;
-      var d = deriveTags(s, r);
-      LINKED.status[s.id] = {rows: r.tabs.reduce(function (a, t) { return a + t.rows.length; }, 0), tabs: r.tabs.length, matched: d.matched, missed: d.missed, title: r.title, at: Date.now()};
-      Object.keys(d.tags).forEach(function (k) { LINKED.tags[k] = (LINKED.tags[k] || []).concat(d.tags[k]); });
     });
-  })).then(function () { LINKED.loading = false; rebuild(); render(); });
+  })).then(function () {
+    LINKED.loading = false;
+    linkedApply(on);
+    if (!DEMO && w) try { var j = JSON.stringify({who: w, at: Date.now(), data: LINKED.data}); lsSet(KEYS.linked, j.length < 2e6 ? j : null); } catch (e) { lsSet(KEYS.linked, null); }
+    rebuild(); softRender();
+  });
 }
 function reloadLinked() { LINKED.tags = {}; LINKED.status = {}; LINKED.data = {}; return loadLinked(); }
 
@@ -230,16 +251,17 @@ var SYNC_DOMAINS = {attendance: 'Attendance', tickets: 'Tickets', teams: 'Teams'
 var TICKET_ST = {'Pending': 'Pending', 'Present': 'Present', 'Excused Late': 'Excused late', 'Unexcused Late': 'Unexcused late',
                  'Excused Abscence': 'Excused absence', 'Unexcused Abscence': 'Unexcused absence'};
 function syncErr(r) { return (r && r.error) || 'The backend did not answer.'; }
-function loadSync(what) {
+/* pre: answers the boot request already brought (app.js loadAll), so they are not asked for again. */
+function loadSync(what, pre) {
   if (!M || !M.officer) return Promise.resolve();
-  var acts = {status: 'syncStatus', tickets: 'ticketList', profiles: 'discordList'};
+  var acts = {status: 'syncStatus', tickets: 'ticketList', profiles: 'discordList'}, had = pre && Object.keys(acts).some(function (k) { return pre[k]; });
   return Promise.all((what || Object.keys(acts)).map(function (k) {
-    return call(acts[k]).then(function (r) {
+    return (pre && pre[k] ? Promise.resolve(pre[k]) : call(acts[k])).then(function (r) {
       if (!(r && r.ok)) { SYNC.err[k] = syncErr(r); return; }
       delete SYNC.err[k];
       SYNC[k] = k === 'status' ? r : k === 'tickets' ? (r.tickets || []) : (r.profiles || []);
     });
-  })).then(function () { linkMap(); rebuild(); render(); });
+  })).then(function () { linkMap(); rebuild(); had ? softRender() : render(); });
 }
 function linkMap() {
   SYNC.linked = {};

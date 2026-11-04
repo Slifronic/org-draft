@@ -19,10 +19,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      # The live site names the backend it uses, whichever branch deployed it.
+      # The live site names the backend it uses, whichever branch deployed it:
+      # in the page itself (classic) or in the dashboard's script, which the
+      # page loads from /dash-app/.
       - name: Ping the backend
         run: |
-          URL=$(curl -s -m 30 https://org.deanzapbl.com/ | grep -o "https://script.google.com/macros/s/[A-Za-z0-9_-]*/exec" | head -1)
+          SITE=https://org.deanzapbl.com
+          PAT="https://script.google.com/macros/s/[A-Za-z0-9_-]*/exec"
+          PAGE=$(curl -s -m 30 "$SITE/")
+          URL=$(printf '%s' "$PAGE" | grep -o "$PAT" | head -1)
+          if [ -z "$URL" ]; then
+            for js in $(printf '%s' "$PAGE" | grep -o '/dash-app/[A-Za-z0-9_.-]*\.js'); do
+              URL=$(curl -s -m 30 "$SITE$js" | grep -o "$PAT" | head -1)
+              [ -n "$URL" ] && break
+            done
+          fi
           test -n "$URL" || { echo "Could not read the backend address from the site"; exit 1; }
           curl -sL -m 60 -o /dev/null -w "backend %{http_code} in %{time_total}s\n" \
             -H 'Content-Type: text/plain;charset=utf-8' \

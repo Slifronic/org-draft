@@ -12,15 +12,27 @@ var RIDE_FROM = {deanza: 'De Anza College', addr: 'An address', hotel: 'Meet at 
 var RIDE_ROLE = {driver: ['I can drive', 'Offer seats in your car'], rider: ['I need a ride', 'Join a car with an open seat'], own: ['I have my own way', 'Parents, train, already there']};
 var DEANZA_Q = 'De Anza College, 21250 Stevens Creek Blvd, Cupertino, CA';
 
-function ridesLoad() {
-  return call('rideList').then(function (r) {
+function ridesLoad(pre) {
+  RIDES.at = Date.now();
+  return (pre ? Promise.resolve(pre) : call('rideList')).then(function (r) {
+    var was = JSON.stringify(RIDES.list);
     if (r && r.ok) { RIDES.list = r.rides || []; RIDES.ready = true; RIDES.err = ''; }
     else if (r && /unknown action/i.test(String(r.error || ''))) RIDES.ready = false;
     else RIDES.err = (r && r.error) || 'Carpools did not load.';
-    if (ROUTE.view === 'sfblc' && ROUTE.sub === 'rides') render();
+    /* Redraw only when something changed, and never under someone typing on the tab. */
+    var typing = document.activeElement && $('view').contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (ridesOpen() && (!RIDES.shown || was !== JSON.stringify(RIDES.list)) && !typing) { RIDES.shown = true; render(); }
   });
 }
-BOOT_EXT.push(function () { ridesLoad(); });
+function ridesOpen() { return ROUTE.view === 'sfblc' && ROUTE.sub === 'rides'; }
+BOOT_EXT.push(function (raw) { ridesLoad(raw && raw.pre && raw.pre.rides); });
+/* Sign-ups also arrive from the carpool Form and its sheet (Sync.gs, about a
+   minute behind), so the tab reads the list again when opened and every 30
+   seconds while it is on screen. */
+window.addEventListener('hashchange', function () {
+  setTimeout(function () { if (ridesOpen() && RIDES.ready !== null && Date.now() - (RIDES.at || 0) > 15000) ridesLoad(); }, 0);
+});
+setInterval(function () { if (ridesOpen() && RIDES.ready && !document.hidden) ridesLoad(); }, 30000);
 
 function rideMe() { return RIDES.list.filter(function (x) { return x.who === M.me.key; })[0] || null; }
 function rideCars() { return RIDES.list.filter(function (x) { return x.role === 'driver'; }); }

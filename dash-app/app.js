@@ -6,7 +6,21 @@ var ROUTE = {view: 'overview', sub: '', q: {}};
 var PREV_STATS = {};
 
 /* ---------- loading ---------- */
+/* Everything the first screen needs, in one request. The officer-only reads
+   answer a member with a refusal, which is simply not used. raw.pre carries
+   what used to be fetched after the first paint (extensions, carpools, sync). */
+var BOOT_CALLS = ['getAll', 'clubRoster', 'listSubmissions', 'msgList', 'myInbox', 'myProfile', 'extList', 'rideList', 'syncStatus', 'ticketList', 'discordList'];
 function loadAll() {
+  return callBatch(BOOT_CALLS.map(function (a) { return {action: a}; })).then(function (r) {
+    if (!r) return loadOneByOne();
+    var all = r[0], officer = all && RANK[all.role] >= RANK.admin, ok = function (x) { return x && x.ok ? x : null; };
+    if (!all || !all.ok || all.needsAff) return {err: all && all.error ? all.error : (creds() || DEMO ? 'The backend did not answer.' : 'signin')};
+    return {all: all, roster: officer ? r[1] : null, subs: officer ? r[2] : null, msgs: officer ? r[3] : null, inbox: r[4], profile: r[5],
+            pre: {ext: officer ? ok(r[6]) : null, rides: r[7], status: officer ? r[8] : null, tickets: officer ? r[9] : null, profiles: officer ? r[10] : null}};
+  });
+}
+/* The old way, for a backend without batch (or an account still joining a club). */
+function loadOneByOne() {
   return call('getAll').then(function (all) {
     if (!all || !all.ok || all.needsAff) return {err: all && all.error ? all.error : (creds() || DEMO ? 'The backend did not answer.' : 'signin')};
     var officer = RANK[all.role] >= RANK.admin;
@@ -16,24 +30,63 @@ function loadAll() {
     ]).then(function (r) { return {all: all, roster: r[0], subs: r[1], msgs: r[2], inbox: r[3], profile: r[4]}; });
   });
 }
+/* The last load is kept on this device for the same account, so the page
+   paints at once from it and then quietly swaps in the fresh copy. */
+function bootSaved() {
+  if (DEMO) return null;
+  try {
+    var s = JSON.parse(lsGet(KEYS.boot) || 'null'), w = whoKey();
+    if (s && w && s.who === w && Date.now() - s.at < 7 * 864e5 && s.raw && s.raw.all) return s;
+  } catch (e) {}
+  return null;
+}
+function bootSave(raw) {
+  if (DEMO) return;
+  var w = whoKey(); if (!w) return;
+  try {
+    var j = JSON.stringify({who: w, at: Date.now(), raw: {all: raw.all, roster: raw.roster, subs: raw.subs, msgs: raw.msgs, inbox: raw.inbox, profile: raw.profile, pre: raw.pre}});
+    lsSet(KEYS.boot, j.length < 3e6 ? j : null);
+  } catch (e) { lsSet(KEYS.boot, null); }
+}
 function boot() {
   applyTheme();
-  $('view').innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
+  var saved = bootSaved();
+  if (saved) { start(saved.raw, true); document.body.classList.add('stale'); }
+  else $('view').innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
   loadAll().then(function (raw) {
-    if (raw.err) return signedOut(raw.err);
-    RAW = raw;
-    document.body.classList.remove('out');
-    BASE = JSON.parse(JSON.stringify(raw.all.config || {}));
-    raw.all.config = JSON.parse(JSON.stringify(BASE));
-    build(RAW);
-    document.body.classList.toggle('officer', M.officer);
-    route();
-    loadLinked();
-    loadSync();
-    if (M.officer) call('extList').then(function (r) { if (r && r.ok) { STAND.ext = r.ext || []; render(); } });
-    /* Feature files that need the loaded club (onboarding gates, Drive folders...) start here. */
-    BOOT_EXT.forEach(function (fn) { try { fn(raw); } catch (e) { console.error(e); } });
+    document.body.classList.remove('stale');
+    if (raw.err) { lsSet(KEYS.boot, null); return signedOut(raw.err); }
+    bootSave(raw);
+    start(raw, false, !!saved);
   });
+}
+/* cached: paint only, no requests. swap: the page is already up, so keep the
+   reader's place instead of jumping to the top. */
+function start(raw, cached, swap) {
+  RAW = raw;
+  document.body.classList.remove('out');
+  BASE = JSON.parse(JSON.stringify(raw.all.config || {}));
+  raw.all.config = JSON.parse(JSON.stringify(BASE));
+  var pre = raw.pre || {};
+  build(RAW);
+  if (pre.ext) STAND.ext = pre.ext.ext || [];
+  document.body.classList.toggle('officer', M.officer);
+  if (swap) { ROUTE = parseHash(); softRender(); } else route();
+  if (cached) return;
+  loadLinked();
+  loadSync(null, pre);
+  if (M.officer && !pre.ext) call('extList').then(function (r) { if (r && r.ok) { STAND.ext = r.ext || []; render(); } });
+  /* Feature files that need the loaded club (onboarding gates, Drive folders...) start here. */
+  BOOT_EXT.forEach(function (fn) { try { fn(raw); } catch (e) { console.error(e); } });
+}
+/* Redraws, but never under someone typing: it waits for them to leave the field. */
+function softRender() {
+  var a = document.activeElement;
+  if (a && $('view').contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) {
+    a.addEventListener('blur', function () { setTimeout(render, 0); }, {once: true});
+    return;
+  }
+  render();
 }
 function rebuild() { RAW.all.config = M.cfg; build(RAW); }
 function signedOut(err) {
@@ -99,7 +152,10 @@ function drawNav() {
   var groups = [], side = '';
   navFor().forEach(function (n) { if (groups.indexOf(n.group) < 0) groups.push(n.group); });
   groups.forEach(function (g) {
-    side += '<p class="navg">' + esc(g) + '</p>' + navFor().filter(function (n) { return n.group === g; }).map(function (n) { return link(n, false); }).join('');
+    /* navsub.js adds each section's sub-sections under it. */
+    side += '<p class="navg">' + esc(g) + '</p>' + navFor().filter(function (n) { return n.group === g; }).map(function (n) {
+      return typeof navItemHtml === 'function' ? navItemHtml(n, link(n, false)) : link(n, false);
+    }).join('');
   });
   $('sidenav').innerHTML = side;
   var tabs = navFor().filter(function (n) { return n.tab; }).sort(function (a, b) { return a.tab - b.tab; });
@@ -300,8 +356,8 @@ function act(el, ev) {
     case 'closeSheet': return closeSheet();
     case 'more':
       return openSheet('<header class="sh"><h3>Everything</h3></header><div class="morenav">' + navFor().map(function (n, i) {
-        return '<a href="#' + n.id + '" data-close class="' + (ROUTE.view === n.id ? 'on' : '') + '"><span class="nn">' + String(i + 1).padStart(2, '0') + '</span>' + icon(n.id) +
-          '<span class="nl">' + esc(!M.officer && n.member ? n.member : n.label) + '</span></a>';
+        return '<div class="mcell' + (ROUTE.view === n.id ? ' on' : '') + '"><a href="#' + n.id + '" data-close class="' + (ROUTE.view === n.id ? 'on' : '') + '"><span class="nn">' + String(i + 1).padStart(2, '0') + '</span>' + icon(n.id) +
+          '<span class="nl">' + esc(!M.officer && n.member ? n.member : n.label) + '</span></a>' + (typeof navMoreSubs === 'function' ? navMoreSubs(n) : '') + '</div>';
       }).join('') + '</div><a class="classic" href="/classic">The old version (a demo)</a>');
     case 'confirmYes': { var fn = CONFIRM_FN; CONFIRM_FN = null; closeSheet(); return fn && fn(); }
     case 'theme': return cycleTheme();
