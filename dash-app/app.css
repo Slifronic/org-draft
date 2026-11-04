@@ -1383,3 +1383,35 @@ details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overf
   .attsel{display:block;flex:0 0 auto;max-width:52%;background:var(--w);color:var(--c);border-color:var(--c);font-weight:600}
   .attsel.tone-ink{color:var(--mute);border-color:var(--hair)}
 }
+
+/* ---- attendance tickets ---- */
+#tickets>header .seg{margin-left:auto}
+.tklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.tk{border:1px solid var(--hair);border-radius:12px;padding:12px 14px;background:var(--raise)}
+.tk.old{border-color:var(--flag)}
+.tkh{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tkh .chip{cursor:default;flex:none}
+.tkf{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:10px 0 0;font-size:13.5px}
+.tkf dt{color:var(--mute)}
+.tkf dd{margin:0;min-width:0}
+.tkf .bad,.tkn.bad{color:var(--flag)}
+.tkn{font-size:12px;font-weight:600;margin-left:4px;color:var(--slate)}
+.tkn.ok{color:var(--ok)}
+.tkr{margin:10px 0 0;padding:8px 12px;border-left:3px solid var(--rule);background:var(--card);border-radius:0;font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.tk .rowacts{align-items:center;margin-top:12px}
+.tkdone{list-style:none;margin:0;padding:0}
+.tkdone li{display:grid;grid-template-columns:minmax(0,1.2fr) auto minmax(0,.8fr) auto;gap:4px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--hair)}
+.tkdone li:first-child{border-top:0}
+.tdn{display:flex;flex-direction:column;min-width:0}
+.tdn small{color:var(--mute);font-size:12px}
+.tdn .link{text-align:left}
+.tkdone .chip{cursor:default}
+.tdb{white-space:nowrap}
+.tdr{grid-column:1/-1;order:5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+@media (max-width:860px){
+  #tickets>header{flex-wrap:wrap}
+  #tickets>header .seg{margin-left:0}
+  .tkdone li{grid-template-columns:minmax(0,1fr) auto}
+  .tdb{grid-column:1}
+}
+.tkf dd .meta{display:inline;margin:0 0 0 6px}

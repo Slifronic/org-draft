@@ -375,28 +375,70 @@ VIEWS.attendance = function (sub) {
     '<p class="meta">The number is how many club meetings they have missed in all. Anyone at 2 or more carries the "Missed 2+ meetings" tag on Members. Late check-ins come from the attendance sheet and count as there.</p></section>';
   return h;
 };
-/* Attendance tickets members open with the Discord bot: the ones waiting first. */
+/* Attendance tickets members open with the Discord bot. Each waiting one reads top to bottom
+   the way an officer decides it: who and which meeting, what kind, how much notice, in their
+   own words, and their record so far. Oldest waiting first; decided ones are a tab away. */
+var TKV = {tab: 'open'};
+var TK_KIND = {late: ['Late', 'gold'], absent: ['Absent', 'red'], early: ['Leaving early', 'plum']};
+function tkKind(t) { var s = String(t.type || t.label || '').toLowerCase(); return /abs/.test(s) ? 'absent' : /early|leav/.test(s) ? 'early' : 'late'; }
+/* "10/29" is a date in the school year (August to July) the dashboard is in. */
+function tkMeetDay(m) {
+  var x = String(m || '').match(/^(\d{1,2})\/(\d{1,2})$/); if (!x) return null;
+  var now = new Date(), y0 = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  return new Date(+x[1] >= 8 ? y0 : y0 + 1, +x[1] - 1, +x[2]);
+}
+/* How much notice the ticket gave, by day (the bot does not know the meeting's start time). */
+function tkNotice(t) {
+  var d = tkMeetDay(t.meeting), o = new Date(t.opened);
+  if (!d || isNaN(o.getTime())) return null;
+  var od = new Date(o.getFullYear(), o.getMonth(), o.getDate()), n = Math.round((d - od) / 864e5);
+  return n > 1 ? {text: n + ' days before the meeting', tone: 'ok'} : n === 1 ? {text: 'the day before the meeting', tone: 'ok'} : n === 0 ? {text: 'the day of the meeting', tone: ''} :
+    {text: (n === -1 ? 'the day after the meeting' : -n + ' days after the meeting'), tone: 'bad'};
+}
+function tkStatusTone(s) { return /^unexcused/i.test(s) ? 'red' : /^excused/i.test(s) ? 'gold' : /present/i.test(s) ? 'green' : 'ink'; }
+function tkRow(t, all) {
+  var p = ticketWho(t), k = TK_KIND[tkKind(t)], abs = tkKind(t) === 'absent', md = tkMeetDay(t.meeting), nt = tkNotice(t);
+  var mine = all.filter(function (x) { return x !== t && ((p && ticketWho(x) === p) || (!p && x.username && x.username === t.username)); });
+  var unexc = mine.filter(function (x) { return /^unexcused/i.test(x.status); }).length;
+  var wait = t.opened ? (Date.now() - new Date(t.opened).getTime()) / 864e5 : 0;
+  var st = p && typeof standingOf === 'function' ? standingOf(p) : null;
+  var who = p ? '<button class="who" data-act="profile" data-key="' + esc(p.key) + '">' + avatar(p) + '<span><span class="pn">' + esc(p.name) + '</span><span class="pe">' + esc([p.org, t.username ? '@' + t.username : ''].filter(Boolean).join(' · ')) + '</span></span></button>'
+    : '<div class="who">' + avatar({name: t.name || t.username || '?'}) + '<span><span class="pn">' + esc(t.name || '@' + t.username) + '</span><span class="pe bad">Not matched to a member' + (t.username ? ' · @' + esc(t.username) : '') + '</span></span></div>';
+  var facts = [
+    ['Meeting', esc(t.meeting ? 'Meeting ' + t.meeting : 'Not given') + (md ? ' <span class="meta">' + esc(md.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})) + '</span>' : '')],
+    ['Opened', esc(t.opened ? ago(t.opened) : 'Unknown') + (nt ? ' <span class="tkn ' + nt.tone + '">' + esc(nt.text) + '</span>' : '')],
+    ['History', mine.length ? plural(mine.length, 'other ticket') + (unexc ? ', <b class="bad">' + unexc + ' unexcused</b>' : '') : 'First ticket'],
+    ['Standing', st ? '<span class="badge ' + LEVELS[st.level][1] + '">' + esc(LEVELS[st.level][0]) + '</span>' + (st.streak ? ' <span class="meta">' + (st.streak === 1 ? 'missed the last meeting' : 'missed the last ' + st.streak + ' meetings in a row') + '</span>' : '') : '<span class="meta">Unknown</span>']
+  ];
+  return '<li class="tk' + (wait > 2 ? ' old' : '') + '"><div class="tkh">' + who + '<span class="chip tone-' + k[1] + '">' + esc(t.label || k[0]) + '</span></div>' +
+    '<dl class="tkf">' + facts.map(function (f) { return '<dt>' + f[0] + '</dt><dd>' + f[1] + '</dd>'; }).join('') + '</dl>' +
+    (t.reason ? '<blockquote class="tkr">' + esc(t.reason) + '</blockquote>' : '<p class="meta">No reason given.</p>') +
+    '<div class="rowacts"><button class="btn sm tkok" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="' + (abs ? 'Excused Abscence' : 'Excused Late') + '">' + icon('check') + (abs ? 'Excused absence' : 'Excused late') + '</button>' +
+    '<button class="btn sm ghost tkno" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="' + (abs ? 'Unexcused Abscence' : 'Unexcused Late') + '">' + icon('close') + (abs ? 'Unexcused absence' : 'Unexcused late') + '</button>' +
+    (wait > 2 ? '<span class="meta bad">Waiting ' + Math.floor(wait) + ' days</span>' : '') + '</div></li>';
+}
 function ticketsCard() {
   var list = SYNC.tickets, e = SYNC.err.tickets;
-  var h = '<section class="card" id="tickets"><header><h3>Tickets</h3>';
+  var h = '<section class="card" id="tickets"><header><h3>Attendance tickets</h3>';
   if (!list) return h + '</header><p class="meta' + (e ? ' bad' : '') + '">' + esc(e || 'Reading…') + '</p></section>';
   var open = list.filter(ticketOpen).sort(function (a, b) { return String(a.opened).localeCompare(String(b.opened)); });
-  var done = list.filter(function (t) { return !ticketOpen(t); }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
-  h += '<span class="count">' + open.length + ' to decide</span></header>' +
-    '<p class="meta">Late, absent and leaving-early tickets from the Discord bot. A decision goes on the attendance sheet and into that meeting’s attendance here.</p>';
-  h += open.length ? '<ul class="inbox">' + open.map(function (t) {
-    var abs = ticketAbsent(t);
-    return '<li><div class="mh"><p class="mt">' + esc(t.name || '@' + t.username) + ' · ' + esc(t.label || t.type) + '</p><span class="ma">' + esc(t.opened ? ago(t.opened) : '') + '</span></div>' +
-      '<p class="mb sm">Meeting ' + esc(t.meeting) + (t.username ? ' · @' + esc(t.username) : '') + '</p>' + (t.reason ? '<p class="meta">“' + esc(t.reason) + '”</p>' : '') +
-      '<div class="rowacts"><button class="qbtn" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="' + (abs ? 'Excused Abscence' : 'Excused Late') + '">' + icon('check') + '<span>Excused</span></button>' +
-      '<button class="qbtn" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="' + (abs ? 'Unexcused Abscence' : 'Unexcused Late') + '">' + icon('close') + '<span>Unexcused</span></button></div></li>';
-  }).join('') + '</ul>' : '<p class="mb sm">No tickets waiting.</p>';
-  if (done.length) h += '<div class="fg"><p class="fl">Decided</p><ul class="inbox tight">' + done.slice(0, 20).map(function (t) {
-    return '<li><span class="tt">' + esc(t.name || '@' + t.username) + '</span><span class="meta">Meeting ' + esc(t.meeting) + ' · ' + esc(t.label || t.type) + ' · ' + esc(TICKET_ST[t.status] || t.status) +
-      (t.by ? ' by ' + esc(t.by) : '') + (t.at ? ', ' + esc(ago(t.at)) : '') + '</span><button class="link" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="Pending">Reopen</button></li>';
-  }).join('') + '</ul></div>';
-  return h + '</section>';
+  var done = list.filter(function (t) { return !ticketOpen(t); }).sort(function (a, b) { return String(b.at || b.opened).localeCompare(String(a.at || a.opened)); });
+  h += '<div class="seg" role="group" aria-label="Show"><button class="' + (TKV.tab === 'open' ? 'on' : '') + '" data-act="tkTab" data-v="open">To decide ' + open.length + '</button>' +
+    '<button class="' + (TKV.tab === 'done' ? 'on' : '') + '" data-act="tkTab" data-v="done">Decided ' + done.length + '</button></div></header>' +
+    '<p class="meta">Late, absent and leaving-early tickets from the Discord bot. ' + esc(CONTRACT.notice) + ' A decision goes on the attendance sheet and into that meeting’s attendance here.</p>';
+  if (TKV.tab === 'open') return h + (open.length ? '<ul class="tklist">' + open.map(function (t) { return tkRow(t, list); }).join('') + '</ul>' : empty('No tickets waiting', 'New ones from the Discord bot show up here after the next sync.')) + '</section>';
+  if (!done.length) return h + empty('Nothing decided yet', '') + '</section>';
+  return h + '<ul class="tkdone">' + done.slice(0, 40).map(function (t) {
+    var p = ticketWho(t), k = TK_KIND[tkKind(t)];
+    return '<li><span class="tdn">' + (p ? '<button class="link" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + '</button>' : esc(t.name || '@' + t.username)) +
+      '<small>Meeting ' + esc(t.meeting) + ' · ' + esc(t.label || k[0]) + '</small></span>' +
+      '<span class="chip tone-' + tkStatusTone(t.status) + '">' + esc(TICKET_ST[t.status] || t.status) + '</span>' +
+      '<span class="meta tdb">' + esc([t.by ? 'by ' + t.by : '', t.at ? ago(t.at) : ''].filter(Boolean).join(', ')) + '</span>' +
+      (t.reason ? '<span class="meta tdr" title="' + esc(t.reason) + '">“' + esc(t.reason) + '”</span>' : '') +
+      '<button class="link" data-act="tkDecide" data-id="' + esc(t.id) + '" data-s="Pending">Reopen</button></li>';
+  }).join('') + '</ul>' + (done.length > 40 ? '<p class="meta">The 40 most recent of ' + done.length + '.</p>' : '') + '</section>';
 }
+ACT_EXT.tkTab = function (el, d) { TKV.tab = d.v; render(); };
 ACT_EXT.tkDecide = function (el, d) {
   el.disabled = true;
   call('ticketDecide', {id: d.id, status: d.s}).then(function (r) {
