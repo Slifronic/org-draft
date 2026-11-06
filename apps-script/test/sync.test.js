@@ -203,6 +203,24 @@ test('an edit on the sheet reaches the Org System, and nothing echoes back', () 
   const n = logLen(g); run(); assert.equal(logLen(g), n);
 });
 
+test('"not in business casual" goes both ways', () => {
+  g.tick(60000);
+  const r = call('attMark', {event: 'Meeting 10/29', marks: [{name: 'Gus Ray', s: 'P', bc: true}]});
+  assert.ok(r.ok && r.synced, r.error);
+  assert.strictEqual(cell(w.att, '10/29', 5, 4), true, 'ticked on the sheet, as a checkbox like the rest of the column');
+  g.tick(60000);
+  w.att.getSheetByName('10/29').set(1, 3, true);      // Ann Lee
+  g.as(() => g.syncStampSheet_(ATT_ID));
+  run();
+  const ann = rows(g, 'attendance').find((x) => x.EventLabel === 'Meeting 10/29' && x.MemberName === 'Ann Lee');
+  assert.equal(ann.Note, 'Not in business casual');
+  assert.equal(ann.Status, 'Present', 'the status is kept');
+  g.tick(60000);
+  assert.ok(call('attMark', {event: 'Meeting 10/29', marks: [{name: 'Gus Ray', s: 'P', bc: false}]}).ok);
+  assert.strictEqual(cell(w.att, '10/29', 5, 4), false, 'unticked again');
+  assert.equal(cell(w.att, '10/29', 5, 3), 'Present');
+});
+
 test('deciding a ticket here updates both sheets, the meeting cell and attendance', () => {
   g.tick(60000);
   const r = call('ticketDecide', {id: 'tk000001', status: 'Excused Late'});

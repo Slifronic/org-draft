@@ -375,12 +375,13 @@ var Demo = (function () {
         (pl.marks || []).forEach(function (m) {
           var k = flat(m.name), row = s.attendance.filter(function (r) { return r.EventLabel === amEv && flat(r.MemberName) === k; })[0];
           if (!m.s) { s.attendance = s.attendance.filter(function (r) { return r !== row; }); return; }
-          if (row) row.Status = amText[m.s];
-          else s.attendance.push({MemberName: m.name, EventLabel: amEv, Timestamp: new Date().toISOString(), Status: amText[m.s], Note: ''});
+          var note = typeof m.bc === 'boolean' ? (m.bc ? 'Not in business casual' : '') : null;
+          if (row) { row.Status = amText[m.s]; if (note != null) row.Note = note; }
+          else s.attendance.push({MemberName: m.name, EventLabel: amEv, Timestamp: new Date().toISOString(), Status: amText[m.s], Note: note || ''});
         });
         if (/^Meeting \d{1,2}\/\d{1,2}$/.test(amEv)) s.sync.dirty++;
         store();
-        return {ok: true, marked: (pl.marks || []).length, synced: true};
+        return {ok: true, marked: (pl.marks || []).length, synced: true, bc: true};
       }
       case 'addAttendanceBulk':
         (pl || []).forEach(function (r) {

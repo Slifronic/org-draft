@@ -265,7 +265,7 @@ SUBMIT_EXT.cupSave = function (f) {
 };
 
 /* ---------------- Attendance (officers) ---------------- */
-var ATT = {label: '', q: '', draft: {}, draftFor: '', meeting: '', typed: false, unmarked: false};
+var ATT = {label: '', q: '', draft: {}, bc: {}, draftFor: '', meeting: '', typed: false, unmarked: false};
 /* The label the chapter's attendance sheet syncs: "Meeting 11/2", no leading zeros, one tab per date. */
 function meetingLabel(d) { d = d || new Date(); return 'Meeting ' + (d.getMonth() + 1) + '/' + d.getDate(); }
 /* The five statuses on the chapter's attendance sheet, in its order and colours. TEXT is the
@@ -293,12 +293,28 @@ function attSaved(label) {
   (RAW.all.absences || []).forEach(function (r) { if (r.EventLabel === label) o[flat(r.MemberName)] = attCodeOf(r.Status); });
   return o;
 }
+/* "Not in business casual": the sheet's Bus Casual box, kept as the row's Note. Only someone who came can be flagged. */
+var ATT_BC = 'Not in business casual';
+function attIsBc(r) { return /business casual/i.test(String(r.Note || '')); }
+function attSavedBc(label) {
+  var o = {};
+  (RAW.all.attendance || []).concat(RAW.all.absences || []).forEach(function (r) { if (r.EventLabel === label && attIsBc(r)) o[flat(r.MemberName)] = true; });
+  return o;
+}
+function attCame(c) { return c === 'P' || c === 'EL' || c === 'UL'; }
 function attLabelNow() { return clean(($('attlabel') || {}).value || (ATT.typed ? ATT.label : meetingLabel()), 80).trim(); }
 /* Unsaved marks belong to one event; naming another event starts over. */
-function attDraft(label) { if (ATT.draftFor !== label) { ATT.draft = {}; ATT.draftFor = label; } return ATT.draft; }
+function attDraft(label) { if (ATT.draftFor !== label) { ATT.draft = {}; ATT.bc = {}; ATT.draftFor = label; } return ATT.draft; }
 function attChanges(label) {
-  var saved = attSaved(label), d = attDraft(label);
-  return Object.keys(d).filter(function (k) { return d[k] !== (saved[k] || ''); });
+  var saved = attSaved(label), sbc = attSavedBc(label), d = attDraft(label), b = ATT.bc;
+  return Object.keys(d).filter(function (k) { return d[k] !== (saved[k] || ''); })
+    .concat(Object.keys(b).filter(function (k) { return d[k] === undefined && b[k] !== !!sbc[k]; }));
+}
+/* A status that is not a check-in takes the flag off with it. */
+function attBcFollow(label, k, code) {
+  var sbc = attSavedBc(label);
+  if (attCame(code)) return;
+  if (sbc[k]) ATT.bc[k] = false; else delete ATT.bc[k];
 }
 VIEWS.attendance = function (sub) {
   sub = sub || 'take';
@@ -310,6 +326,7 @@ VIEWS.attendance = function (sub) {
     var e = String(r.EventLabel || ''); if (!e) return;
     var m = meetings[e] || (meetings[e] = {label: e, at: r.Timestamp, n: {}, st: {}});
     m.n[flat(r.MemberName)] = 1; m.st[flat(r.MemberName)] = String(r.Status || '');
+    if (attIsBc(r)) (m.bc || (m.bc = {}))[flat(r.MemberName)] = 1;
   });
   var ml = Object.keys(meetings).map(function (k) { return meetings[k]; }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
   var ppl = M.people.filter(function (p) { return p.role === 'member'; });
@@ -317,9 +334,10 @@ VIEWS.attendance = function (sub) {
     var todays = calEvents(false).filter(function (e) { return e.date === today(); }).map(function (e) { return e.title; });
     var def = meetingLabel(), label = ATT.typed ? ATT.label : def;
     var saved = attSaved(label), draft = attDraft(label), cur = function (k) { return draft[k] !== undefined ? draft[k] : (saved[k] || ''); };
+    var sbc = attSavedBc(label), curBc = function (k) { return ATT.bc[k] !== undefined ? ATT.bc[k] : !!sbc[k]; };
     var q = flat(ATT.q), list = ppl.filter(function (p) { return (!q || p.key.indexOf(q) > -1) && (!ATT.unmarked || !cur(p.key)); });
     var n = attChanges(label).length, tally = {};
-    ppl.forEach(function (p) { var c = cur(p.key) || 'none'; tally[c] = (tally[c] || 0) + 1; });
+    ppl.forEach(function (p) { var c = cur(p.key) || 'none'; tally[c] = (tally[c] || 0) + 1; if (curBc(p.key)) tally.bc = (tally.bc || 0) + 1; });
     var savedN = Object.keys(saved).length;
     h += '<section class="card form"><label class="fld"><span>Event</span><input id="attlabel" list="attlist" value="' + esc(label) + '" placeholder="' + esc(def) + '" maxlength="80"></label>' +
       '<p class="meta">' + (/^Meeting \d{1,2}\/\d{1,2}$/.test(label) ? 'These statuses go on the chapter’s attendance sheet too, in its ' + esc(label.slice(8)) + ' tab.'
@@ -327,11 +345,14 @@ VIEWS.attendance = function (sub) {
       (savedN ? ' ' + plural(savedN, 'person', 'people') + ' already marked for ' + esc(label) + '; change anyone below.' : '') + '</p>' +
       '<datalist id="attlist">' + [def].concat(todays, ml.map(function (m) { return m.label; })).filter(function (x, i, a) { return a.indexOf(x) === i; }).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' +
       '<div class="atttally">' + ATT_ST.map(function (s) { return '<span class="chip tone-' + s.tone + '">' + esc(s.label) + ' <b>' + (tally[s.c] || 0) + '</b></span>'; }).join('') +
+      '<span class="chip tone-plum">' + ATT_BC + ' <b>' + (tally.bc || 0) + '</b></span>' +
       '<button class="chip tone-ink' + (ATT.unmarked ? ' on' : '') + '" data-act="attOnly" aria-pressed="' + ATT.unmarked + '">Not marked <b>' + (tally.none || 0) + '</b></button></div>' +
       '<label class="search">' + icon('search') + '<input id="attq" type="search" placeholder="Find a member" value="' + esc(ATT.q) + '"></label>' +
       (list.length ? '<ul class="attlist">' + list.map(function (p) {
-        var c = cur(p.key), changed = draft[p.key] !== undefined && draft[p.key] !== (saved[p.key] || '');
+        var c = cur(p.key), bc = curBc(p.key), changed = (draft[p.key] !== undefined && draft[p.key] !== (saved[p.key] || '')) || bc !== !!sbc[p.key];
         return '<li class="' + (changed ? 'chg' : '') + '"><span class="an"><b>' + esc(p.name) + '</b><small>' + esc(p.org || '') + (changed ? ' · not saved' : '') + '</small></span>' +
+          '<button type="button" class="attbc' + (bc ? ' on' : '') + '" data-act="attBc" data-key="' + esc(p.key) + '" aria-pressed="' + bc + '"' + (c && !attCame(c) ? ' disabled' : '') +
+            ' title="' + (bc ? ATT_BC + ' (tap to clear)' : 'Mark ' + esc(p.name) + ' as not in business casual') + '"><span class="lg">' + (bc ? 'No bus. casual' : 'Bus. casual?') + '</span><span class="sm">' + (bc ? 'No BC' : 'BC?') + '</span></button>' +
           '<div class="attseg" role="group" aria-label="' + esc(p.name) + '">' + ATT_ST.map(function (s) {
             return '<button type="button" class="tone-' + s.tone + (c === s.c ? ' on' : '') + '" data-act="attMark" data-key="' + esc(p.key) + '" data-s="' + s.c + '" aria-pressed="' + (c === s.c) + '" title="' + esc(s.label) + '">' + esc(s.short) + '</button>';
           }).join('') + '</div>' +
@@ -352,6 +373,7 @@ VIEWS.attendance = function (sub) {
   /* A late check-in (from the attendance sheet) came, so it is not an absence. */
   var lateOf = function (x) { return Object.keys(x.st).filter(function (k) { return /late/i.test(x.st[k]); }); };
   var late = ppl.filter(function (p) { return /late/i.test(m.st[p.key] || ''); }), tk = ticketsAt(m.label);
+  var bcp = ppl.filter(function (p) { return m.bc && m.bc[p.key]; });
   /* An absence marked on Take attendance (or on the sheet) says excused or not; a ticket only hints at it. */
   var marked = {};
   (RAW.all.absences || []).forEach(function (r) { if (r.EventLabel === m.label) marked[flat(r.MemberName)] = attCodeOf(r.Status); });
@@ -371,6 +393,9 @@ VIEWS.attendance = function (sub) {
     }).join('') + '</div>' +
     (late.length ? '<div class="fg"><p class="fl">Came late</p><div class="chips">' + late.map(function (p) {
       return '<button class="chip tone-gold" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + ' <em>' + esc((TICKET_ST[m.st[p.key]] || m.st[p.key]).toLowerCase()) + '</em></button>';
+    }).join('') + '</div></div>' : '') +
+    (bcp.length ? '<div class="fg"><p class="fl">' + ATT_BC + '</p><div class="chips">' + bcp.map(function (p) {
+      return '<button class="chip tone-plum" data-act="profile" data-key="' + esc(p.key) + '">' + esc(p.name) + '</button>';
     }).join('') + '</div></div>' : '') +
     '<p class="meta">The number is how many club meetings they have missed in all. Anyone at 2 or more carries the "Missed 2+ meetings" tag on Members. Late check-ins come from the attendance sheet and count as there.</p></section>';
   return h;
@@ -456,8 +481,11 @@ function attSaveMarks(el, after) {
   if (!label) return toast('Name the event first.', true);
   var saved = attSaved(label), d = attDraft(label), keys = attChanges(label).filter(function (k) { return M.byKey[k]; });
   if (!keys.length) return;
-  var marks = keys.map(function (k) { return {name: M.byKey[k].name, s: d[k]}; });
-  var came = function (c) { return c === 'P' || c === 'EL' || c === 'UL'; };
+  var sbc = attSavedBc(label), b = ATT.bc, came = attCame;
+  var st = function (k) { return d[k] !== undefined ? d[k] : (saved[k] || ''); };
+  var bcOf = function (k) { return came(st(k)) && (b[k] !== undefined ? b[k] : !!sbc[k]); };
+  var bcMoved = keys.some(function (k) { return bcOf(k) !== !!sbc[k]; });
+  var marks = keys.map(function (k) { return {name: M.byKey[k].name, s: st(k), bc: bcOf(k)}; });
   var done = function () {
     var t = new Date().toISOString(), drop = {};
     keys.forEach(function (k) { drop[k] = 1; });
@@ -466,20 +494,22 @@ function attSaveMarks(el, after) {
     RAW.all.absences = (RAW.all.absences || []).filter(keep);
     RAW.all.excused = (RAW.all.excused || []).filter(keep);
     keys.forEach(function (k) {
-      var p = M.byKey[k], c = d[k], row = {MemberName: p.name, EventLabel: label, Status: ATT_TEXT[c] || ''};
+      var p = M.byKey[k], c = st(k), row = {MemberName: p.name, EventLabel: label, Status: ATT_TEXT[c] || '', Note: (bcOk ? bcOf(k) : came(c) && !!sbc[k]) ? ATT_BC : ''};
       if (came(c)) RAW.all.attendance.push(Object.assign({Timestamp: t, Track: p.track, Org: p.org}, row));
       else if (c) RAW.all.absences.push(row);
       if (c === 'EA') RAW.all.excused.push({MemberName: p.name, EventLabel: label});
     });
-    ATT.draft = {}; ATT.meeting = label; rebuild(); render();
-    toast(plural(keys.length, 'status', 'statuses') + ' saved for ' + label + '.');
-    if (after) after(keys.filter(function (k) { return came(d[k]) && !came(saved[k]); }).map(function (k) { return M.byKey[k]; }), label);
+    ATT.draft = {}; ATT.bc = {}; ATT.meeting = label; rebuild(); render();
+    toast(plural(keys.length, 'change') + ' saved for ' + label + '.' + (bcMoved && !bcOk ? ' Business casual saves once the backend update is deployed.' : ''), bcMoved && !bcOk);
+    if (after) after(keys.filter(function (k) { return came(st(k)) && !came(saved[k]); }).map(function (k) { return M.byKey[k]; }), label);
   };
+  var bcOk = true;
   el.disabled = true;
   call('attMark', {event: label, marks: marks}).then(function (r) {
-    if (r && r.ok) return done();
+    /* A backend from before business casual answers without bc and leaves the Note alone. */
+    if (r && r.ok) { bcOk = !!r.bc; return done(); }
     /* Before the backend has attMark, plain check-ins still save the old way. */
-    var onlyIn = keys.every(function (k) { return d[k] === 'P' && !saved[k]; });
+    var onlyIn = !bcMoved && keys.every(function (k) { return d[k] === 'P' && !saved[k]; });
     if (r && /unknown action/i.test(r.error || '') && onlyIn) {
       return call('addAttendanceBulk', keys.map(function (k) { var p = M.byKey[k]; return {MemberName: p.name, EventLabel: label, Track: p.track, Org: p.org}; }))
         .then(function (r2) { if (r2 && r2.ok) return done(); el.disabled = false; toast((r2 && r2.error) || 'Not saved. Try again.', true); });
@@ -494,12 +524,24 @@ ACT_EXT.attMark = function (el, d) {
   var label = attLabelNow(), dr = attDraft(label), saved = attSaved(label);
   var cur = dr[d.key] !== undefined ? dr[d.key] : (saved[d.key] || '');
   dr[d.key] = cur === d.s ? '' : d.s;
+  attBcFollow(label, d.key, dr[d.key]);
   if (dr[d.key] === (saved[d.key] || '')) delete dr[d.key];
+  render();
+};
+/* Flagging someone nobody has marked yet marks them present: they were there to be seen. */
+ACT_EXT.attBc = function (el, d) {
+  var label = attLabelNow(), dr = attDraft(label), saved = attSaved(label), sbc = attSavedBc(label);
+  var cur = dr[d.key] !== undefined ? dr[d.key] : (saved[d.key] || '');
+  if (cur && !attCame(cur)) return;
+  var on = !(ATT.bc[d.key] !== undefined ? ATT.bc[d.key] : !!sbc[d.key]);
+  if (on === !!sbc[d.key]) delete ATT.bc[d.key]; else ATT.bc[d.key] = on;
+  if (on && !cur) dr[d.key] = 'P';
   render();
 };
 CHANGE_EXT.attPick = function (el, d) {
   var label = attLabelNow(), dr = attDraft(label), saved = attSaved(label);
   dr[d.key] = el.value;
+  attBcFollow(label, d.key, el.value);
   if (dr[d.key] === (saved[d.key] || '')) delete dr[d.key];
   render();
 };
@@ -655,7 +697,7 @@ ACT_EXT.allGaps = function () {
   openSheet('<header class="sh"><h3>Needs attention</h3></header>' + gapList(gaps()), function () { return '<header class="sh"><h3>Needs attention</h3></header>' + gapList(gaps()); });
 };
 
-ACT_EXT.attNone = function () { ATT.draft = {}; render(); };
+ACT_EXT.attNone = function () { ATT.draft = {}; ATT.bc = {}; render(); };
 
 /* Under each open assignment: an extension request, or where one stands. */
 function extLine(w, got) {

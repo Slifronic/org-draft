@@ -1500,11 +1500,19 @@ details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overf
 .attseg button:hover{border-color:var(--c);color:var(--c)}
 .attseg button.on{background:var(--w);color:var(--c);border-color:var(--c);font-weight:600}
 .attsel{display:none}
+.attbc{flex:0 0 auto;border:1px dashed var(--hair);background:none;color:var(--mute);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
+.attbc:hover:not(:disabled){border-color:var(--plum);color:var(--plum)}
+.attbc.on{border-style:solid;border-color:var(--plum);background:var(--plumwash);color:var(--plum);font-weight:600}
+.attbc:disabled{opacity:.35;cursor:default}
+.attbc .sm{display:none}
 @media (max-width:860px){
   .attseg{display:none}
   .attlist{max-height:none;overflow:visible}
   .attbar .meta{flex-basis:100%}
-  .attsel{display:block;flex:0 0 auto;max-width:52%;background:var(--w);color:var(--c);border-color:var(--c);font-weight:600}
+  .attbc{padding:4px 8px}
+  .attbc .lg{display:none}
+  .attbc .sm{display:inline}
+  .attsel{display:block;flex:0 0 auto;max-width:46%;background:var(--w);color:var(--c);border-color:var(--c);font-weight:600}
   .attsel.tone-ink{color:var(--mute);border-color:var(--hair)}
 }
 

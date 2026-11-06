@@ -1383,7 +1383,7 @@ function clubSnapshot_(aff) {
               .map(function (r) { return {MemberName: r.MemberName, EventLabel: r.EventLabel}; }),
             /* Every marked absence, excused or not, for officers taking attendance with statuses. */
             absences: readScoped('attendance', aff).filter(function (r) { return attAbsent_(r.Status); })
-              .map(function (r) { return {MemberName: r.MemberName, EventLabel: r.EventLabel, Status: r.Status}; })};
+              .map(function (r) { return {MemberName: r.MemberName, EventLabel: r.EventLabel, Status: r.Status, Note: r.Note || ''}; })};
   });
 }
 
@@ -3847,8 +3847,9 @@ function dispatch(action, payload, email, role, id) {
     /* One event's attendance with the statuses the chapter's sheet uses (Present,
        Excused/Unexcused Late, Excused/Unexcused Abscence), one row per member per
        event, the shape the sync and Standing already read. A check-in is a row
-       with no Status, so it is Present here too. The Note (business casual) is
-       left as it is. payload: {event, marks: [{name, s: 'P'|'EL'|'UL'|'EA'|'UA'|''}]};
+       with no Status, so it is Present here too. bc true/false sets the Note to
+       "Not in business casual" or clears it (the sheet's Bus Casual box); left out,
+       the Note stays as it is. payload: {event, marks: [{name, s: 'P'|'EL'|'UL'|'EA'|'UA'|'', bc?}]};
        '' removes the member's row for the event. */
     case 'attMark': {
       var amP = payload || {}, amEv = dashClean_(amP.event, 80).trim(), amMarks = Array.isArray(amP.marks) ? amP.marks.slice(0, 400) : [];
@@ -3870,10 +3871,16 @@ function dispatch(action, payload, email, role, id) {
         if (!k || (code && !ATT_TEXT_[code])) return;
         amN++;
         if (!code) { if (amAt[k] != null) amDrop[amAt[k]] = 1; return; }
-        if (amAt[k] != null) { amV[amAt[k]][amC.Status] = ATT_TEXT_[code]; return; }
+        var bcNote = typeof m.bc === 'boolean' && amC.Note != null ? (m.bc ? 'Not in business casual' : '') : null;
+        if (amAt[k] != null) {
+          amV[amAt[k]][amC.Status] = ATT_TEXT_[code];
+          if (bcNote != null) amV[amAt[k]][amC.Note] = bcNote;
+          return;
+        }
         var p = amPeople[k] || {}, row = amH.map(function () { return ''; });
         row[amC.Timestamp] = new Date(); row[amC.MemberName] = p.MemberName || nm; row[amC.EventLabel] = amEv;
         row[amC.Track] = p.Track || ''; row[amC.Org] = p.Org || ''; row[amC.Affiliation] = aff; row[amC.Status] = ATT_TEXT_[code];
+        if (bcNote != null) row[amC.Note] = bcNote;
         amAdd.push(row);
       });
       var amRows = amV.filter(function (r, i) { return !amDrop[i]; }).concat(amAdd);
@@ -3881,7 +3888,7 @@ function dispatch(action, payload, email, role, id) {
       if (amV.length > amRows.length) amSh.getRange(amRows.length + 1, 1, amV.length - amRows.length, amH.length).clearContent();
       /* "Meeting 11/2" goes onto that meeting's tab of the attendance sheet, statuses and all. */
       var amSync = meetTab_(amEv) ? syncAfterOrg_(aff, ['attendance']) : null;
-      return {ok: true, marked: amN, synced: !!amSync};
+      return {ok: true, marked: amN, synced: !!amSync, bc: true};
     }
 
     case 'listRoles': {

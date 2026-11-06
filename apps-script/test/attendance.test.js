@@ -100,13 +100,24 @@ test('a meeting label saves the same way', () => {
   assert.deepEqual(rows('Meeting 11/2'), [['Ann Lee', 'Unexcused Late', ''], ['Cy Park', 'Unexcused Abscence', '']]);
 });
 
+test('bc sets or clears "Not in business casual"; left out, the Note stays', () => {
+  const r = off('attMark', {event: 'Bootcamp 3', marks: [{name: 'Ann Lee', s: 'EL'}, {name: 'Bo Diaz', s: 'P', bc: true}, {name: 'Cy Park', s: 'P', bc: true}]});
+  assert.ok(r.ok && r.bc, r.error);
+  assert.deepEqual(rows('Bootcamp 3'), [['Ann Lee', 'Excused Late', 'Not in business casual'], ['Bo Diaz', 'Present', 'Not in business casual'], ['Cy Park', 'Present', 'Not in business casual']]);
+  assert.ok(off('attMark', {event: 'Bootcamp 3', marks: [{name: 'Ann Lee', s: 'EL', bc: false}, {name: 'Cy Park', s: ''}]}).ok);
+  assert.deepEqual(rows('Bootcamp 3'), [['Ann Lee', 'Excused Late', ''], ['Bo Diaz', 'Present', 'Not in business casual']]);
+  assert.equal(off('attMark', {event: 'Bootcamp 3', marks: [{name: 'Ann Lee', s: 'EL', bc: 'yes'}]}).ok, true);
+  assert.deepEqual(rows('Bootcamp 3')[0], ['Ann Lee', 'Excused Late', ''], 'only true or false changes it');
+});
+
 test('getAll: absences never count as check-ins, and officers get them with their status', () => {
   let all;
   try { all = off('getAll'); } catch (e) { console.log('    (getAll needs more of Google than this harness has; checked the snapshot instead)'); }
   const snap = all && all.ok ? all : (fresh(), ctx.clubSnapshot_(AFF));
   const att = snap.attendance.filter((r) => r.EventLabel === 'Meeting 11/2').map((r) => r.MemberName);
   assert.deepEqual(att, ['Ann Lee'], 'a late member came');
-  assert.deepEqual((snap.absences || []).map((r) => [r.MemberName, r.EventLabel, r.Status]), [['Cy Park', 'Meeting 11/2', 'Unexcused Abscence']]);
+  assert.deepEqual((snap.absences || []).map((r) => [r.MemberName, r.EventLabel, r.Status, r.Note]), [['Cy Park', 'Meeting 11/2', 'Unexcused Abscence', '']]);
+  assert.equal(snap.attendance.filter((r) => r.EventLabel === 'Bootcamp 3' && r.MemberName === 'Bo Diaz')[0].Note, 'Not in business casual', 'check-ins carry the flag');
   assert.deepEqual(snap.excused, []);
 });
 
