@@ -94,6 +94,11 @@ var Demo = (function () {
     var ev = function (e) { return {tags: ['ev:' + e]}; };
     var st = SFBLC.starter();
     var t0w = Date.now();
+    var flcT = teams.filter(function (t) { return t.kind === 'flc'; });
+    var coachT = flcT.map(function (t, i) {
+      var m = 22 * 60 + (i % 4) * 20, hm = function (x) { return String(Math.floor(x / 60) % 24).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0'); };
+      return {id: 'kt' + i, event: t.event, team: t.id, topic: t.name + ' coaching', date: '2026-11-13', start: hm(m), end: hm(m + 20), where: 'Room ' + (1 + Math.floor(i / 4)), coach: ebod[i % ebod.length], 'for': {tags: ['team:' + t.id], names: []}};
+    });
     var cfg = {
       clubName: 'De Anza PBL (demo)', unit: 'Org', units: 'Orgs',
       tracks: [{id: 'c', label: 'Consulting'}, {id: 'k', label: 'Case competition (FLC)'}, {id: 't3', label: 'Polaris'}],
@@ -120,8 +125,10 @@ var Demo = (function () {
         {id: 'k3', date: day(3), start: '18:00', end: '19:30', topic: 'Management: decision rights and KPIs', coach: ebod[2], where: 'ATC 203', event: 'Management', 'for': ev('Management')},
         {id: 'k4', date: day(5), start: '16:00', end: '17:00', topic: 'Pitch: run-through with judges', coach: ebod[6], where: 'Hinson Campus Center', event: 'Entrepreneurship Pitch', 'for': ev('Entrepreneurship Pitch')},
         {id: 'k5', date: day(8), start: '18:00', end: '20:00', topic: 'Full mock: every case team', coach: ebod[0], where: 'ATC 120', 'for': {tags: ['sfblc']}}
-      ],
-      sfChecklist: st.sfChecklist,
+      ].concat(coachT),
+      sfChecklist: st.sfChecklist, sfRules: st.sfRules, sfRadius: st.sfRadius,
+      sfLinks: [{id: 'l1', label: 'GroupMe', url: 'https://groupme.com/'}, {id: 'l2', label: 'Liability form', url: 'https://forms.gle/'},
+                {id: 'l3', label: 'Schedule + coaching sheet', url: 'https://docs.google.com/spreadsheets/'}],
       orgEbod: ['Derick', 'Rameesha', 'Arin', 'William', 'Jayden', 'Ruirui'],
       cups: [{id: 'cu1', org: 2, label: 'Best turnout at bootcamp 2', at: Date.now() - 6 * 864e5, by: 'Derick'},
              {id: 'cu2', org: 0, label: 'Won the mock case stations', at: Date.now() - 864e5, by: 'Arin'}],

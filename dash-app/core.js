@@ -88,12 +88,30 @@ var SFBLC = {
         {id: 's-sun', date: '2026-11-15', start: '', end: '', title: 'Awards and closing, then home', where: 'Hilton Garden Inn, Emeryville', kind: 'general', tentative: true, 'for': all}
       ],
       sfChecklist: [
-        {id: 'c-reg', label: 'Registered on CAPBL', due: '2026-10-30', detail: 'Late registration closes Fri Oct 30 at 5 pm, and only while housing lasts.', 'for': all},
+        {id: 'c-liab', label: 'Liability form signed', due: '', detail: 'Due 11:59 PM the night of orientation. The link is under SFBLC → About.', 'for': all},
+        {id: 'c-groupme', label: 'Joined the SFBLC GroupMe', due: '', detail: 'Three channels: Announcements, Buddy System, Random.', 'for': all},
+        {id: 'c-life360', label: 'Joined the Life360 circle', due: '', detail: 'With the code from orientation.', 'for': all},
         {id: 'c-push', label: 'Phone notifications on', due: '', detail: 'Open the Org System from its home-screen icon, then Profile → Phone notifications.', 'for': all},
         {id: 'c-prompt', label: 'Read your case prompt and rubric', due: '', detail: 'Once CAPBL releases them.', 'for': all},
-        {id: 'c-attire', label: 'Business professional outfit ready', due: '2026-11-12', detail: '', 'for': all}
+        {id: 'c-attire', label: 'Business formal outfit packed', due: '2026-11-12', detail: 'Dress code is business formal: suit, pants, dress shoes, shirts.', 'for': all},
+        {id: 'c-laptop', label: 'Laptop + chargers packed', due: '2026-11-12', detail: '', 'for': all},
+        {id: 'c-meds', label: 'Medicine + band-aids packed', due: '2026-11-12', detail: '', 'for': all},
+        {id: 'c-idcard', label: 'Credit card + Real ID for hotel check-in', due: '2026-11-12', detail: 'Bring a credit card and your Real ID or another valid ID.', 'for': all},
+        {id: 'c-budget', label: 'Money for food and parking', due: '2026-11-12', detail: 'Out of pocket, estimated: about $70 for food and $30 for parking.', 'for': all}
       ],
       sfCoaching: [],
+      /* The rules from orientation, without anything private (codes, phone numbers, join links). */
+      sfRules: [
+        {id: 'r-1', title: 'Curfew', text: '11:00 PM Friday, 12:00 AM Saturday.'},
+        {id: 'r-2', title: 'Buddy system', text: 'Leaving the hotel? Go with at least 3 other IMs.'},
+        {id: 'r-3', title: 'Radius', text: 'Stay inside the walking radius on the map below.'},
+        {id: 'r-4', title: 'Behavior', text: 'No substance use. Don’t break curfew, leave the radius or visit nearby universities. Follow the board’s directions and be professional.'},
+        {id: 'r-5', title: 'Hotel check-in', text: 'Bring a credit card and your Real ID or another valid ID.'},
+        {id: 'r-6', title: 'Dress code', text: 'Business formal. Pack your suit.'},
+        {id: 'r-7', title: 'Budget', text: 'Out of pocket, estimated: about $70 for food and $30 for parking.'},
+        {id: 'r-8', title: 'Be prepared', text: 'Get to the check-in table 15 minutes early.'}
+      ],
+      sfRadius: {img: '/media/sfblc-radius.png', caption: 'The walking radius around the hotel, from orientation.'},
       sfInfo: {caps: SFBLC.caps},
       sfAuto: {on: false, dayBefore: true, hourBefore: true, checklist: true, teams: true}
     };

@@ -1,4 +1,28 @@
-# Tab demo clips and the member walkthrough
+# Section demo clips and the member walkthrough
+
+**The dashboard's clips (Nov 2026).** `dash-clips.js` records one silent, captioned clip per
+member-side section of the dashboard (Overview, Calendar, Links, Inbox, EBOD, Org chart,
+Orgs, Homework, Org Cup, SFBLC, Carpools, Competition teams, Client teams, Internal Members,
+Profile, plus Sign up) from the demo club. Members open them from the **Watch** button at the
+top of each section (`dash-app/watch.js`, which maps sections to clips) and on
+`/orientation#clips`.
+
+```
+node serve.js ../.. 8791
+PLAYWRIGHT=~/Projects/asset-library/node_modules/playwright node dash-clips.js out-dash   # or: … out-dash sfblc calendar
+./encode.sh out-dash ../../media/demos
+python3 orientation-clips.py 20261109     # rewrites the grid on orientation.html with the new lengths
+```
+
+Then bump `WATCH_V` in `dash-app/watch.js` to the same version. The demo club's data lives in
+`dash-app/demo.js` (SFBLC checklist, rules and per-team coaching come from `SFBLC.starter()`
+in `core.js`); keep anything private (join codes, phone numbers, real GroupMe links) out of it,
+since the repo is public.
+
+`clips.js` below is the older recorder for the classic page; the dashboard reuses its rig
+(`INIT`, `rig`) but not its clip list.
+
+## The classic page's clips (Oct 2026, retired)
 
 `media/demos/*.mp4` are recorded from the demo club (`/demo?as=member`, `?as=new`)
 with Playwright: a drawn cursor, a title card and burned-in captions, no audio.

@@ -1589,3 +1589,8 @@ details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overf
   .cue.coach.ed .cuerow .ca{grid-column:1/-1;grid-row:auto;justify-content:flex-start}
   .cue.coach.ed .cuerow .cw,.cue.coach.ed .cuerow .cl,.cue.coach.ed .cuerow .cp{grid-column:1/-1}
 }
+/* Only officers get the page editor; the button styles would otherwise override [hidden]. */
+.pebtn[hidden]{display:none!important}
+.watchbtn[hidden]{display:none!important}
+.watchvid{display:block;width:100%;border-radius:10px;border:1px solid var(--rule);background:#000;margin:6px 0 10px;aspect-ratio:16/10}
+@media (max-width:860px){.watchbtn span{display:none}}

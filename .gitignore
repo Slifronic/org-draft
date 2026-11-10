@@ -13,3 +13,5 @@ email-videos/
 .DS_Store
 tools/demos/out-sfblc/
 tools/club-record-backup-*.json
+tools/demos/out-dash/
+tools/demos/out-dash-mp4/
