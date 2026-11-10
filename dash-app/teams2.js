@@ -207,8 +207,7 @@ VIEWS.teams = function (sub) {
 };
 /* The classic Teams tab links the other screens still carry, pointed here. */
 function t2links(h) {
-  return String(h).replace(/href="\/teams">Rank my events/g, 'href="#teams/choices">Rank my events')
-    .replace('Rank your events on the classic Teams tab.', 'Rank your events under Your choices.');
+  return String(h).replace(/href="\/teams">Rank my events/g, 'href="#teams/choices">Rank my events');
 }
 
 /* ---------- member: SFBLC choices ---------- */
@@ -912,7 +911,6 @@ gaps = function () {
   var g = t2baseGaps();
   g.forEach(function (x) {
     if (x.action && x.action.href === '/teams') x.action = {label: x.action.label || 'Open rooms', go: 'teams/rooms'};
-    x.detail = String(x.detail || '').replace('Rooms are set on the classic Teams tab.', 'Place them on Teams → Hotel rooms.').replace('Rooms are formed on the classic Teams tab.', 'Form them on Teams → Hotel rooms.');
   });
   var w = M && M.officer ? t2waiting().length : 0;
   if (w) {

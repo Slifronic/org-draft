@@ -406,9 +406,12 @@ function sfTa(k, id, f, val, o) {
 /* After a field changes, what else on its item follows from it. */
 var SF_FIX = {
   sfCoaching: function (it, f) {
-    if (f !== 'event') return;
-    it['for'] = {tags: it.event ? ['ev:' + it.event] : ['sfblc'], names: []};
-    it.topic = (it.event || 'SFBLC') + ' coaching';
+    if (f !== 'event' && f !== 'team') return;
+    if (f === 'event') delete it.team;
+    var t = it.team ? M.teams.filter(function (x) { return x.id === it.team; })[0] : null;
+    if (!t) delete it.team;
+    it['for'] = {tags: t ? ['team:' + t.id] : it.event ? ['ev:' + it.event] : ['sfblc'], names: []};
+    it.topic = (t ? teamName(t) : it.event || 'SFBLC') + ' coaching';
   }
 };
 function sfList(k) { return k === 'sfSeason' ? sfSeason() : sf(k); }
@@ -422,7 +425,7 @@ function sfField(el) {
   var ch = {};
   if (id) {
     var list = JSON.parse(JSON.stringify(sfList(k))), it = list.filter(function (x) { return x.id === id; })[0];
-    if (!it || it[f] === v || (f === 'event' && !v)) return;
+    if (!it || (it[f] || '') === v || (f === 'event' && !v)) return;
     it[f] = v;
     if (SF_FIX[k]) SF_FIX[k](it, f);
     ch[k] = list;
@@ -496,7 +499,7 @@ function cueRow(it) {
     '<span class="cn" role="cell">' + esc(it.note || '') + '</span></div>';
   var k = 'sfSchedule', id = it.id;
   return '<div class="' + cls + '" role="row"><span class="ct" role="cell">' + sfIn(k, id, 'start', it.start, {type: 'time', label: 'Starts', max: 5}) + '<i>–</i>' + sfIn(k, id, 'end', it.end, {type: 'time', label: 'Ends', max: 5}) + '</span>' +
-    '<span class="cw" role="cell">' + sfIn(k, id, 'title', it.title, {max: 80, label: 'Task', ph: 'What happens', cls: 'b'}) + '</span>' +
+    '<span class="cw" role="cell">' + sfIn(k, id, 'title', it.title, {max: 80, label: 'Task', ph: 'What happens', cls: 'b'}) + (it.board ? '<span class="badge">Board only</span>' : '') + '</span>' +
     '<span class="cp" role="cell">' + sfIn(k, id, 'who', it.who, {max: 80, label: 'Who runs it', ph: 'Who', list: 'ebodlist'}) + '</span>' +
     '<span class="cl" role="cell">' + sfIn(k, id, 'where', it.where, {max: 80, label: 'Where', ph: 'Where'}) + '</span>' +
     '<span class="cn" role="cell">' + sfIn(k, id, 'note', it.note, {max: 240, label: 'Notes', ph: 'Notes'}) + '</span>' +
@@ -510,25 +513,33 @@ ACT_EXT.sfAddCue = function (el, d) {
 
 /* ---------- coaching: a section per event ----------
    Every SFBLC event has its own section, empty until officers add a slot:
-   when, where, and the EBOD member running it. Slots move up and down, or
-   to another event; members see their own events' sections. */
+   when, which team, where, and the EBOD member running it. Slots move up
+   and down, or to another event; members see their own events' sections.
+   A slot, or a whole event, can be hidden: members stop seeing it and no
+   reminders go out, but it stays here for officers to bring back. */
+function sfCoachOff() { return M.cfg.sfCoachOff || []; }
 function sfCoachEvents() {
   var evs = boardEvents().filter(function (e) { return SFBLC.events.indexOf(e) > -1 || sf('sfCoaching').some(function (c) { return c.event === e; }); });
+  if (!M.officer) evs = evs.filter(function (e) { return sfCoachOff().indexOf(e) < 0; });
   if (!M.officer && M.me.events && M.me.events.length) evs = evs.filter(function (e) { return M.me.events.indexOf(e) > -1; });
   return evs;
 }
+function coachTeam(c) { return c.team ? M.teams.filter(function (t) { return t.id === c.team; })[0] : null; }
 function sfCoachingView() {
-  var all = sf('sfCoaching'), evs = sfCoachEvents(), now = new Date();
+  var all = sf('sfCoaching'), evs = sfCoachEvents(), now = new Date(), off = sfCoachOff();
   var loose = all.filter(function (c) { return !c.event || evs.indexOf(c.event) < 0 && M.officer; }).filter(function (c) { return M.officer || isForMe(c); });
-  var h = '<p class="lede">' + (M.officer ? 'One section per event. Add a slot with the time, the place and the EBOD member running it; members on that event’s teams are reminded the day before and an hour before.'
+  var h = '<p class="lede">' + (M.officer ? 'One section per event. Add a slot with the time, the team, the place and the EBOD member running it; the people it is for are reminded the day before and an hour before. Hide a slot or a whole event to take it off members’ screens without losing it.'
     : M.me.events && M.me.events.length ? 'Coaching for your event' + (M.me.events.length > 1 ? 's' : '') + ': when, where, and who on the board is running it.' : 'Coaching for each event: when, where, and who on the board is running it.') + '</p>';
   if (M.officer) h += '<datalist id="ebodlist">' + ebod().map(function (x) { return '<option value="' + esc(x.name) + '">'; }).join('') + '</datalist>';
   var section = function (e, list, title) {
-    var teams = M.teams.filter(function (t) { return t.kind === 'flc' && t.event === e; }).length;
-    return '<section class="card coachev"><header><h3>' + esc(title || e) + '</h3>' + (e ? '<span class="hint">' + plural(teams, 'team') + '</span>' : '') + '<span class="count">' + list.length + '</span>' +
-      (M.officer && e ? '<button class="qbtn" data-act="sfAddCoach" data-ev="' + esc(e) + '">' + icon('plus') + '<span>Add a slot</span></button>' : '') + '</header>' +
-      (list.length ? '<div class="cue coach' + (M.officer ? ' ed' : '') + '" role="table" aria-label="' + esc(title || e) + ' coaching"><div class="cuehd" role="row"><span role="columnheader">When</span><span role="columnheader">Where</span><span role="columnheader">EBOD member</span>' +
-        (M.officer ? '<span></span>' : '') + '</div>' + list.map(function (c, i) { return coachRow(c, i, list.length, now); }).join('') + '</div>'
+    var teams = M.teams.filter(function (t) { return t.kind === 'flc' && t.event === e; }).length, hid = e && off.indexOf(e) > -1;
+    return '<section class="card coachev' + (hid ? ' off' : '') + '"><header><h3>' + esc(title || e) + '</h3>' + (e ? '<span class="hint">' + plural(teams, 'team') + '</span>' : '') + '<span class="count">' + list.length + '</span>' +
+      (hid ? '<span class="badge">Hidden from members</span>' : '') +
+      (M.officer && e ? '<button class="qbtn" data-act="sfAddCoach" data-ev="' + esc(e) + '">' + icon('plus') + '<span>Add a slot</span></button>' +
+        '<button class="qbtn" data-act="sfCoachEvHide" data-ev="' + esc(e) + '"><span>' + (hid ? 'Show to members' : 'Hide') + '</span></button>' +
+        (list.length ? '<button class="qbtn" data-act="sfCoachClear" data-ev="' + esc(e) + '"><span>Delete all</span></button>' : '') : '') + '</header>' +
+      (list.length ? '<div class="cue coach' + (M.officer ? ' ed' : '') + '" role="table" aria-label="' + esc(title || e) + ' coaching"><div class="cuehd" role="row"><span role="columnheader">When</span><span role="columnheader">Team</span><span role="columnheader">Where</span><span role="columnheader">EBOD member</span>' +
+        (M.officer ? '<span></span>' : '') + '</div>' + list.map(function (c, i) { return coachRow(c, i, list.length, now, hid); }).join('') + '</div>'
         : '<p class="meta cueempty">' + (M.officer ? 'No slots yet.' : 'Nothing yet. The time and place show here once the board sets them.') + '</p>') + '</section>';
   };
   h += '<div class="cuedays">' + evs.map(function (e) { return section(e, all.filter(function (c) { return c.event === e; })); }).join('') +
@@ -536,25 +547,54 @@ function sfCoachingView() {
   if (!evs.length && !loose.length) h += empty('No events yet', 'Events come from the SFBLC teams.');
   return h;
 }
-function coachRow(c, i, n, now) {
-  var past = c.date && at(c.date, c.end || c.start || '23:59') < now, cls = 'cuerow' + (past ? ' past' : '');
+function coachRow(c, i, n, now, evOff) {
+  var past = c.date && at(c.date, c.end || c.start || '23:59') < now, t = coachTeam(c);
+  var cls = 'cuerow' + (past ? ' past' : '') + (c.hidden || evOff ? ' off' : '');
   if (!M.officer) return '<div class="' + cls + '" role="row"><span class="ct" role="cell"><b>' + esc(c.date ? fmtDay(c.date, true) : 'Day to be set') + '</b><small>' + esc(fmtSpan(c)) + '</small></span>' +
+    '<span class="cw" role="cell"><b>' + esc(t ? teamName(t) : 'Everyone in ' + (c.event || 'SFBLC')) + '</b>' + (t && isForMe(c) ? ' <span class="badge">Yours</span>' : '') +
+      (t ? '<small>' + esc((t.members || []).join(', ')) + '</small>' : '') + '</span>' +
     '<span class="cl" role="cell">' + esc(c.where || 'Place to be set') + sfMapLink(c.where) + (safeUrl(c.link) ? ' · <a href="' + esc(safeUrl(c.link)) + '" target="_blank" rel="noopener">Join link</a>' : '') + '</span>' +
     '<span class="cp" role="cell">' + esc(c.coach || 'To be named') + '</span></div>';
   var k = 'sfCoaching', id = c.id;
   return '<div class="' + cls + '" role="row"><span class="ct" role="cell">' + sfIn(k, id, 'date', c.date, {type: 'date', label: 'Day', max: 10}) +
     '<span class="tt2">' + sfIn(k, id, 'start', c.start, {type: 'time', label: 'Starts', max: 5}) + '<i>–</i>' + sfIn(k, id, 'end', c.end, {type: 'time', label: 'Ends', max: 5}) + '</span></span>' +
+    '<span class="cw" role="cell"><select class="inl" ' + sfAttrs(k, id, 'team') + ' aria-label="Team"><option value="">Whole event</option>' +
+      M.teams.filter(function (x) { return x.kind === 'flc' && x.event === c.event; }).map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === c.team ? ' selected' : '') + '>' + esc(teamName(x)) + '</option>'; }).join('') + '</select>' +
+      (t ? '<small>' + esc((t.members || []).join(', ')) + '</small>' : '') + '</span>' +
     '<span class="cl" role="cell">' + sfIn(k, id, 'where', c.where, {max: 80, label: 'Where', ph: 'Room, building or call link'}) + '</span>' +
     '<span class="cp" role="cell">' + sfIn(k, id, 'coach', c.coach, {max: 60, label: 'EBOD member', ph: 'EBOD member', list: 'ebodlist'}) + '</span>' +
     '<span class="ca" role="cell">' + moveBtns('sfMoveCoach', 'data-id="' + esc(id) + '"', i, n, 'this slot') +
     '<select class="mini" ' + sfAttrs(k, id, 'event') + ' aria-label="Move to another event"><option value="">Move to…</option>' +
       sfCoachEvents().filter(function (e) { return e !== c.event; }).map(function (e) { return '<option>' + esc(e) + '</option>'; }).join('') + '</select>' +
     '<button class="qbtn" data-act="edit" data-kind="sfCoaching" data-id="' + esc(id) + '" aria-label="More for this slot">' + icon('more') + '</button>' +
+    (evOff ? '' : '<button class="qbtn" data-act="sfCoachHide" data-id="' + esc(id) + '" aria-pressed="' + !!c.hidden + '"><span>' + (c.hidden ? 'Show' : 'Hide') + '</span></button>') +
     '<button class="qbtn" data-act="sfDelRow" data-k="sfCoaching" data-id="' + esc(id) + '" aria-label="Delete this slot">' + icon('close') + '</button></span></div>';
 }
 ACT_EXT.sfAddCoach = function (el, d) {
   var id = uid('k');
   sfAddItem('sfCoaching', {id: id, event: d.ev, topic: d.ev + ' coaching', date: '', start: '', end: '', where: '', coach: '', 'for': {tags: ['ev:' + d.ev], names: []}}, 'sfCoaching|' + id + '|date|');
+};
+/* Hidden slots are not reminded about; showing one again turns its reminders back on. */
+function coachSetHidden(c, on) {
+  if (on) { c.hidden = true; c.remind = false; } else { delete c.hidden; delete c.remind; }
+}
+ACT_EXT.sfCoachHide = function (el, d) {
+  var list = JSON.parse(JSON.stringify(sf('sfCoaching'))), c = list.filter(function (x) { return x.id === d.id; })[0];
+  if (!c) return;
+  coachSetHidden(c, !c.hidden);
+  saveCfg({sfCoaching: list}, c.hidden ? 'Hidden from members.' : 'Members can see it again.');
+};
+ACT_EXT.sfCoachEvHide = function (el, d) {
+  var off = sfCoachOff().slice(), i = off.indexOf(d.ev), list = JSON.parse(JSON.stringify(sf('sfCoaching')));
+  if (i > -1) off.splice(i, 1); else off.push(d.ev);
+  list.forEach(function (c) { if (c.event === d.ev) { if (i > -1) { if (!c.hidden) delete c.remind; } else c.remind = false; } });
+  saveCfg({sfCoachOff: off, sfCoaching: list}, i > -1 ? d.ev + ' coaching is back on members’ screens.' : d.ev + ' coaching is hidden from members.');
+};
+ACT_EXT.sfCoachClear = function (el, d) {
+  var n = sf('sfCoaching').filter(function (c) { return c.event === d.ev; }).length;
+  confirmSheet('Delete every ' + d.ev + ' coaching slot?', plural(n, 'slot') + ' disappear for everyone, and no reminders go out for them. To keep them but take them off members’ screens, use Hide instead.', 'Delete ' + plural(n, 'slot'), function () {
+    saveCfg({sfCoaching: sf('sfCoaching').filter(function (c) { return c.event !== d.ev; })}, 'Deleted.');
+  });
 };
 /* Up or down among the same event's slots; the list keeps the rest where they were. */
 ACT_EXT.sfMoveCoach = function (el, d) {
@@ -610,7 +650,7 @@ function sfAbout() {
     : '<div class="rowacts">' + links.filter(function (l) { return safeUrl(l.url); }).map(function (l) {
       return '<a class="qbtn" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener">' + icon('link') + '<span>' + esc(l.label || 'Link') + '</span></a>';
     }).join('') + '</div>') + '</div>';
-  h += '</section>';
+  h += '</section>' + sfRulesCard(ed);
   var rub = Object.assign({}, SFBLC.rubrics, i.rubrics || {}), notes = Object.assign({}, SFBLC.eventNote, i.notes || {});
   h += '<section class="card"><header><h3>Events</h3>' + (M.officer && !ed ? '<span class="hint">Team sizes are editable</span>' : '') + '</header><ul class="evlist">' + boardEvents().map(function (e) {
     var c = capFor(M.cfg, e), n = M.teams.filter(function (t) { return t.kind === 'flc' && t.event === e; }).length, r = safeUrl(rub[e]);
@@ -622,6 +662,23 @@ function sfAbout() {
   }).join('') + '</ul>' + (ed ? '<p class="meta">Each event’s rubric is the rating sheet in CAPBL’s guidelines for it.</p>' : '') + '</section>';
   return h;
 }
+/* Need to know: the rules and reminders from the orientation deck (curfew,
+   buddy system, radius, dress code, budget, who to call), one line each,
+   plus the walking radius map. Officers edit them with Edit page. */
+function sfRulesCard(ed) {
+  var rules = sf('sfRules'), map = M.cfg.sfRadius || {};
+  if (!rules.length && !ed && !map.img) return '';
+  var h = '<section class="card rules"><header><h3>Need to know</h3></header>';
+  if (ed) h += '<ul class="lkedit rl">' + rules.map(function (r) {
+      return '<li>' + sfIn('sfRules', r.id, 'title', r.title, {max: 40, label: 'Rule', ph: 'Curfew', cls: 'b'}) + sfIn('sfRules', r.id, 'text', r.text, {max: 240, label: 'Details', ph: 'Details'}) +
+        '<button class="qbtn" data-act="sfDelRow" data-k="sfRules" data-id="' + esc(r.id) + '" aria-label="Remove ' + esc(r.title) + '">' + icon('close') + '</button></li>';
+    }).join('') + '</ul><div class="rowacts"><button class="qbtn" data-act="sfAddRule">' + icon('plus') + '<span>Add a rule</span></button></div>';
+  else h += '<dl class="facts rl">' + rules.map(function (r) { return '<dt>' + esc(r.title) + '</dt><dd>' + esc(r.text) + '</dd>'; }).join('') + '</dl>';
+  if (map.img) h += '<figure class="radius"><img src="' + esc(map.img) + '" alt="Map of the walking radius around the hotel" loading="lazy"><figcaption>' + esc(map.caption || 'Stay inside the radius.') +
+    (safeUrl(map.url) ? ' · <a href="' + esc(safeUrl(map.url)) + '" target="_blank" rel="noopener">Open in Maps</a>' : '') + '</figcaption></figure>';
+  return h + '</section>';
+}
+ACT_EXT.sfAddRule = function () { var id = uid('r'); sfAddItem('sfRules', {id: id, title: 'New rule', text: ''}, 'sfRules|' + id + '|title|'); };
 ACT_EXT.sfAddLink = function () { var id = uid('l'); sfAddItem('sfLinks', {id: id, label: 'New link', url: ''}, 'sfLinks|' + id + '|label|'); };
 
 /* ---------------- teams ---------------- */
@@ -637,7 +694,7 @@ function renderTeams() {
     var mine = M.me.teams.filter(function (t) { return t.kind === 'flc'; });
     return '<section class="card"><header><h3>Your team</h3></header>' + (mine.length ? mine.map(function (t) {
       return '<div class="myteam"><p class="eyebrow">' + esc(t.event) + '</p><p class="tn">' + esc(teamName(t)) + '</p><ul class="mates">' + (t.members || []).map(function (m) { return '<li>' + avatar({name: m}) + esc(m) + '</li>'; }).join('') + '</ul></div>';
-    }).join('') : empty(M.me.going ? 'Not placed yet' : 'Not signed up', M.me.going ? 'You will be notified when you are placed.' : 'Rank your events on the classic Teams tab.', M.me.going ? '' : '<a class="btn sm" href="/teams">Rank my events</a>')) + '</section>' +
+    }).join('') : empty(M.me.going ? 'Not placed yet' : 'Not signed up', M.me.going ? 'You will be notified when you are placed.' : 'Rank your events under Your choices.', M.me.going ? '' : '<a class="btn sm" href="/teams">Rank my events</a>')) + '</section>' +
       '<section class="card"><header><h3>Every SFBLC team</h3><span class="count">' + flcT.length + '</span></header><div class="board ro">' + boardEvents().map(function (e) {
         var ts = flcT.filter(function (t) { return t.event === e; });
         return ts.length ? '<div class="evcol"><p class="evh">' + esc(e) + '</p>' + ts.map(function (t) { return '<div class="team"><p class="tn">' + esc(teamName(t)) + '</p><p class="meta">' + esc((t.members || []).join(', ')) + '</p></div>'; }).join('') + '</div>' : '';
@@ -661,7 +718,7 @@ function renderTeams() {
       ts.map(function (t) { return teamCard(t, cap); }).join('') +
       '<button class="addteam" data-act="newTeam" data-ev="' + esc(e) + '">' + icon('plus') + 'Add a ' + esc(e) + ' team</button></section>';
   }).join('') + '</div>';
-  h += '<p class="note">Saved to the same teams as the classic Teams tab. Members added to a team get a notification on the next automatic run when reminders are on.</p>';
+  h += '<p class="note">Members added to a team get a notification on the next automatic run when reminders are on.</p>';
   return h;
 }
 function placeSelect(p) {
@@ -817,7 +874,8 @@ function editorSheet() {
       '<label class="fld"><span>Event</span><select name="event"><option value="">Any</option>' + boardEvents().map(function (x) { return '<option' + (it.event === x ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></label>' +
       '<datalist id="namelist2">' + (M.cfg.ebod || []).map(function (x) { return '<option value="' + esc(x.name) + '">'; }).join('') + '</datalist>';
     else h += '<label class="fld"><span>Kind</span><select name="kind">' + [['general', 'General'], ['comp', 'Competition'], ['travel', 'Travel'], ['social', 'Social']].map(function (o) { return '<option value="' + o[0] + '"' + (it.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
-      '<label class="tick"><input type="checkbox" name="tentative"' + (it.tentative ? ' checked' : '') + '> Tentative</label>';
+      '<label class="tick"><input type="checkbox" name="tentative"' + (it.tentative ? ' checked' : '') + '> Tentative</label>' +
+      '<label class="tick"><input type="checkbox" name="board"' + (it.board ? ' checked' : '') + '> Board only (members never see it)</label>';
     h += '<label class="tick"><input type="checkbox" name="remind"' + (it.remind !== false ? ' checked' : '') + '> Remind them automatically</label>';
   }
   h += '<div class="fld"><span>For</span>' + audiencePicker(it['for'], 'ed') + '<small class="cc">' + plural(resolve(it['for']).length, 'person', 'people') + '</small></div>';

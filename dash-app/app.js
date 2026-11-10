@@ -94,7 +94,7 @@ function signedOut(err) {
   /* auth.js draws sign-in, sign-up and joining a club. */
   if (typeof authGate === 'function') return authGate(err);
   $('view').innerHTML = '<section class="signin card"><h2>Sign in to the Org System first</h2>' +
-    '<p>The dashboard uses the same account as the classic Org System. Sign in there, then come back to this page.</p>' +
+    '<p>Sign in to your Org System account, then come back to this page.</p>' +
     (err && err !== 'signin' ? '<p class="note warn">' + esc(err) + '</p>' : '') +
     '<div class="sheetacts"><a class="btn" href="/">Try again</a><a class="btn ghost" href="/?demo">Try the demo</a></div></section>';
 }
@@ -326,7 +326,7 @@ function compose(o) {
 function syncEdit() {
   var f = document.querySelector('#sheetbody form[data-act="saveItem"]'); if (!f || !EDIT) return;
   ['title', 'topic', 'label', 'date', 'start', 'end', 'where', 'who', 'note', 'coach', 'link', 'due', 'detail', 'kind', 'event'].forEach(function (k) { if (f[k]) EDIT.item[k] = f[k].value; });
-  ['tentative', 'remind'].forEach(function (k) { if (f[k]) EDIT.item[k] = f[k].checked; });
+  ['tentative', 'remind', 'board'].forEach(function (k) { if (f[k]) EDIT.item[k] = f[k].checked; });
 }
 function openEditor(kind, item, isNew) {
   EDIT = {kind: kind, item: JSON.parse(JSON.stringify(item)), isNew: isNew};
@@ -352,8 +352,7 @@ var RUN = {
   fixEvents: function () {
     var off = M.events.filter(function (e) { return SFBLC.events.indexOf(e) < 0; });
     confirmSheet('Use the SFBLC 2026 event list?', 'Events become ' + SFBLC.events.join(', ') + '. ' +
-      (off.length ? off.join(' and ') + ' go away; members who ranked ' + (off.length === 1 ? 'it' : 'them') + ' keep their other choices. ' : '') +
-      'The classic Teams tab uses the same list.', 'Update the events', function () {
+      (off.length ? off.join(' and ') + ' go away; members who ranked ' + (off.length === 1 ? 'it' : 'them') + ' keep their other choices.' : ''), 'Update the events', function () {
       saveCfg({flcEvents: SFBLC.events.slice()}, 'Events updated for SFBLC 2026.');
     });
   },
@@ -377,7 +376,7 @@ function act(el, ev) {
       return openSheet('<header class="sh"><h3>Everything</h3></header><div class="morenav">' + navFor().map(function (n, i) {
         return '<div class="mcell' + (ROUTE.view === n.id ? ' on' : '') + '"><a href="#' + n.id + '" data-close class="' + (ROUTE.view === n.id ? 'on' : '') + '"><span class="nn">' + String(i + 1).padStart(2, '0') + '</span>' + icon(n.id) +
           '<span class="nl">' + esc(!M.officer && n.member ? n.member : n.label) + '</span></a>' + (typeof navMoreSubs === 'function' ? navMoreSubs(n) : '') + '</div>';
-      }).join('') + '</div><a class="classic" href="/classic">The old version (a demo)</a>');
+      }).join('') + '</div>');
     case 'confirmYes': { var fn = CONFIRM_FN; CONFIRM_FN = null; closeSheet(); return fn && fn(); }
     case 'theme': return cycleTheme();
     case 'resetDemo': Demo.reset(); location.reload(); return;

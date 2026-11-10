@@ -11,3 +11,5 @@ tools/demos/out4/
 # narrated how-to videos for the member email: they show the join code
 email-videos/
 .DS_Store
+tools/demos/out-sfblc/
+tools/club-record-backup-*.json

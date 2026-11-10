@@ -911,13 +911,29 @@ function itinDayLabel_(iso) {
   var th = (n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({1: 'st', 2: 'nd', 3: 'rd'})[n % 10] || 'th';
   return Utilities.formatDate(d, Session.getScriptTimeZone(), 'EEEE') + ' ' + n + th;
 }
-function hhmm_(t) {
-  if (Object.prototype.toString.call(t) === '[object Date]') return Utilities.formatDate(t, Session.getScriptTimeZone(), 'HH:mm');
-  var m = String(t || '').match(/(\d{1,2})(?::(\d{2}))?\s*([ap])/i);
-  if (!m) return '';
-  var h = +m[1] % 12 + (/p/i.test(m[3]) ? 12 : 0);
-  return (h < 10 ? '0' : '') + h + ':' + (m[2] || '00');
+/* "4:00 PM" -> 16:00. A range ("5:15-6:00PM", "10:00-12:00AM", "8:00AM-6:00PM")
+   is read as its start and end: a start written without AM/PM takes the end's,
+   unless that would put it after the end (10:00-12:00AM starts at 10 PM). */
+function itinSpan_(t) {
+  if (Object.prototype.toString.call(t) === '[object Date]') return {start: Utilities.formatDate(t, Session.getScriptTimeZone(), 'HH:mm'), end: ''};
+  var s = String(t || ''), parts = s.split(/\s*(?:-|–|—|\bto\b)\s*/i).filter(function (x) { return /\d/.test(x); });
+  var one = function (x, fallAp) {
+    var m = String(x).match(/(\d{1,2})(?::(\d{2}))?\s*([ap])?/i);
+    if (!m) return null;
+    var ap = m[3] || fallAp;
+    if (!ap) return null;
+    return {h: +m[1] % 12 + (/p/i.test(ap) ? 12 : 0), mm: m[2] || '00', ap: ap};
+  };
+  var fmt = function (x) { return x ? (x.h < 10 ? '0' : '') + x.h + ':' + x.mm : ''; };
+  if (parts.length < 2) return {start: fmt(one(parts[0] || s, '')), end: ''};
+  var b = one(parts[1], ''), a = one(parts[0], b && b.ap);
+  if (a && b && !/[ap]/i.test(parts[0])) {
+    if (b.h === 0) a.h = a.h % 12 + 12;                 // "...-12:00AM" runs up to midnight, so it starts in the evening
+    else if (a.h * 60 + +a.mm >= b.h * 60 + +b.mm) a.h = (a.h + 12) % 24;
+  }
+  return {start: fmt(a), end: fmt(b)};
 }
+function hhmm_(t) { return itinSpan_(t).start; }
 function ampm_(hh) {
   var m = String(hh || '').match(/^(\d{1,2}):(\d{2})$/);
   if (!m) return '';
@@ -939,8 +955,8 @@ SYNC_ADAPT_.itinerary = {
       if (sclean_(dl)) day = Object.prototype.toString.call(dl) === '[object Date]' ? isoDay_(dl) : itinDay_(dl, days) || day;
       var what = sclean_(t.v[r][t.h.col.what]);
       if (!what || !day) continue;
-      var tm = hhmm_(t.v[r][t.h.col.time]), note = t.h.col.note >= 0 ? sclean_(t.v[r][t.h.col.note]) : '';
-      out[byRow[r + 1] || 'sh-it' + (r + 1)] = {v: itinVal_(day, tm, what, note), ref: r + 1, date: day, start: tm, title: what, note: note,
+      var sp = itinSpan_(t.v[r][t.h.col.time]), tm = sp.start, note = t.h.col.note >= 0 ? sclean_(t.v[r][t.h.col.note]) : '';
+      out[byRow[r + 1] || 'sh-it' + (r + 1)] = {v: itinVal_(day, tm, what, note), ref: r + 1, date: day, start: tm, end: sp.end, title: what, note: note,
                                                  dated: !!sclean_(dl), carried: day};
     }
     return out;
@@ -967,7 +983,7 @@ SYNC_ADAPT_.itinerary = {
       if (!ch[k]) { if (i >= 0) list.splice(i, 1); return; }
       var s = S[k], x = i >= 0 ? JSON.parse(JSON.stringify(list[i]))
         : {id: k, end: '', where: '', kind: itinKind_(s.title), 'for': {tags: ['sfblc'], names: []}, src: 'master'};
-      x.date = s.date; x.start = s.start; x.title = s.title.slice(0, 80); x.note = s.note.slice(0, 160);
+      x.date = s.date; x.start = s.start; x.end = s.end || ''; x.title = s.title.slice(0, 80); x.note = s.note.slice(0, 160);
       if (i >= 0) list[i] = x; else list.push(x);
     });
     cfg.sfSchedule = list;
@@ -984,7 +1000,7 @@ SYNC_ADAPT_.itinerary = {
         return;
       }
       var x = o.item;
-      t.sh.getRange(s.ref, t.h.col.time + 1).setValue(ampm_(x.start));
+      t.sh.getRange(s.ref, t.h.col.time + 1).setValue(ampm_(x.start) + (x.end ? ' - ' + ampm_(x.end) : ''));
       t.sh.getRange(s.ref, t.h.col.what + 1).setValue(x.title || '');
       if (t.h.col.note >= 0) t.sh.getRange(s.ref, t.h.col.note + 1).setValue(x.note || '');
       if (x.date && x.date !== s.carried) t.sh.getRange(s.ref, t.h.col.date + 1).setValue(itinDayLabel_(x.date));

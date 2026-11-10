@@ -120,7 +120,7 @@ function setupTab() {
       ' value="' + esc(d[k] || '') + '"' + (ph ? ' placeholder="' + esc(ph) + '"' : '') + '></label>';
   };
   var h = '<form class="card form" id="admsetup" data-act="admSetupSave" novalidate><header><h3>Club setup</h3>' + (dirty ? '<span class="badge gold">Not saved yet</span>' : '') + '</header>' +
-    '<p class="meta">The club’s own words, set once. They change everywhere, on the dashboard and the classic page.</p>';
+    '<p class="meta">The club’s own words, set once. They change everywhere.</p>';
   h += '<div class="fg"><p class="fl">Start from a kit</p><div class="admline"><label class="fld"><span class="admvh">Kit</span><select name="kit">' +
     Object.keys(KITS).map(function (k) { return '<option value="' + k + '">' + esc(KITS[k].label) + '</option>'; }).join('') + '</select></label>' +
     '<button type="button" class="btn sm ghost" data-act="admKit">Fill in from the kit</button></div><p class="hint">A kit fills in the names and tracks below. Nothing is saved until you press Save.</p></div>';
@@ -145,7 +145,7 @@ function setupTab() {
   if (location.hostname !== 'org.deanzapbl.com')
     h += '<div class="fg"><p class="fl">Chapter colours</p><label class="fld"><span class="admvh">Colours</span><select name="theme"><option value=""' + (d.theme ? '' : ' selected') + '>Default, dark and light</option>' +
       '<option value="pbl"' + (d.theme === 'pbl' ? ' selected' : '') + '>De Anza PBL, crimson and cream</option></select></label>' +
-      '<p class="hint">What members of this club see on the classic page. The dashboard’s look is each person’s own choice, under Profile.</p></div>';
+      '<p class="hint">The club’s own colours. Each person still picks their own look under Profile.</p></div>';
   h += '<div class="sendrow admend">' + (dirty ? '<button type="button" class="btn sm ghost" data-act="admSetupReset">Discard changes</button>' : '') +
     '<button class="btn sm"' + (dirty ? '' : ' disabled') + '>Save setup</button></div></form>';
   return h;

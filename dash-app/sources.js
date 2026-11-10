@@ -5,6 +5,20 @@
    them on and off in Officer tools. Nothing here is ever sent to members. */
 'use strict';
 
+/* "5:15-6:00PM" -> 17:15 to 18:00; the same rule as itinSpan_ in Sync.gs. */
+function timeSpan(t) {
+  var s = String(t || ''), parts = s.split(/\s*(?:-|–|—|\bto\b)\s*/i).filter(function (x) { return /\d/.test(x); });
+  var one = function (x, fallAp) {
+    var m = String(x).match(/(\d{1,2})(?::(\d{2}))?\s*([ap])?/i);
+    if (!m || !(m[3] || fallAp)) return null;
+    return {h: +m[1] % 12 + (/p/i.test(m[3] || fallAp) ? 12 : 0), mm: m[2] || '00', ap: m[3] || fallAp};
+  };
+  var fmt = function (x) { return x ? pad2(x.h) + ':' + x.mm : ''; };
+  if (parts.length < 2) return {start: fmt(one(parts[0] || s, '')), end: ''};
+  var b = one(parts[1], ''), a = one(parts[0], b && b.ap);
+  if (a && b && !/[ap]/i.test(parts[0])) { if (b.h === 0) a.h = a.h % 12 + 12; else if (a.h * 60 + +a.mm >= b.h * 60 + +b.mm) a.h = (a.h + 12) % 24; }
+  return {start: fmt(a), end: fmt(b)};
+}
 var SFMASTER = '1oKlEes6653hEO8pJj2sExZzAI1daXZLVRCMaDWQtVJY';
 /* persons: a column family whose every cell is a member (Person 1..4).
    name: the column(s) holding one member's name per row. email: the email column.
@@ -185,7 +199,7 @@ var IMPORT = {
         rooms.push({id: 'mst-r' + (i + 1), name: 'Room ' + (no || i + 1) + (cell(tab, row, 'room type') ? ' · ' + cell(tab, row, 'room type') : ''), no: no.slice(0, 12),
                     group: /wom|fem|girl/i.test(g) ? 'w' : /men|male|boy/i.test(g) ? 'm' : 'x', members: mem.slice(0, 8)});
       });
-      confirmSheet('Use the master sheet’s rooms?', plural(rooms.length, 'room') + ' replace the ' + plural((M.cfg.rooms || []).length, 'room') + ' set here, and show on the classic Teams tab too.' +
+      confirmSheet('Use the master sheet’s rooms?', plural(rooms.length, 'room') + ' replace the ' + plural((M.cfg.rooms || []).length, 'room') + ' set here.' +
         (Object.keys(missing).length ? ' ' + Object.keys(missing).length + ' names are not on the roster and are kept as typed.' : ''), 'Import ' + plural(rooms.length, 'room'), function () {
           saveCfg({rooms: rooms}, 'Hotel rooms imported.');
         });
@@ -203,9 +217,8 @@ var IMPORT = {
           if (!n) { var wd = d.slice(0, 3).toLowerCase(); for (var y = new Date(start); y <= end; y.setDate(y.getDate() + 1)) if (y.toLocaleDateString('en-US', {weekday: 'short'}).toLowerCase() === wd) day = isoDay(y); }
         }
         var what = cell(tab, row, 'activity'); if (!what || !day) return;
-        var tm = cell(tab, row, 'time').match(/(\d{1,2})(?::(\d{2}))?\s*([ap])/i), hh = '';
-        if (tm) { var h = +tm[1] % 12 + (/p/i.test(tm[3]) ? 12 : 0); hh = pad2(h) + ':' + (tm[2] || '00'); }
-        items.push({id: 'it-' + (i + 1), date: day, start: hh, end: '', title: what.slice(0, 80), where: '', note: cell(tab, row, 'notes').slice(0, 160),
+        var sp = timeSpan(cell(tab, row, 'time'));
+        items.push({id: 'it-' + (i + 1), date: day, start: sp.start, end: sp.end, title: what.slice(0, 80), where: '', note: cell(tab, row, 'notes').slice(0, 160),
                     kind: /check|arriv|depart|carpool|bus|drive/i.test(what) ? 'travel' : /comp|present|round|case/i.test(what) ? 'comp' : /social|dinner|picture|photo|party/i.test(what) ? 'social' : 'general',
                     'for': {tags: ['sfblc'], names: []}, src: 'master'});
       });

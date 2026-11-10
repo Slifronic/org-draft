@@ -221,7 +221,7 @@ ACT_EXT.calNew = function () {
     '<label class="fld"><span>What</span><input name="title" maxlength="80" required></label><div class="row3"><label class="fld"><span>Date</span><input name="date" type="date" required value="' + esc(CAL.sel || today()) + '"></label>' +
     '<label class="fld"><span>Time</span><input name="time" type="time"></label><label class="fld"><span>Kind</span><select name="cat"><option value="meet">Meeting</option><option value="comp">Competition</option><option value="social">Social</option><option value="service">Service</option></select></label></div>' +
     '<label class="fld"><span>Where</span><input name="where" maxlength="60"></label><label class="tick"><input type="checkbox" name="ebod"> EBOD only</label>' +
-    '<p class="meta">It shows here and on the classic calendar. The classic Calendar tab also puts it on the chapter Google Calendar.</p><div class="sheetacts"><button class="btn">Add</button></div></form>');
+    '<p class="meta">It shows on the club calendar for everyone it is for.</p><div class="sheetacts"><button class="btn">Add</button></div></form>');
 };
 SUBMIT_EXT.calSave = function (f) {
   var e = {id: 'e' + Date.now().toString(36), title: clean(f.title.value, 80).trim(), date: f.date.value, time: f.time.value ? fmtTime(f.time.value) : '', where: clean(f.where.value, 60), cat: f.cat.value, ebod: f.ebod.checked};
@@ -662,8 +662,8 @@ var TOOLS = [
   ['Member walkthrough', 'The orientation page and tab-by-tab clips', '/orientation']
 ];
 VIEWS.tools = function () {
-  var h = head('You', 'Officer tools', '<a class="btn sm ghost" href="/classic">The old version (a demo)</a>');
-  h += '<p class="lede">Setting the club up happens a few times a season, so these stay on the classic page. Each opens straight to its tab.</p>';
+  var h = head('You', 'Officer tools');
+  h += '<p class="lede">Setting the club up happens a few times a season. Each card opens straight to its screen.</p>';
   h += '<div class="navcards">' + TOOLS.map(function (t, i) {
     return '<a class="navcard" href="' + t[2] + '"><span class="nn">' + String(i + 1).padStart(2, '0') + '</span><span class="nt">' + esc(t[0]) + '</span><span class="ns">' + esc(t[1]) + '</span>' + icon('arrow', 'go') + '</a>';
   }).join('') + '</div>';

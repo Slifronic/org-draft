@@ -422,7 +422,12 @@ function tagLabel(id) {
 function teamName(t) { return t.kind === 'flc' ? (t.name || t.event) : (t.name || t.client || 'Team'); }
 
 /* ---------- SFBLC data on the club record ---------- */
-function sf(k) { return (M.cfg[k] || []).filter(function (x) { return x && x.id; }); }
+/* Members never see what officers keep to themselves: coaching slots (or a
+   whole event's) that are hidden, and schedule rows marked for the board only. */
+function sf(k) {
+  var off = k === 'sfCoaching' && !M.officer ? (M.cfg.sfCoachOff || []) : null, board = k === 'sfSchedule' && !M.officer;
+  return (M.cfg[k] || []).filter(function (x) { return x && x.id && !(off && (x.hidden || off.indexOf(x.event) > -1)) && !(board && x.board); });
+}
 function sfInfo() { return Object.assign({}, SFBLC.info, M.cfg.sfInfo || {}); }
 function sfAuto() { return Object.assign({on: false, dayBefore: true, hourBefore: true, checklist: true, teams: true}, M.cfg.sfAuto || {}); }
 function upcoming(mineOnly) {
@@ -471,7 +476,7 @@ function gaps() {
       if (n > cap.max) add('high', teamName(t) + ' has ' + n + ' people', e + ' allows ' + cap.max + '.', {label: 'Fix team', go: 'teams'});
       else if (n < cap.min) add('mid', teamName(t) + ' is empty', '', {label: 'Fill team', go: 'teams'});
     });
-    if (ts.length && !sf('sfCoaching').some(function (c) { return (c['for'] && (c['for'].tags || []).indexOf('ev:' + e) > -1) || c.event === e; }))
+    if (ts.length && (cfg.sfCoachOff || []).indexOf(e) < 0 && !sf('sfCoaching').some(function (c) { return (c['for'] && (c['for'].tags || []).indexOf('ev:' + e) > -1) || c.event === e; }))
       add('mid', 'No coaching session for ' + e, plural(ts.length, 'team') + ' and nothing on the coaching schedule.', {label: 'Add a session', run: 'addCoaching:' + e});
   });
   /* The SFBLC master sheet in Drive is where EBOD actually forms teams. */
@@ -494,8 +499,8 @@ function gaps() {
     'They have not turned them on. Email reaches them; so does a nudge.', {label: 'Nudge them', run: 'composePush'});
   if ((cfg.rooms || []).length) {
     var roomless = going.filter(function (p) { return !p.room; });
-    if (roomless.length) add('mid', plural(roomless.length, 'member') + ' going without a hotel room', 'Rooms are set on the classic Teams tab.', {label: 'Open rooms', href: '/teams'});
-  } else if (going.length && !(typeof LINKED !== 'undefined' && LINKED.data['sf-rooms'])) add('mid', 'No hotel rooms formed yet', plural(going.length, 'member') + ' need a bed. Rooms are formed on the classic Teams tab.', {label: 'Open rooms', href: '/teams'});
+    if (roomless.length) add('mid', plural(roomless.length, 'member') + ' going without a hotel room', 'Place them on Teams → Hotel rooms.', {label: 'Open rooms', href: '/teams'});
+  } else if (going.length && !(typeof LINKED !== 'undefined' && LINKED.data['sf-rooms'])) add('mid', 'No hotel rooms formed yet', plural(going.length, 'member') + ' need a bed. Form them on Teams → Hotel rooms.', {label: 'Open rooms', href: '/teams'});
   /* The member contract (pbl.js): who is up for a meeting or removal, and extensions waiting. */
   if (M.officer && typeof standingOf === 'function' && RAW) {
     var ms = meetingsInOrder(), st = ppl.filter(function (p) { return p.role === 'member'; }).map(function (p) { return standingOf(p, ms); });

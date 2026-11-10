@@ -1220,6 +1220,9 @@ function memberCfg_(cfg, meName) {
   for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) c[k] = cfg[k];
   MEMBER_HIDDEN_CFG_.forEach(function (k) { delete c[k]; });
   if (cfg.events) c.events = cfg.events.filter(function (e) { return !(e && e.ebod); });
+  /* Board-only schedule rows and hidden coaching slots stay with officers. */
+  if (cfg.sfSchedule) c.sfSchedule = cfg.sfSchedule.filter(function (x) { return !(x && x.board); });
+  if (cfg.sfCoaching) c.sfCoaching = cfg.sfCoaching.filter(function (x) { return !(x && (x.hidden || (cfg.sfCoachOff || []).indexOf(x.event) > -1)); });
   /* Members may pass the carpool form's link around; the sheet behind it stays with officers. */
   if (cfg.rideForm) c.rideForm = {formUrl: cfg.rideForm.formUrl};
   if (cfg.rooms) {

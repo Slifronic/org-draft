@@ -191,7 +191,7 @@ VIEWS.consulting = function () {
   var teams = M.teams.filter(function (t) { return t.kind === 'consulting'; }), st = M.cfg.consultStage || {};
   var mine = teams.filter(function (t) { return (t.members || []).some(function (m) { return flat(m) === M.me.key; }); });
   var h = '<p class="lede">Student analysts on real Bay Area organizations: each client team has two PMs and splits into initiatives, and presents at the Consulting Division Showcase and the State Consulting Competition.</p>';
-  if (!teams.length) return h + empty('No client teams yet', 'Client teams are set up on the classic Teams tab.', M.officer ? '<a class="btn" href="/teams">Set up client teams</a>' : '');
+  if (!teams.length) return h + empty('No client teams yet', 'Officers set client teams up under Consulting.', M.officer ? '<a class="btn" href="/teams">Set up client teams</a>' : '');
   h += '<div class="bento">' + mine.concat(teams.filter(function (t) { return mine.indexOf(t) < 0; })).map(function (t) {
     var stage = st[t.id] || 'scope', si = STAGES.map(function (x) { return x[0]; }).indexOf(stage);
     var mem = (t.members || []).filter(Boolean), pms = (t.pms || []).filter(Boolean), assign = t.assign || {};

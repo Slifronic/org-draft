@@ -134,6 +134,11 @@
   ],
   "redirects": [
     {
+      "source": "/classic",
+      "destination": "/",
+      "permanent": false
+    },
+    {
       "source": "/dash",
       "destination": "/",
       "permanent": false

@@ -735,7 +735,7 @@ function o2memberExtra(p) {
       ' · ' + (s.status === 'checked' ? 'checked' : 'to check') + (s.points ? ' · ' + s.points + ' pts' : '') + '</span></li>';
   }).join('') + '</ul>' : '<p class="meta">Nothing handed in yet.</p>') + '</div>';
   h += '<form class="fg o2give" data-act="o2givePts" data-key="' + esc(p.key) + '"><p class="fl">Give commitment points</p><div class="o2giverow"><input name="label" maxlength="80" placeholder="Ran the tabling shift" aria-label="What for">' +
-    '<input name="pts" type="number" min="1" max="50" value="2" aria-label="Points"><button class="btn sm">Give</button></div><p class="meta">Goes in their private commitment log, as on the classic page.</p></form>';
+    '<input name="pts" type="number" min="1" max="50" value="2" aria-label="Points"><button class="btn sm">Give</button></div><p class="meta">Goes in their private commitment log.</p></form>';
   return h;
 }
 var o2profileBase = profileSheet;
@@ -796,7 +796,7 @@ VIEWS.overview = function (sub) {
 };
 ACT_EXT.o2noticeNew = function () {
   openSheet('<form class="form" data-act="o2noticeSave"><header class="sh"><h3>Post a notice</h3></header><label class="fld"><span>Notice</span><textarea name="t" maxlength="400" rows="3" required placeholder="Chapter meeting moved to Thursday 7 pm"></textarea></label>' +
-    '<p class="meta">Everyone in the club sees it at the top of their home screen, and on the classic page. The newest 12 are kept.</p><div class="sheetacts"><button class="btn">Post</button></div></form>');
+    '<p class="meta">Everyone in the club sees it at the top of their home screen. The newest 12 are kept.</p><div class="sheetacts"><button class="btn">Post</button></div></form>');
 };
 SUBMIT_EXT.o2noticeSave = function (f) {
   var t = clean(f.t.value, 400).trim(); if (!t) return;
@@ -1023,7 +1023,7 @@ VIEWS.attendance = function (sub) {
   if (sub === 'range') return head('People', 'Attendance') + tabs + o2absRange();
   var h = o2swap(o2attBase(sub), old, tabs);
   if (sub === 'take') h = o2before(h, '<div class="attbar">', '<div class="o2attpts"><label class="fld"><span>Commitment points each</span><input id="o2attpts" type="number" min="0" max="20" value="' + O2.attPts + '"></label>' +
-    '<p class="meta">Everyone newly marked present or late also gets these in their private commitment log, as the classic page’s Log attendance does. 0 gives none.</p></div>');
+    '<p class="meta">Everyone newly marked present or late also gets these in their private commitment log. 0 gives none.</p></div>');
   return h;
 };
 /* The dashboard's check-in, with the points rows the classic page writes beside it. */

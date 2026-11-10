@@ -56,13 +56,10 @@ h1,h2,h3,p{margin:0}
 .who>span{display:flex;flex-direction:column;min-width:0}
 .pn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pe{color:var(--mute);font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
-.classic{font-size:13px;color:var(--mute);text-decoration:none;padding:6px 8px;border:1px solid var(--rule);border-radius:8px;text-align:center}
-.classic:hover{color:var(--ink);border-color:var(--slate)}
 .main{margin-left:var(--side);min-width:0}
 .top{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;padding:16px 32px;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--hair)}
 .top h1{font-size:20px;font-weight:700;letter-spacing:-.01em;flex:1}
 .topacts{display:flex;gap:6px;align-items:center}
-.top .classic{display:none}
 .netbar{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--accent);transition:width .4s}
 body.busy .netbar{width:60%;transition:width 4s cubic-bezier(.1,.6,.2,1)}
 #view{display:flex;flex-direction:column;gap:18px;padding:24px 32px 64px;max-width:1240px;outline:none}
@@ -359,7 +356,6 @@ body.sheeted{overflow:hidden}
   .main{margin-left:0}
   .top{padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top))}
   .top h1{font-size:18px}
-  .top .classic{display:inline-block;padding:5px 9px}
   .demobar{margin:10px 16px 0}
   #view{padding:16px 16px calc(96px + env(safe-area-inset-bottom));gap:14px}
   .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:6;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--hair);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
@@ -652,7 +648,6 @@ html[data-motion="calm"] .reveal{opacity:1;transform:none}
 
 /* Four headline figures, so the row never strands one tile. */
 @media (min-width:1101px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.top .classic{display:inline-block;padding:8px 12px;font-size:13.5px}
 .sidefoot{padding-top:10px;border-top:1px solid var(--hair)}
 .side{gap:12px}
 @media (max-width:1100px) and (min-width:861px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -986,7 +981,7 @@ html[data-motion="calm"] .reveal{opacity:1;transform:none}
 
 /* ---- auth ---- */
 /* Signed out: no navigation to show, so the card stands alone in the middle. */
-body.out .side,body.out .tabbar,body.out .searchbtn,body.out #acctbtn,body.out .top .classic{display:none}
+body.out .side,body.out .tabbar,body.out .searchbtn,body.out #acctbtn{display:none}
 body.out .main{margin-left:0}
 body.out #view{margin:0 auto;width:100%;max-width:520px}
 .authcard{display:flex;flex-direction:column;gap:14px;margin:16px 0 24px;padding:24px}
@@ -1367,8 +1362,13 @@ textarea.inl{min-height:60px}
 .cuedays{display:flex;flex-direction:column;gap:16px}
 .cue{display:grid;grid-template-columns:150px minmax(0,1.4fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,1.6fr);font-size:14px}
 .cue.ed{grid-template-columns:226px minmax(0,2fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.6fr) auto}
-.cue.coach{grid-template-columns:190px minmax(0,1.4fr) minmax(0,1fr)}
-.cue.coach.ed{grid-template-columns:376px minmax(0,1.4fr) minmax(0,1fr) auto}
+.cue.coach{grid-template-columns:190px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr)}
+.cue.coach.ed{grid-template-columns:376px minmax(0,1fr) minmax(0,1.1fr) minmax(0,1fr) auto}
+.cuerow .cw small{display:block;color:var(--mute);font-size:12.5px}
+.cuerow .cw select.inl{width:100%}
+.cuerow.off>span:not(.ca){opacity:.45}
+.coachev.off>header h3{color:var(--mute)}
+.coachev>header .qbtn+.qbtn{margin-left:0}
 .cuehd,.cuerow{display:contents}
 .cuehd>span{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);padding:0 8px 8px;border-bottom:1px solid var(--rule)}
 .cuerow>span{padding:9px 8px;border-bottom:1px solid var(--hair);min-width:0;overflow-wrap:anywhere}
@@ -1393,6 +1393,11 @@ textarea.inl{min-height:60px}
 .maplk{font-size:12.5px;color:var(--slate)}
 .cueday>header .qbtn,.coachev>header .qbtn{margin-left:auto}
 .cueempty{padding:4px 0 2px}
+.rules .facts.rl{grid-template-columns:150px 1fr}
+.lkedit.rl li{grid-template-columns:minmax(0,1fr) minmax(0,3fr) auto}
+.radius{margin:14px 0 0}
+.radius img{display:block;width:100%;max-width:480px;border-radius:10px;border:1px solid var(--rule)}
+.radius figcaption{font-size:13px;color:var(--slate);margin-top:6px}
 .bento .span3{grid-column:1/-1}
 /* carpool answers: the Google Form's questions, numbered like the Form */
 .rideans{margin-bottom:16px}
@@ -1566,3 +1571,21 @@ details.card.conn>summary h3{min-width:0;font-size:14px;white-space:nowrap;overf
 .morenav .moresubs a{min-height:0;padding:3px 9px;font-size:12px;border:1px solid var(--hair);border-radius:999px;background:var(--card);flex-direction:row;gap:0;color:var(--slate)}
 .morenav .moresubs a.on{border-color:currentColor;color:var(--ink)}
 @media (prefers-reduced-motion:reduce){.navx .ic{transition:none}}
+@media (max-width:600px){.rules .facts.rl{grid-template-columns:1fr;gap:2px 0}.rules .facts.rl dd{margin-bottom:8px}.lkedit.rl li{grid-template-columns:1fr auto}}
+/* The coaching editor needs room for day, times, team, place, coach and its buttons;
+   below a wide screen each slot stacks: when + buttons on top, the rest under it. */
+@media (max-width:1400px){
+  .cue.coach.ed{display:flex;flex-direction:column}
+  .cue.coach.ed .cuehd{display:none}
+  .cue.coach.ed .cuerow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:2px 8px;padding:10px 0;border-bottom:1px solid var(--hair)}
+  .cue.coach.ed .cuerow:last-child{border-bottom:0}
+  .cue.coach.ed .cuerow>span{border-bottom:0;padding:1px 0}
+  .cue.coach.ed .cuerow .ct{grid-column:1/3;grid-row:1}
+  .cue.coach.ed .cuerow .ca{grid-column:3;grid-row:1;flex-wrap:wrap}
+}
+@media (max-width:700px){
+  .cue.coach.ed .cuerow{grid-template-columns:minmax(0,1fr) auto}
+  .cue.coach.ed .cuerow .ct{grid-column:1/-1}
+  .cue.coach.ed .cuerow .ca{grid-column:1/-1;grid-row:auto;justify-content:flex-start}
+  .cue.coach.ed .cuerow .cw,.cue.coach.ed .cuerow .cl,.cue.coach.ed .cuerow .cp{grid-column:1/-1}
+}
