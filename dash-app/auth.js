@@ -338,7 +338,7 @@ function gateHtml() {
   h += '<p class="authmsg" id="authmsg" role="status" aria-live="polite"></p>';
   if (f !== 'join') h += '<p class="authswitch"><button type="button" class="link" data-act="authFace" data-v="' + (f === 'signup' ? 'signin' : 'signup') + '">' +
     (f === 'signup' ? 'Already have an account? Sign in' : 'New here? Create an account') + '</button></p>';
-  h += '<p class="meta authfoot"><a href="/orientation">Watch the 3-minute orientation</a><span>Your Google account is used only to identify you. The page receives your name, email and profile picture, and never sees your password.</span></p>';
+  h += '<p class="meta authfoot"><a href="/orientation">Watch the orientation (2½ min)</a><span>Your Google account is used only to identify you. The page receives your name, email and profile picture, and never sees your password.</span></p>';
   return h + '</section>';
 }
 function drawGate() {

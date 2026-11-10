@@ -247,4 +247,4 @@ if (require.main === module) (async () => {
   }
   await browser.close();
 })().catch(e => { console.error(e); process.exit(1); });
-module.exports = { CLIPS };
+module.exports = { CLIPS, more };

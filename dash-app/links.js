@@ -43,7 +43,7 @@ function lkAuto() {
   var c = M.cfg || {}, out = [];
   var add = function (o) { if (lkSafe(o.url)) out.push(Object.assign({auto: true, id: 'auto:' + o.url}, o)); };
   if (c.formUrl) add({title: 'Club sign-up form', url: c.formUrl, group: 'Start here', note: 'Everyone fills this in once when they join.'});
-  add({title: 'Orientation', url: '/orientation', group: 'Start here', note: 'The three-minute tour of how the chapter and this site work.'});
+  add({title: 'Orientation', url: '/orientation', group: 'Start here', note: 'A 2½-minute tour of how the chapter and this site work.'});
   /* The bare calendar address opens whoever is signed in's own calendar; only a shared one is worth listing. */
   if (c.calShare && /[?&](cid|src)=/.test(c.calShare)) add({title: 'Chapter calendar', url: c.calShare, group: 'Meetings & attendance', note: 'Add it to your own Google Calendar.'});
   if (M.officer) {

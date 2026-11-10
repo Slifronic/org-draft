@@ -19,6 +19,19 @@ Then bump `WATCH_V` in `dash-app/watch.js` to the same version. The demo club's 
 in `core.js`); keep anything private (join codes, phone numbers, real GroupMe links) out of it,
 since the repo is public.
 
+**The narrated walkthrough** (`media/member-walkthrough.mp4`, top of `/orientation`) is `tour.js`:
+the dashboard as a new member, voiced locally with Kokoro (free), each step held for its line.
+
+```
+node tour.js lines out-tour
+~/jarvis/.venv/bin/python howto-voice.py out-tour          # one WAV per line
+PLAYWRIGHT=… node tour.js record out-tour                  # about 2½ minutes, in real time
+python3 tour-build.py out-tour ../../media                 # mp4 + poster
+```
+
+Change the words in `tour.js` (`say` is spoken and spelled for the voice, `cap` is shown), run
+all four again, and bump the `?v=` on the walkthrough in `orientation.html`.
+
 `clips.js` below is the older recorder for the classic page; the dashboard reuses its rig
 (`INIT`, `rig`) but not its clip list.
 
